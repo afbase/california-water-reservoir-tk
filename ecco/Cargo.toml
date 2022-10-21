@@ -1,0 +1,31 @@
+[package]
+name = "ecco"
+version = "0.1.0"
+edition = "2021"
+
+# See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
+
+[dependencies]
+yew = "0.19"
+chrono = { version = "0.4.22", features = ["serde"] }
+modpow = "1.0.1"
+num-bigint = "0.4.3"
+js-sys = "0.3.60"
+wasm-bindgen = "0.2.83"
+svg = "0.7.2"
+serde = { version = "1", features = ["derive"] }
+gloo-console = { version = "0.2.1" }
+plotters-svg = "0.3.3"
+plotters = "0.3.4"
+
+[dependencies.web-sys]
+version = "0.3.4"
+features = [
+  'CanvasRenderingContext2d',
+  'Document',
+  'Element',
+  'HtmlCanvasElement',
+  'HtmlInputElement',
+  'Window',
+  'console'
+]
