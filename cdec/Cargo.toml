@@ -6,3 +6,17 @@ edition = "2021"
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
 [dependencies]
+lzma-rs = "0.2.0"
+tar = "0.4.38"
+csv = "1.1.6"
+chrono = "0.4.19"
+serde = { version = "1.0", features = ["derive"] }
+reqwest = "0.11.10"
+futures = "0.3.21"
+anyhow = "1.0.56"
+[dev-dependencies]
+sha3 = "0.10.1"
+hex-literal = "0.3.4"
+# [target.'cfg(not(target_arch = "wasm32"))'.dependencies]
+[target.'cfg(not(target_arch = "wasm32"))'.dev-dependencies]
+tokio = {version="1.17.0", features=["macros"]}
