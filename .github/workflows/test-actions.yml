@@ -13,7 +13,11 @@ jobs:
           toolchain: nightly
       - uses: actions-rs/cargo@v1
         with:
+          toolchain: nightly
           command: build
           args: --release --all-features
-      - run: cargo test
-      - run: wasm-pack test --node
+      - uses: actions-rs/cargo@v1
+        with:
+          toolchain: nightly
+          command: test
+      # - run: wasm-pack test --node
