@@ -87,8 +87,8 @@ impl Component for ObservationsModel {
     fn update(&mut self, ctx: &Context<Self>, msg: Self::Message) -> bool {
         match msg {
             DateChangeEvent::EndDateUpdated(new_end_date) =>{
-                let end_date = self.end_date
-                if *end_date == new_end_date {
+                let end_date = self.end_date;
+                if end_date == new_end_date {
                     false
                 } else {
                     let log_string = format!("update EndDateUpdated: {} from {}", new_end_date.format(DATE_FORMAT), end_date.format(DATE_FORMAT));
@@ -98,8 +98,8 @@ impl Component for ObservationsModel {
                 }
             },
             DateChangeEvent::StartDateUpdated(new_start_date) => {
-                let start_date = self.start_date
-                if *start_date == new_start_date {
+                let start_date = self.start_date;
+                if start_date == new_start_date {
                     false
                 } else {
                     let log_string = format!("update EndDateUpdated: {} from {}", new_start_date.format(DATE_FORMAT), start_date.format(DATE_FORMAT));
@@ -126,14 +126,14 @@ impl Component for ObservationsModel {
             },
             |document| match document.get_element_by_id(ELEMENT_ID) {
                 Some(canvas) => {
-                    self.draw_wasm(canvas);
-                    yew::virtual_dom::VNode::VRef(canvas)
+                    self.draw_wasm(canvas, self.start_date, self.end_date);
+                    yew::virtual_dom::VNode::VRef(canvas.into())
                 }
                 None => {
                     // https://www.brightec.co.uk/blog/svg-wouldnt-render
                     let canvas = document.create_element("canvas").unwrap();
                     canvas.set_attribute("id", ELEMENT_ID);
-                    yew::virtual_dom::VNode::VRef(canvas)
+                    yew::virtual_dom::VNode::VRef(canvas.into())
                 }
             },
         );
