@@ -61,6 +61,7 @@ impl WaterLevelObservationsTrait for WaterLevelObservations {
         for observation in observations {
             let k = {
                 // TODO: https://github.com/afbase/california-water-reservoir-wasm/blob/04b9ee762aa4e8314846e33aae74995e399789bd/src/fetch.rs#L11
+                // use Reservoir::parse_reservoir_csv()
                 match observation.value {
                     DataRecording::Recording(v) => v as u32,
                     _ => 0,
