@@ -1,4 +1,4 @@
-use chrono::{Datelike, NaiveDate};
+use chrono::NaiveDate;
 use easy_cast::Cast;
 use ecco::water_level_observations::WaterLevelObservations;
 use gloo_console::log as gloo_log;
@@ -36,8 +36,8 @@ impl<'a> ObservationsModel {
     ) -> DrawResult<(), SVGBackend<'a>> {
         // TODO: use the parameter dates and corresponding values for the chart
         let _dates: Vec<NaiveDate> = observation_model.observations.keys().cloned().collect();
-        let x_labels_amount =
-            (observation_model.end_date.year() - observation_model.start_date.year()) as usize;
+        // let x_labels_amount =
+        //     (observation_model.end_date.year() - observation_model.start_date.year()) as usize;
         //Goal get max and min value of btree:
         let date_range = Range {
             start: observation_model.start_date,
@@ -49,27 +49,19 @@ impl<'a> ObservationsModel {
             .range(date_range)
             .map(|(&_key, &value)| value)
             .collect();
-        let y_max: f64 = (*values.iter().max().unwrap() as i64).cast();
-        let y_min: f64 = (*values.iter().min().unwrap() as i64).cast();
-        let _x_max = values.len() as f64;
-        // let x_labels_amount = (date_range.end.year() - date_range.start.year()) as usize;
+        let y_max: f64 = ((*values.iter().max().unwrap() + 500000) as i64).cast();
         // set up svg drawing area
         let size = (800u32, 600u32);
         let backend = SVGBackend::with_string(svg_inner_string, size);
         let backend_drawing_area = backend.into_drawing_area();
         backend_drawing_area.fill(&WHITE).unwrap();
         let mut chart = ChartBuilder::on(&backend_drawing_area)
-            .margin(40i32)
+            .margin(20i32)
             .x_label_area_size(20u32)
-            .y_label_area_size(20u32)
-            .build_cartesian_2d(ranged_date, y_min..y_max)
+            .y_label_area_size(40u32)
+            .build_cartesian_2d(ranged_date, 0f64..y_max)
             .unwrap();
-        chart
-            .configure_mesh()
-            .x_labels(x_labels_amount)
-            // .disable_x_mesh()
-            // .disable_y_mesh()
-            .draw()?;
+        chart.configure_mesh().x_labels(10_usize).draw()?;
 
         // populate the canvas with the data
         chart
