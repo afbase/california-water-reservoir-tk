@@ -1,10 +1,10 @@
 use cdec::{observation::Observation, reservoir::Reservoir};
 use chrono::{format::ParseError, Local, NaiveDate};
 use clap::{Parser, Subcommand};
-use reqwest::Client;
 use csv::Writer;
 use futures::future::join_all;
-use std::{path::PathBuf, process, str::FromStr, io::Write};
+use reqwest::Client;
+use std::{io::Write, path::PathBuf, process, str::FromStr};
 const DEFAULT_OUTPUT_PATH: &str = "output.tar.xz";
 
 #[derive(Parser)]
