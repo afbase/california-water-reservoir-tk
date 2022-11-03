@@ -10,6 +10,7 @@ chrono = { version = "0.4.22", features = ["serde"] }
 easy-cast = "0.5.1"
 ecco = { path = "../ecco" }
 gloo-console = { version = "0.2.1" }
+itertools = "0.10.5"
 js-sys = "0.3.60"
 plotters-svg = "0.3.3"
 plotters = "0.3.4"

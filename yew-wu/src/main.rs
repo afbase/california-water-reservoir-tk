@@ -1,7 +1,9 @@
+// #![feature(map_first_last)]
 use chrono::NaiveDate;
 use easy_cast::Cast;
 use ecco::water_level_observations::WaterLevelObservations;
 use gloo_console::log as gloo_log;
+// use itertools::Itertools;
 use js_sys::JsString;
 use plotters::prelude::*;
 use std::{collections::BTreeMap, ops::Range};
@@ -14,6 +16,7 @@ const START_DATE_NAME: &str = "start-date";
 const DIV_END_DATE_NAME: &str = "div-end-date";
 const DIV_START_DATE_NAME: &str = "div-start-date";
 const _ELEMENT_ID: &str = "svg-chart";
+const DIV_BLOG_NAME: &str = "california-chart";
 
 #[derive(Debug, Clone)]
 struct ObservationsModel {
@@ -29,7 +32,138 @@ struct ObservationsModel {
     max_date: NaiveDate,
 }
 
+pub enum DateChangeEvent {
+    StartDateUpdated(NaiveDate),
+    EndDateUpdated(NaiveDate),
+}
+
+// #[derive(Debug)]
+// enum SvgHtmlError {
+//     GenericError(Html)
+// }
+
+fn string_log(log_string: String) {
+    let log_js_string: JsString = log_string.into();
+    gloo_log!(log_js_string);
+}
+
+fn generic_callback(_event: Event, event_is_end: bool, dom_id_str: &str) -> DateChangeEvent {
+    let updated_date = web_sys::window()
+        .and_then(|window| window.document())
+        .map_or_else(
+            || {
+                let log_string = "window document object not found.".to_string();
+                string_log(log_string);
+                NaiveDate::from_ymd(1992, 3, 26)
+            },
+            |document| match document.get_element_by_id(dom_id_str) {
+                Some(input) => {
+                    let input_element = input.dyn_into::<web_sys::HtmlInputElement>().unwrap();
+                    let date_value: String = input_element.value();
+                    let result = NaiveDate::parse_from_str(&date_value, DATE_FORMAT).unwrap();
+                    let log_string = format!("callback: {}", result.format(DATE_FORMAT));
+                    string_log(log_string);
+                    result
+                }
+                None => {
+                    let log_string = format!("{} {}", dom_id_str, "dom object not found.");
+                    string_log(log_string);
+                    NaiveDate::from_ymd(1999, 1, 1)
+                }
+            },
+        );
+    if event_is_end {
+        DateChangeEvent::EndDateUpdated(updated_date)
+    } else {
+        DateChangeEvent::StartDateUpdated(updated_date)
+    }
+}
+
 impl<'a> ObservationsModel {
+    // pub fn calculus_table_html(
+    //     observation_model: &ObservationsModel,
+    //     start_date: &NaiveDate,
+    //     end_date: &NaiveDate
+    // ) -> Result<Html, SvgHtmlError> {
+    //     let resolution = match observation_model.len() {
+    //         0..=1 => 0,
+    //         2..=6 => 1,
+    //         7..=27 => 1,
+    //         28..=364=> 7,
+    //         _=>30
+    //     };
+    //     if resolution < 8 {
+    //         // it's not worth doing this on
+    //         // small scales
+    //         Ok(html!(
+    //             <div id="analysis-table">
+    //             </div>
+    //         ))
+    //     }
+    //     // resolution is 30 below this line
+    //     let derivative: Vec<i32> = observation_model
+    //     .observations
+    //     .iter()
+    //     .tuple_windows::<(_,_)>()
+    //     .map(|(d0, d1)| {
+    //         let obs_1 = *d1.1 as i32;
+    //         let obs_0 = *d0.1 as i32;
+    //         obs_1 - obs_0
+    //     })
+    //     .collect();
+    //     let sorted_rates: BTreeSet<i32> = derivative.iter().map(|x| *x).collect();
+    //     let min_change = sorted_rates.first().unwrap();
+    //     let max_change = sorted_rates.last().unwrap();
+
+    // }
+    pub fn svg_html(
+        &self,
+        svg_inner: &'a mut String,
+        start_date: &NaiveDate,
+        end_date: &NaiveDate,
+        start_date_change_callback: &Callback<Event>,
+        end_date_change_callback: &Callback<Event>,
+    ) -> Result<Html, ()> {
+        let _svg_result = ObservationsModel::generate_svg(self, svg_inner);
+        let console_log = format!("{} {}", "SVG_INNER:", svg_inner);
+        string_log(console_log);
+        let svg_vnode = web_sys::window()
+            .and_then(|window| window.document())
+            .map_or_else(
+                || {
+                    html! { <p id="error">{ "Failed to resolve `document`." }</p> }
+                },
+                |document| match document.get_element_by_id("svg-chart") {
+                    Some(svg) => {
+                        svg.set_inner_html(svg_inner.as_str());
+                        yew::virtual_dom::VNode::VRef(svg.into())
+                    }
+                    None => {
+                        // https://www.brightec.co.uk/blog/svg-wouldnt-render
+                        let svg = document
+                            .create_element_ns(Some("http://www.w3.org/2000/svg"), "svg")
+                            .unwrap();
+                        svg.set_attribute("id", "svg-chart").unwrap();
+                        svg.set_attribute("width", "800").unwrap();
+                        svg.set_attribute("height", "600").unwrap();
+                        svg.set_inner_html(svg_inner.as_str());
+                        yew::virtual_dom::VNode::VRef(svg.into())
+                    }
+                },
+            );
+        Ok(html! {
+            <div id="chart">
+                {svg_vnode}
+                <div id={DIV_START_DATE_NAME}>
+                    <input min={self.min_date.format(DATE_FORMAT).to_string()} max={self.max_date.format(DATE_FORMAT).to_string()} onchange={start_date_change_callback} type="date" id={START_DATE_NAME} value={start_date.format(DATE_FORMAT).to_string()}/>
+                </div>
+                <div id={DIV_END_DATE_NAME}>
+                    <input min={self.min_date.format(DATE_FORMAT).to_string()} max={self.max_date.format(DATE_FORMAT).to_string()} onchange={end_date_change_callback} type="date" id={END_DATE_NAME} value={end_date.format(DATE_FORMAT).to_string()}/>
+                </div>
+            </div>
+        })
+    }
+
     pub fn generate_svg(
         observation_model: &ObservationsModel,
         svg_inner_string: &'a mut String,
@@ -86,51 +220,6 @@ impl<'a> ObservationsModel {
         backend_drawing_area.present().unwrap();
         Ok(())
     }
-}
-fn string_log(log_string: String) {
-    let log_js_string: JsString = log_string.into();
-    gloo_log!(log_js_string);
-}
-
-fn generic_callback(_event: Event, event_is_end: bool, dom_id_str: &str) -> DateChangeEvent {
-    let updated_date = web_sys::window()
-        .and_then(|window| window.document())
-        .map_or_else(
-            || {
-                let log_string = "window document object not found.".to_string();
-                string_log(log_string);
-                NaiveDate::from_ymd(1992, 3, 26)
-            },
-            |document| match document.get_element_by_id(dom_id_str) {
-                Some(input) => {
-                    let input_element = input.dyn_into::<web_sys::HtmlInputElement>().unwrap();
-                    let date_value: String = input_element.value();
-                    let result = NaiveDate::parse_from_str(&date_value, DATE_FORMAT).unwrap();
-                    let log_string = format!("callback: {}", result.format(DATE_FORMAT));
-                    string_log(log_string);
-                    result
-                }
-                None => {
-                    let log_string = format!("{} {}", dom_id_str, "dom object not found.");
-                    string_log(log_string);
-                    NaiveDate::from_ymd(1999, 1, 1)
-                }
-            },
-        );
-    if event_is_end {
-        DateChangeEvent::EndDateUpdated(updated_date)
-    } else {
-        DateChangeEvent::StartDateUpdated(updated_date)
-    }
-}
-
-pub enum DateChangeEvent {
-    StartDateUpdated(NaiveDate),
-    EndDateUpdated(NaiveDate),
-}
-
-fn main() {
-    yew::start_app::<ObservationsModel>();
 }
 
 impl Component for ObservationsModel {
@@ -214,43 +303,31 @@ impl Component for ObservationsModel {
         let start_date = self.start_date;
         let end_date = self.end_date;
         let mut svg_inner = String::new();
-        let _svg_result = ObservationsModel::generate_svg(self, &mut svg_inner);
-        let console_log = format!("{} {}", "SVG_INNER:", svg_inner);
-        string_log(console_log);
-        let svg_vnode = web_sys::window()
-            .and_then(|window| window.document())
-            .map_or_else(
-                || {
-                    html! { <p>{ "Failed to resolve `document`." }</p> }
-                },
-                |document| match document.get_element_by_id("svg-chart") {
-                    Some(svg) => {
-                        svg.set_inner_html(svg_inner.as_str());
-                        yew::virtual_dom::VNode::VRef(svg.into())
-                    }
-                    None => {
-                        // https://www.brightec.co.uk/blog/svg-wouldnt-render
-                        let svg = document
-                            .create_element_ns(Some("http://www.w3.org/2000/svg"), "svg")
-                            .unwrap();
-                        svg.set_attribute("id", "svg-chart").unwrap();
-                        svg.set_attribute("width", "800").unwrap();
-                        svg.set_attribute("height", "600").unwrap();
-                        svg.set_inner_html(svg_inner.as_str());
-                        yew::virtual_dom::VNode::VRef(svg.into())
-                    }
-                },
-            );
-        html! {
-            <div id="chart">
-                {svg_vnode}
-                <div id={DIV_START_DATE_NAME}>
-                    <input min={self.min_date.format(DATE_FORMAT).to_string()} max={self.max_date.format(DATE_FORMAT).to_string()} onchange={start_date_change_callback} type="date" id={START_DATE_NAME} value={start_date.format(DATE_FORMAT).to_string()}/>
-                </div>
-                <div id={DIV_END_DATE_NAME}>
-                    <input min={self.min_date.format(DATE_FORMAT).to_string()} max={self.max_date.format(DATE_FORMAT).to_string()} onchange={end_date_change_callback} type="date" id={END_DATE_NAME} value={end_date.format(DATE_FORMAT).to_string()}/>
-                </div>
-            </div>
-        }
+        let svg_html = ObservationsModel::svg_html(
+            self,
+            &mut svg_inner,
+            &start_date,
+            &end_date,
+            &start_date_change_callback,
+            &end_date_change_callback,
+        );
+        // let table_html = ObservationsModel::calculus_table_html(self, &start_date, &end_date);
+        svg_html.unwrap()
     }
+}
+
+fn main() {
+    web_sys::window()
+        .and_then(|window| window.document())
+        .map_or_else(
+            || yew::start_app::<ObservationsModel>(),
+            |document| match document.get_element_by_id(DIV_BLOG_NAME) {
+                Some(div_element) => yew::start_app_in_element::<ObservationsModel>(div_element),
+                None => {
+                    let div_element = document.create_element("div").unwrap();
+                    div_element.set_attribute("id", DIV_BLOG_NAME).unwrap();
+                    yew::start_app_in_element::<ObservationsModel>(div_element)
+                }
+            },
+        );
 }
