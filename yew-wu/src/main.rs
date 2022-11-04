@@ -126,7 +126,7 @@ impl<'a> ObservationsModel {
     //     start_date_change_callback: &Callback<Event>,
     //     end_date_change_callback: &Callback<Event>,
     // ) -> Result<Html, ()> {
-        
+
     // }
 
     pub fn generate_svg(
@@ -320,34 +320,32 @@ impl Component for ObservationsModel {
 }
 
 fn main() {
-    let _ = web_sys::window()
+    web_sys::window()
         .and_then(|window| window.document())
         .map_or_else(
             || {
                 panic!("failed to load wasm module successfully");
             },
             |document| match document.get_element_by_id(DIV_BLOG_NAME) {
-                Some(_div_element) =>{},
+                Some(_div_element) => {}
                 None => {
                     let div_element = document.create_element("div").unwrap();
                     div_element.set_attribute("id", DIV_BLOG_NAME).unwrap();
                 }
             },
         );
-        let div_element = web_sys::window()
+    let div_element = web_sys::window()
         .and_then(|window| window.document())
         .map_or_else(
             || {
                 panic!("failed to load wasm module successfully part 2");
             },
             |document| match document.get_element_by_id(DIV_BLOG_NAME) {
-                Some(div_element) =>{
-                    div_element
-                },
+                Some(div_element) => div_element,
                 None => {
                     panic!("failed to load wasm module successfully part 2");
                 }
             },
         );
-        yew::start_app_in_element::<ObservationsModel>(div_element);
+    yew::start_app_in_element::<ObservationsModel>(div_element);
 }
