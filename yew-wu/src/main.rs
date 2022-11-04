@@ -324,7 +324,10 @@ fn main() {
         .and_then(|window| window.document())
         .map_or_else(
             || {
-                panic!("failed to load wasm module successfully");
+                let log_str = "failed to load wasm module successfully";
+                let log_string = String::from(log_str);
+                string_log(log_string);
+                panic!("{}", log_str);
             },
             |document| match document.get_element_by_id(DIV_BLOG_NAME) {
                 Some(_div_element) => {}
@@ -338,12 +341,18 @@ fn main() {
         .and_then(|window| window.document())
         .map_or_else(
             || {
-                panic!("failed to load wasm module successfully part 2");
+                let log_str = "failed to load wasm module successfully part 2";
+                let log_string = String::from(log_str);
+                string_log(log_string);
+                panic!("{}", log_str);
             },
             |document| match document.get_element_by_id(DIV_BLOG_NAME) {
                 Some(div_element) => div_element,
                 None => {
-                    panic!("failed to load wasm module successfully part 2");
+                    let log_str = "failed to load wasm module successfully part 2";
+                    let log_string = String::from(log_str);
+                    string_log(log_string);
+                    panic!("{}", log_str);
                 }
             },
         );
