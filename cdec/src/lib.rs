@@ -3,3 +3,4 @@
 pub mod compression;
 pub mod observation;
 pub mod reservoir;
+pub mod survey;

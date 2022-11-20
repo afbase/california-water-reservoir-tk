@@ -56,7 +56,7 @@ fn generic_callback(_event: Event, event_is_end: bool, dom_id_str: &str) -> Date
             || {
                 let log_string = "window document object not found.".to_string();
                 string_log(log_string);
-                NaiveDate::from_ymd(1992, 3, 26)
+                NaiveDate::from_ymd_opt(1992, 3, 26).unwrap()
             },
             |document| match document.get_element_by_id(dom_id_str) {
                 Some(input) => {
@@ -70,7 +70,7 @@ fn generic_callback(_event: Event, event_is_end: bool, dom_id_str: &str) -> Date
                 None => {
                     let log_string = format!("{} {}", dom_id_str, "dom object not found.");
                     string_log(log_string);
-                    NaiveDate::from_ymd(1999, 1, 1)
+                    NaiveDate::from_ymd_opt(1999, 1, 1).unwrap()
                 }
             },
         );
