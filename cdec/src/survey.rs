@@ -1,7 +1,11 @@
-use crate::observation::{DataRecording, Duration, Observation};
+use crate::{
+    observable::Observable,
+    observation::{DataRecording, Duration, Observation},
+};
 use chrono::NaiveDate;
+use csv::StringRecord;
 use easy_cast::Cast;
-use std::convert::From;
+use std::{cmp::Ordering, convert::From};
 
 // Survey and Tap are not great names but out of a need to have a name
 // Survey originates from a google search for synonomym of Observation
@@ -18,10 +22,44 @@ pub struct Tap {
     pub value: DataRecording,
 }
 
-#[derive(PartialEq, Debug, Clone)]
-enum Survey {
+#[derive(Debug, Clone)]
+pub enum Survey {
     Daily(Tap),
     Monthly(Tap),
+}
+
+pub struct CompressedStringRecord(pub StringRecord);
+
+pub trait VectorCompressedStringRecord {
+    fn records_to_surveys(self) -> Vec<Survey>;
+}
+
+impl VectorCompressedStringRecord for Vec<CompressedStringRecord> {
+    fn records_to_surveys(self) -> Vec<Survey> {
+        self.into_iter()
+            .map(|compressed_string_record| {
+                let survey: Survey = compressed_string_record.into();
+                survey
+            })
+            .collect::<Vec<Survey>>()
+    }
+}
+
+impl Observable for Survey {
+    fn into_survey(self) -> Survey {
+        self
+    }
+}
+
+impl Observable for Observation {
+    fn into_survey(self) -> Survey {
+        let k: Survey = self.into();
+        k
+    }
+}
+
+pub trait Interpolate {
+    fn interpolate_pair(self) -> Option<Vec<Survey>>;
 }
 
 impl From<Observation> for Survey {
@@ -43,7 +81,7 @@ impl From<Observation> for Survey {
     }
 }
 
-impl From<Survey> for Observation {
+impl std::convert::From<Survey> for Observation {
     fn from(survey: Survey) -> Observation {
         match survey {
             Survey::Daily(t) => Observation {
@@ -64,6 +102,123 @@ impl From<Survey> for Observation {
     }
 }
 
+// VIL,D,20220218,9585
+impl std::convert::From<Survey> for CompressedStringRecord {
+    fn from(value: Survey) -> Self {
+        let tap = value.get_tap();
+        let station = tap.station_id.as_str();
+        let duration = match value {
+            Survey::Daily(_) => "D",
+            Survey::Monthly(_) => "M",
+        };
+        let date_observation_tmp = tap.date_observation.format("%Y%m%d").to_string();
+        let date_observation = date_observation_tmp.as_str();
+        let binding;
+        let recording = match tap.value {
+            DataRecording::Art => "ART",
+            DataRecording::Brt => "BRT",
+            DataRecording::Dash => "---",
+            DataRecording::Recording(v) => {
+                binding = v.to_string();
+                binding.as_str()
+            }
+        };
+        let a = StringRecord::from(vec![station, duration, date_observation, recording]);
+        CompressedStringRecord(a)
+    }
+}
+
+// VIL,D,20220218,9585
+impl From<CompressedStringRecord> for Survey {
+    fn from(value: CompressedStringRecord) -> Self {
+        let station = value.0.get(0).unwrap();
+        let duration = value.0.get(1).unwrap();
+        let date_observation =
+            NaiveDate::parse_from_str("%Y%m%d", value.0.get(3).unwrap()).unwrap();
+        let date_recording = date_observation;
+        let recording = match value.0.get(3).unwrap() {
+            "ART" => DataRecording::Art,
+            "BRT" => DataRecording::Brt,
+            "---" => DataRecording::Dash,
+            s => {
+                let a = s.parse::<u32>().unwrap();
+                DataRecording::Recording(a)
+            }
+        };
+        let tap = Tap {
+            station_id: String::from(station),
+            date_observation,
+            date_recording,
+            value: recording,
+        };
+        match duration {
+            "D" => Survey::Daily(tap),
+            "M" => Survey::Monthly(tap),
+            &_ => panic!("Hey is this an M or D???"),
+        }
+    }
+}
+
+impl std::convert::TryFrom<StringRecord> for Survey {
+    type Error = ();
+    fn try_from(value: StringRecord) -> Result<Self, Self::Error> {
+        let observation_result: Result<Observation, _> = value.try_into();
+        match observation_result {
+            Ok(obs) => {
+                let r: Survey = obs.into();
+                Ok(r)
+            }
+            _ => Err(()),
+        }
+    }
+}
+
+impl std::convert::TryFrom<Survey> for StringRecord {
+    type Error = ();
+    fn try_from(value: Survey) -> Result<Self, Self::Error> {
+        // VIL,D,15,STORAGE,20220218 0000,20220218 0000,9585, ,AF
+        let tap = value.get_tap();
+        let station_id_tmp = tap.station_id.clone();
+        let station = station_id_tmp.as_str();
+        let sensor = "15";
+        let unit = "AF";
+        let other = " ";
+        let storage = "STORAGE";
+        let duration = match value {
+            Survey::Daily(_) => "D",
+            Survey::Monthly(_) => "M",
+        };
+        let tap = value.get_tap();
+        let date_observation_tmp = tap.date_observation.format("%Y%m%d");
+        let date_observation_tmp_string = date_observation_tmp.to_string();
+        let formated_date_observation =
+            format!("{} {}", date_observation_tmp_string.as_str(), "0000");
+        let date_observation = formated_date_observation.as_str();
+        let binding;
+        let recording = match tap.value {
+            DataRecording::Art => "ART",
+            DataRecording::Brt => "BRT",
+            DataRecording::Dash => "---",
+            DataRecording::Recording(v) => {
+                binding = v.to_string();
+                binding.as_str()
+            }
+        };
+        let record = vec![
+            station,
+            duration,
+            sensor,
+            storage,
+            date_observation,
+            date_observation,
+            recording,
+            other,
+            unit,
+        ];
+        Ok(StringRecord::from(record))
+    }
+}
+
 impl Tap {
     fn value_as_f64(self) -> f64 {
         match self.value {
@@ -74,10 +229,6 @@ impl Tap {
             _ => 0.0f64,
         }
     }
-}
-
-trait Interpolate {
-    fn interpolate_pair(self) -> Option<Vec<Survey>>;
 }
 
 impl Interpolate for (Survey, Survey) {
@@ -119,14 +270,21 @@ impl Interpolate for (Survey, Survey) {
 }
 
 impl Survey {
-    fn get_value(&self) -> f64 {
+    pub fn get_tap(&self) -> &Tap {
+        match self {
+            Survey::Daily(t) => t,
+            Survey::Monthly(t) => t,
+        }
+    }
+
+    pub fn get_value(&self) -> f64 {
         match self {
             Survey::Daily(t) => t.clone().value_as_f64(),
             Survey::Monthly(t) => t.clone().value_as_f64(),
         }
     }
 
-    fn has_recording(&self) -> bool {
+    pub fn has_recording(&self) -> bool {
         match self {
             Survey::Daily(t) => {
                 matches!(t.value, DataRecording::Recording(_))
@@ -138,11 +296,86 @@ impl Survey {
     }
 }
 
+impl Ord for Survey {
+    fn cmp(&self, other: &Self) -> Ordering {
+        let self_date = self.get_tap().date_observation;
+        let other_date = other.get_tap().date_observation;
+        self_date.cmp(&other_date)
+    }
+}
+
+impl Eq for Survey {}
+
+impl PartialEq for Survey {
+    fn eq(&self, other: &Self) -> bool {
+        let tap = self.get_tap();
+        let top = other.get_tap();
+        tap.date_observation == top.date_observation && tap.station_id == top.station_id
+    }
+}
+
+impl PartialOrd for Survey {
+    fn partial_cmp(&self, other: &Self) -> Option<Ordering> {
+        Some(self.cmp(other))
+    }
+}
+
 #[cfg(test)]
 mod test {
     use super::{Interpolate, Survey, Tap};
     use crate::observation::{DataRecording, Duration, Observation};
     use chrono::NaiveDate;
+    use csv::StringRecord;
+
+    #[test]
+    fn convert_survey_to_string_record() {
+        //VIL,D,15,STORAGE,20220218 0000,20220218 0000,9585, ,AF
+        let vector_victor = vec![
+            "VIL",
+            "D",
+            "15",
+            "STORAGE",
+            "20220218 0000",
+            "20220218 0000",
+            "9585",
+            " ",
+            "AF",
+        ];
+        let expected = StringRecord::from(vector_victor);
+        let survey = Survey::Daily(Tap {
+            station_id: String::from("VIL"),
+            date_observation: NaiveDate::from_ymd_opt(2022, 2, 18).unwrap(),
+            date_recording: NaiveDate::from_ymd_opt(2022, 2, 18).unwrap(),
+            value: DataRecording::Recording(9585),
+        });
+        let actual: StringRecord = survey.try_into().unwrap();
+        assert_eq!(actual, expected);
+    }
+
+    #[test]
+    fn convert_string_record_to_survey() {
+        //VIL,D,15,STORAGE,20220218 0000,20220218 0000,9585, ,AF
+        let vector_victor = vec![
+            "VIL",
+            "D",
+            "15",
+            "STORAGE",
+            "20220218 0000",
+            "20220218 0000",
+            "9585",
+            " ",
+            "AF",
+        ];
+        let record = StringRecord::from(vector_victor);
+        let expected = Survey::Daily(Tap {
+            station_id: String::from("VIL"),
+            date_observation: NaiveDate::from_ymd_opt(2022, 2, 18).unwrap(),
+            date_recording: NaiveDate::from_ymd_opt(2022, 2, 18).unwrap(),
+            value: DataRecording::Recording(9585),
+        });
+        let actual: Survey = record.try_into().unwrap();
+        assert_eq!(actual, expected);
+    }
 
     #[test]
     fn convert_survey_to_observation() {

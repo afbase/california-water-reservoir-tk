@@ -1,4 +1,8 @@
-use cdec::{observation::Observation, reservoir::Reservoir};
+use cdec::{
+    observable::{CompressedSurveyBuilder, ObservableRange},
+    reservoir::Reservoir,
+    survey::CompressedStringRecord,
+};
 use chrono::{format::ParseError, Local, NaiveDate};
 use clap::{Parser, Subcommand};
 use csv::Writer;
@@ -44,27 +48,58 @@ async fn run_csv(start_date: &NaiveDate, end_date: &NaiveDate) -> String {
     // 1. get observations from date range
     let reservoirs = Reservoir::get_reservoir_vector();
     let client = Client::new();
-    let all_reservoir_observations = join_all(reservoirs.iter().map(|reservoir| {
+    let mut all_reservoir_observations = join_all(reservoirs.into_iter().map(|reservoir| {
         let client_ref = &client;
         let start_date_ref = start_date;
         let end_date_ref = end_date;
         async move {
-            Observation::get_string_records(
-                client_ref,
-                reservoir.station_id.as_str(),
-                start_date_ref,
-                end_date_ref,
-            )
-            .await
+            reservoir
+                .get_surveys(client_ref, start_date_ref, end_date_ref)
+                .await
         }
     }))
     .await;
+    let option_of_compressed_string_records = all_reservoir_observations
+        .iter_mut()
+        .map(|surveys| {
+            surveys.sort();
+            let earliest_date = {
+                if let Some(survey_first) = surveys.first() {
+                    let tap = survey_first.get_tap();
+                    tap.date_observation
+                } else {
+                    return None;
+                }
+            };
+            let last_survey = surveys.last().unwrap();
+            let last_tap = last_survey.get_tap();
+            let most_recent_date = last_tap.date_observation;
+            let mut observable_range = ObservableRange {
+                observations: surveys.clone(),
+                start_date: earliest_date,
+                end_date: most_recent_date,
+            };
+            observable_range.retain();
+            let records: Vec<CompressedStringRecord> = observable_range
+                .observations
+                .into_iter()
+                .map(|survey| {
+                    let record: CompressedStringRecord = survey.into();
+                    record
+                })
+                .collect::<Vec<CompressedStringRecord>>();
+            Some(records)
+        })
+        .collect::<Vec<_>>();
+    //compressedstringrecords from hear on out
     let mut writer = Writer::from_writer(vec![]);
-    for reservoir_records in all_reservoir_observations {
-        let records = reservoir_records.unwrap();
-        // writer.write_byte_record(records.iter());
-        for record in records {
-            if writer.write_byte_record(record.as_byte_record()).is_err() {
+    let flattened_records = option_of_compressed_string_records.into_iter().flatten();
+    for reservoir_records in flattened_records {
+        for reservoir_record in reservoir_records {
+            if writer
+                .write_byte_record(reservoir_record.0.as_byte_record())
+                .is_err()
+            {
                 panic!("Error: writiing record failed");
             }
         }

@@ -1,9 +1,10 @@
 use crate::{
     compression::{decompress_tar_file_to_csv_string, TAR_OBJECT},
     reservoir::Reservoir,
+    survey::CompressedStringRecord,
 };
 use chrono::naive::NaiveDate;
-use core::{panic, result::Result};
+use core::result::Result;
 use csv::{ReaderBuilder, StringRecord};
 use futures::future::join_all;
 use reqwest::Client;
@@ -12,9 +13,9 @@ use std::{
     collections::{BTreeMap, HashMap},
     str,
 };
-const DATE_FORMAT: &str = "%Y%m%d %H%M";
-const YEAR_FORMAT: &str = "%Y-%m-%d";
-const CSV_ROW_LENGTH: usize = 9;
+pub const DATE_FORMAT: &str = "%Y%m%d %H%M";
+pub const YEAR_FORMAT: &str = "%Y-%m-%d";
+pub const CSV_ROW_LENGTH: usize = 9;
 
 #[derive(Debug, PartialEq, Clone, Copy)]
 pub enum ObservationError {
@@ -46,37 +47,17 @@ pub struct Observation {
 }
 
 impl Observation {
-    // pub async fn get_all_reservoirs_csv_records_by_dates(
-    //     start_date: &NaiveDate,
-    //     end_date: &NaiveDate,
-    // ) -> Result<BTreeMap<NaiveDate, u32>, ObservationError> {
-    //     let reservoirs = Reservoir::get_reservoir_vector();
-    //     let mut date_water_btree: BTreeMap<NaiveDate, u32> = BTreeMap::new();
-    //     let client = Client::new();
-    //     let all_reservoir_observations = join_all(reservoirs.iter().map(|reservoir| {
-    //         let client_ref = &client;
-    //         let start_date_ref = start_date;
-    //         let end_date_ref = end_date;
-    //         async move {
-    //             Observation::get_string_records(
-    //                 client_ref,
-    //                 reservoir.station_id.as_str(),
-    //                 start_date_ref,
-    //                 end_date_ref,
-    //             )
-    //             .await
-    //         }
-    //     }))
-    //     .await;
-    // }
-    pub fn get_all_records() -> Vec<StringRecord> {
+    pub fn get_all_records() -> Vec<CompressedStringRecord> {
         let bytes_of_csv_string = decompress_tar_file_to_csv_string(TAR_OBJECT);
         csv::ReaderBuilder::new()
             .has_headers(false)
             .from_reader(bytes_of_csv_string.as_slice())
             .records()
-            .map(|x| x.expect("failed record parse"))
-            .collect::<Vec<StringRecord>>()
+            .map(|x| {
+                let a = x.expect("failed record parse");
+                CompressedStringRecord(a)
+            })
+            .collect::<Vec<CompressedStringRecord>>()
     }
 
     pub async fn get_all_reservoirs_data_by_dates(
@@ -141,175 +122,7 @@ impl Observation {
             return Err(ObservationError::HttpRequestError);
         }
         Ok(observations)
-        // collect monthly data and then
-        // 1. linearly interpolate to daily observations
-        // 2. insert into observations if the date does not exist
-        // if let Ok(body) = request_body_monthly {
-        //     if let Ok(obs) = Observation::request_to_observations(body) {
-        //         // interpolate
-        //         let daily_observations_from_monthly_observations_interpolated =
-        //             linearly_interpolate_monthly_observations(obs);
-        //     } else {
-        //         Err(ObservationError::HttpResponseParseError)
-        //     }
-        // } else {
-        //     Err(ObservationError::HttpRequestError)
-        // }
     }
-
-    // fn linearly_interpolate_monthly_observations(
-    //     monthly_observations: Vec<Observation>,
-    // ) -> Vec<Observation> {
-    //     monthly_observations.sort();
-    //     let mut output_vector: Vec<Observation> = Vec::new();
-    //     // 1. need to make sure we have a pair of values we can operate over.
-    //     let group_len = monthly_observations.len();
-    //     let mut markers: Vec<usize> = Vec::new();
-    //     let mut i: usize = 0;
-    //     // for the ith and (i+1)th element,
-    //     // 1. if ith element is a value and
-    //     //    (i+1)th is not, mark i
-    //     // 2. if not then ith element is
-    //     //    some error.  if (i+1)th
-    //     //    element is a value, then mark
-    //     //    (i+1)
-    //     loop {
-    //         let observation = &monthly_observations[i];
-    //         let next_observation = &monthly_observations[i + 1];
-    //         match (observation.value, next_observation.value) {
-    //             (DataRecording::Recording(..), DataRecording::Dash) => {
-    //                 markers.push(i);
-    //                 let monthly_recording_as_daily = Observation {
-    //                     station_id: observation.station_id,
-    //                     date_observation: observation.date_observation,
-    //                     date_recording: observation.date_recording,
-    //                     value: observation.value,
-    //                     duration: Duration::Daily,
-    //                 };
-    //                 output_vector.push(monthly_recording_as_daily);
-    //             }
-    //             (DataRecording::Recording(..), DataRecording::Art) => {
-    //                 markers.push(i);
-    //                 let monthly_recording_as_daily = Observation {
-    //                     station_id: observation.station_id,
-    //                     date_observation: observation.date_observation,
-    //                     date_recording: observation.date_recording,
-    //                     value: observation.value,
-    //                     duration: Duration::Daily,
-    //                 };
-    //                 output_vector.push(monthly_recording_as_daily);
-    //             }
-    //             (DataRecording::Recording(..), DataRecording::Brt) => {
-    //                 markers.push(i);
-    //                 let monthly_recording_as_daily = Observation {
-    //                     station_id: observation.station_id,
-    //                     date_observation: observation.date_observation,
-    //                     date_recording: observation.date_recording,
-    //                     value: observation.value,
-    //                     duration: Duration::Daily,
-    //                 };
-    //                 output_vector.push(monthly_recording_as_daily);
-    //             }
-    //             (DataRecording::Dash, DataRecording::Recording(..)) => {
-    //                 markers.push(i + 1);
-    //                 let monthly_recording_as_daily = Observation {
-    //                     station_id: next_observation.station_id,
-    //                     date_observation: next_observation.date_observation,
-    //                     date_recording: next_observation.date_recording,
-    //                     value: next_observation.value,
-    //                     duration: Duration::Daily,
-    //                 };
-    //                 output_vector.push(monthly_recording_as_daily);
-    //             }
-    //             (DataRecording::Art, DataRecording::Recording(..)) => {
-    //                 markers.push(i + 1);
-    //                 let monthly_recording_as_daily = Observation {
-    //                     station_id: next_observation.station_id,
-    //                     date_observation: next_observation.date_observation,
-    //                     date_recording: next_observation.date_recording,
-    //                     value: next_observation.value,
-    //                     duration: Duration::Daily,
-    //                 };
-    //                 output_vector.push(monthly_recording_as_daily);
-    //             }
-    //             (DataRecording::Brt, DataRecording::Recording(..)) => {
-    //                 markers.push(i + 1);
-    //                 let monthly_recording_as_daily = Observation {
-    //                     station_id: next_observation.station_id,
-    //                     date_observation: next_observation.date_observation,
-    //                     date_recording: next_observation.date_recording,
-    //                     value: next_observation.value,
-    //                     duration: Duration::Daily,
-    //                 };
-    //                 output_vector.push(monthly_recording_as_daily);
-    //             }
-    //             _ => {}
-    //         }
-    //         if i == (group_len - 1) {
-    //             break;
-    //         }
-    //         i += 1; // do not i+2; still need to loop one-by-one
-    //     }
-    //     // for each array chunk pair[1]:
-    //     // 1. do linear interpolation
-    //     // 2. if markers is odd length, then
-    //     // 2.1 from markers[len-1] to last observation:
-    //     // 2.1.1 check there are no recordings, if so,
-    //     // 2.1.2 set all recordings from markers[len-1]+1 to last observation
-    //     //       to the value observation[markers[len-1]]
-    //     // [1] - https://play.rust-lang.org/?version=nightly&mode=debug&edition=2018&gist=75bb6330866854040404a619c09c04f7
-    //     let markers_slice = markers.as_slice();
-    //     let mut daily_vector_between_marked_observations: Vec<Observation> = Vec::new();
-    //     for [x0usize, x1usize] in markers_slice.array_chunks::<2>() {
-    //         let x0 = *x0usize as u32;
-    //         let x1 = *x1usize as u32;
-    //         let y0 = match monthly_observations[*x0usize].value {
-    //             DataRecording::Recording(k) => k,
-    //             _ => panic!("failed to select value"),
-    //         };
-    //         let y1 = match monthly_observations[*x1usize].value {
-    //             DataRecording::Recording(k) => k,
-    //             _ => panic!("failed to select value"),
-    //         };
-    //         let a = y1 - y0;
-    //         let b = x1 - x0;
-    //         let m = (a as f64) / (b as f64);
-
-    //         for (idx, x_i) in (x0..x1).enumerate() {
-    //             if x_i == x0 {
-    //                 continue;
-    //             }
-    //             let y_i = (m * ((x_i - x0) as f64) + (y1 as f64)).round() as u32;
-    //             //make a daily observation
-    //             let idx_duration = chrono::Duration::days(idx as i64);
-    //             let date_observation =
-    //                 monthly_observations[*x1usize].date_observation + idx_duration;
-    //             let date_recording = monthly_observations[*x1usize].date_recording + idx_duration;
-    //             let station_id = monthly_observations[*x1usize].station_id;
-    //             let x_i_as_usize = x_i as usize;
-    //             let ith_day_observation = Observation {
-    //                 duration: Duration::Daily,
-    //                 value: DataRecording::Recording(y_i),
-    //                 date_observation,
-    //                 date_recording,
-    //                 station_id,
-    //             };
-    //             output_vector.push(ith_day_observation);
-    //         }
-    //         // step 1
-    //     }
-    //     // output_vector
-    //     // for &[obs_a, obs_b] in monthly_observations.windows(2) {
-    //     //     // check that they're both monthly
-    //     //     if obs_a.duration != Duration::Monthly || obs_b != Duration::Monthly {
-    //     //         panic!("observations must be monthly");
-    //     //     }
-    //     //     let days_between_entries = (obs_a.date_observation - obs_b.date_observation).num_days().abs() as usize;
-    //     //     let mut interpolated_observations: Vec<Observation> = Vec::with_capacity(days_between_entries);
-    //     // }
-    //     output_vector.sort();
-    //     output_vector
-    // }
 
     pub async fn get_string_records(
         client: &Client,
@@ -396,125 +209,125 @@ impl Observation {
     /// SHA,D,15,STORAGE,19850104 0000,19850104 0000,1633800,,AF
     /// SHA,D,15,STORAGE,19850105 0000,19850105 0000,1664000,,AF
     /// SHA,D,15,STORAGE,19850106 0000,19850106 0000,1694200,,AF
-    pub fn smooth_observations(vec_records: &mut Vec<Observation>) -> Vec<Observation> {
-        let mut output_vector: Vec<Observation> = Vec::with_capacity(vec_records.len());
-        let observations_grouped_by_station_id = vec_records
-            .as_slice()
-            .group_by(|a, b| a.station_id == b.station_id);
-        // this for loop does two things:
-        // 1. Smoothy smoothy things by reservoir
-        // 2. places smoothed observations by reservoir into output_vector
-        for group in observations_grouped_by_station_id {
-            let mut sorted_group = Vec::from(group);
-            // sorting is the key step into the next flow
-            sorted_group.sort();
-            let group_len = group.len();
-            let mut markers: Vec<usize> = Vec::new();
-            let mut i: usize = 0;
-            // for the ith and (i+1)th element,
-            // 1. if ith element is a value and
-            //    (i+1)th is not, mark i
-            // 2. if not then ith element is
-            //    some error.  if (i+1)th
-            //    element is a value, then mark
-            //    (i+1)
-            loop {
-                let observation = &sorted_group[i];
-                let next_observation = &sorted_group[i + 1];
-                match (observation.value, next_observation.value) {
-                    (DataRecording::Recording(..), DataRecording::Dash) => {
-                        markers.push(i);
-                    }
-                    (DataRecording::Recording(..), DataRecording::Art) => {
-                        markers.push(i);
-                    }
-                    (DataRecording::Recording(..), DataRecording::Brt) => {
-                        markers.push(i);
-                    }
-                    (DataRecording::Dash, DataRecording::Recording(..)) => {
-                        markers.push(i + 1);
-                    }
-                    (DataRecording::Art, DataRecording::Recording(..)) => {
-                        markers.push(i + 1);
-                    }
-                    (DataRecording::Brt, DataRecording::Recording(..)) => {
-                        markers.push(i + 1);
-                    }
-                    _ => {}
-                }
-                if i == (group_len - 1) {
-                    break;
-                }
-                i += 1; // do not i+2; still need to loop one-by-one
-            }
-            // for each array chunk pair[1]:
-            // 1. do linear interpolation
-            // 2. if markers is odd length, then
-            // 2.1 from markers[len-1] to last observation:
-            // 2.1.1 check there are no recordings, if so,
-            // 2.1.2 set all recordings from markers[len-1]+1 to last observation
-            //       to the value observation[markers[len-1]]
-            // [1] - https://play.rust-lang.org/?version=nightly&mode=debug&edition=2018&gist=75bb6330866854040404a619c09c04f7
-            let markers_slice = markers.as_slice();
-            for [x0usize, x1usize] in markers_slice.array_chunks::<2>() {
-                let x0 = *x0usize as u32;
-                let x1 = *x1usize as u32;
-                let y0 = match sorted_group[*x0usize].value {
-                    DataRecording::Recording(k) => k,
-                    _ => panic!("failed to select value"),
-                };
-                let y1 = match sorted_group[*x1usize].value {
-                    DataRecording::Recording(k) => k,
-                    _ => panic!("failed to select value"),
-                };
-                let a = y1 - y0;
-                let b = x1 - x0;
-                let m = (a as f64) / (b as f64);
+    // pub fn smooth_observations(vec_records: &mut Vec<Observation>) -> Vec<Observation> {
+    //     let mut output_vector: Vec<Observation> = Vec::with_capacity(vec_records.len());
+    //     let observations_grouped_by_station_id = vec_records
+    //         .as_slice()
+    //         .group_by(|a, b| a.station_id == b.station_id);
+    //     // this for loop does two things:
+    //     // 1. Smoothy smoothy things by reservoir
+    //     // 2. places smoothed observations by reservoir into output_vector
+    //     for group in observations_grouped_by_station_id {
+    //         let mut sorted_group = Vec::from(group);
+    //         // sorting is the key step into the next flow
+    //         sorted_group.sort();
+    //         let group_len = group.len();
+    //         let mut markers: Vec<usize> = Vec::new();
+    //         let mut i: usize = 0;
+    //         // for the ith and (i+1)th element,
+    //         // 1. if ith element is a value and
+    //         //    (i+1)th is not, mark i
+    //         // 2. if not then ith element is
+    //         //    some error.  if (i+1)th
+    //         //    element is a value, then mark
+    //         //    (i+1)
+    //         loop {
+    //             let observation = &sorted_group[i];
+    //             let next_observation = &sorted_group[i + 1];
+    //             match (observation.value, next_observation.value) {
+    //                 (DataRecording::Recording(..), DataRecording::Dash) => {
+    //                     markers.push(i);
+    //                 }
+    //                 (DataRecording::Recording(..), DataRecording::Art) => {
+    //                     markers.push(i);
+    //                 }
+    //                 (DataRecording::Recording(..), DataRecording::Brt) => {
+    //                     markers.push(i);
+    //                 }
+    //                 (DataRecording::Dash, DataRecording::Recording(..)) => {
+    //                     markers.push(i + 1);
+    //                 }
+    //                 (DataRecording::Art, DataRecording::Recording(..)) => {
+    //                     markers.push(i + 1);
+    //                 }
+    //                 (DataRecording::Brt, DataRecording::Recording(..)) => {
+    //                     markers.push(i + 1);
+    //                 }
+    //                 _ => {}
+    //             }
+    //             if i == (group_len - 1) {
+    //                 break;
+    //             }
+    //             i += 1; // do not i+2; still need to loop one-by-one
+    //         }
+    //         // for each array chunk pair[1]:
+    //         // 1. do linear interpolation
+    //         // 2. if markers is odd length, then
+    //         // 2.1 from markers[len-1] to last observation:
+    //         // 2.1.1 check there are no recordings, if so,
+    //         // 2.1.2 set all recordings from markers[len-1]+1 to last observation
+    //         //       to the value observation[markers[len-1]]
+    //         // [1] - https://play.rust-lang.org/?version=nightly&mode=debug&edition=2018&gist=75bb6330866854040404a619c09c04f7
+    //         let markers_slice = markers.as_slice();
+    //         for [x0usize, x1usize] in markers_slice.array_chunks::<2>() {
+    //             let x0 = *x0usize as u32;
+    //             let x1 = *x1usize as u32;
+    //             let y0 = match sorted_group[*x0usize].value {
+    //                 DataRecording::Recording(k) => k,
+    //                 _ => panic!("failed to select value"),
+    //             };
+    //             let y1 = match sorted_group[*x1usize].value {
+    //                 DataRecording::Recording(k) => k,
+    //                 _ => panic!("failed to select value"),
+    //             };
+    //             let a = y1 - y0;
+    //             let b = x1 - x0;
+    //             let m = (a as f64) / (b as f64);
 
-                for x_i in x0..x1 {
-                    if x_i == x0 {
-                        continue;
-                    }
-                    let y_i = (m * ((x_i - x0) as f64) + (y1 as f64)).round() as u32;
-                    let x_i_as_usize = x_i as usize;
-                    sorted_group[x_i_as_usize].value = DataRecording::Recording(y_i);
-                }
-            } // step 1
-              // step 2
-            let markers_len = markers.len();
-            if markers_len % 2 == 1 {
-                let mut xi = markers[markers_len - 1];
-                // step 2.1.1
-                let mut is_need_of_filling = true;
-                loop {
-                    if let DataRecording::Recording(..) = sorted_group[xi].value {
-                        is_need_of_filling = false;
-                        break;
-                    }
-                    if xi == group_len {
-                        break;
-                    }
-                    xi += 1;
-                }
-                // step 2.1.2
-                if is_need_of_filling {
-                    let k = sorted_group[markers[markers_len - 1]].value;
-                    for item in sorted_group
-                        .iter_mut()
-                        .take(group_len)
-                        .skip(markers[markers_len - 1] + 1)
-                    {
-                        item.value = k;
-                    }
-                    // for idx in (markers[markers_len-1] + 1)..group_len {
-                    //     sorted_group[idx].value = k;
-                    // }
-                }
-            }
-            output_vector.append(&mut sorted_group);
-        }
-        output_vector
-    }
+    //             for x_i in x0..x1 {
+    //                 if x_i == x0 {
+    //                     continue;
+    //                 }
+    //                 let y_i = (m * ((x_i - x0) as f64) + (y1 as f64)).round() as u32;
+    //                 let x_i_as_usize = x_i as usize;
+    //                 sorted_group[x_i_as_usize].value = DataRecording::Recording(y_i);
+    //             }
+    //         } // step 1
+    //           // step 2
+    //         let markers_len = markers.len();
+    //         if markers_len % 2 == 1 {
+    //             let mut xi = markers[markers_len - 1];
+    //             // step 2.1.1
+    //             let mut is_need_of_filling = true;
+    //             loop {
+    //                 if let DataRecording::Recording(..) = sorted_group[xi].value {
+    //                     is_need_of_filling = false;
+    //                     break;
+    //                 }
+    //                 if xi == group_len {
+    //                     break;
+    //                 }
+    //                 xi += 1;
+    //             }
+    //             // step 2.1.2
+    //             if is_need_of_filling {
+    //                 let k = sorted_group[markers[markers_len - 1]].value;
+    //                 for item in sorted_group
+    //                     .iter_mut()
+    //                     .take(group_len)
+    //                     .skip(markers[markers_len - 1] + 1)
+    //                 {
+    //                     item.value = k;
+    //                 }
+    //                 // for idx in (markers[markers_len-1] + 1)..group_len {
+    //                 //     sorted_group[idx].value = k;
+    //                 // }
+    //             }
+    //         }
+    //         output_vector.append(&mut sorted_group);
+    //     }
+    //     output_vector
+    // }
 
     pub fn vector_to_hashmap(
         vec_observations: Vec<Observation>,
