@@ -50,8 +50,10 @@ impl WaterLevelObservations {
                 let station_id_clone = station_id.clone();
                 let mut observations = vec_survey.clone();
                 observations.sort();
-                let start_date = observations.first().unwrap().get_tap().date_observation;
-                let end_date = observations.last().unwrap().get_tap().date_observation;
+                let first_survey = observations.first().unwrap();
+                let last_survey = observations.last().unwrap();
+                let start_date = first_survey.get_tap().date_observation;
+                let end_date = last_survey.get_tap().date_observation;
                 let mut observables = ObservableRange {
                     observations,
                     start_date,

@@ -234,6 +234,7 @@ impl Tap {
 impl Interpolate for (Survey, Survey) {
     fn interpolate_pair(self) -> Option<Vec<Survey>> {
         let start = self.0.clone();
+        let start_tap = start.get_tap();
         let end = self.1;
         let start_obs: Observation = start.clone().into();
         let end_obs: Observation = end.clone().into();
@@ -244,7 +245,14 @@ impl Interpolate for (Survey, Survey) {
         let days = (end_obs.date_observation - start_obs.date_observation).num_days();
         let capacity = (days + 1) as usize;
         let mut interpolated_surveys: Vec<Survey> = Vec::with_capacity(capacity);
-        interpolated_surveys.push(start.clone());
+        // just force a daily ovservation
+        let start_as_daily = Survey::Daily(Tap {
+            station_id: start_tap.station_id.clone(),
+            date_observation: start_tap.date_observation,
+            date_recording: start_tap.date_recording,
+            value: start_tap.value,
+        });
+        interpolated_surveys.push(start_as_daily);
         // compute linear interpolation things
         let y_n = end.get_value();
         let y_0 = start.get_value();
