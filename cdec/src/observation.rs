@@ -11,25 +11,26 @@ use reqwest::Client;
 use std::{
     cmp::Ordering,
     collections::{BTreeMap, HashMap},
+    hash::Hash,
     str,
 };
 pub const DATE_FORMAT: &str = "%Y%m%d %H%M";
 pub const YEAR_FORMAT: &str = "%Y-%m-%d";
 pub const CSV_ROW_LENGTH: usize = 9;
 
-#[derive(Debug, PartialEq, Clone, Copy)]
+#[derive(Debug, PartialEq, Clone, Copy, Hash)]
 pub enum ObservationError {
     HttpRequestError,
     HttpResponseParseError,
     ObservationCollectionError,
 }
 
-#[derive(Debug, PartialEq, Clone, Copy)]
+#[derive(Debug, PartialEq, Clone, Copy, Hash)]
 pub enum Duration {
     Daily,
     Monthly,
 }
-#[derive(Debug, PartialEq, Clone, Copy)]
+#[derive(Debug, PartialEq, Clone, Copy, Hash)]
 pub enum DataRecording {
     Brt,
     Art,
@@ -378,6 +379,16 @@ impl TryFrom<StringRecord> for Observation {
             });
         }
         Err(())
+    }
+}
+
+impl Hash for Observation {
+    fn hash<H: std::hash::Hasher>(&self, state: &mut H) {
+        self.station_id.hash(state);
+        self.date_observation.hash(state);
+        self.date_recording.hash(state);
+        self.value.hash(state);
+        self.duration.hash(state);
     }
 }
 

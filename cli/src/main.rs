@@ -1,14 +1,49 @@
 use cdec::{
-    observable::{CompressedSurveyBuilder, ObservableRange},
+    observable::{
+        CompressedSurveyBuilder, InterpolateObservableRanges, MonthDatum, ObservableRange,
+    },
     reservoir::Reservoir,
     survey::CompressedStringRecord,
 };
-use chrono::{format::ParseError, Local, NaiveDate};
+use chrono::{format::ParseError, DateTime, Local, NaiveDate, Utc};
 use clap::{Parser, Subcommand};
-use csv::Writer;
-use futures::future::join_all;
+use csv::{StringRecord, Writer};
+use easy_cast::Cast;
+use futures::{FutureExt, future::join_all};
+use log::{info, Level, LevelFilter, Metadata, Record};
 use reqwest::Client;
-use std::{io::Write, path::PathBuf, process, str::FromStr};
+use std::{
+    collections::HashSet,
+    collections::{BTreeMap, HashMap},
+    io::Write,
+    path::PathBuf,
+    process,
+    str::FromStr,
+};
+
+static MY_LOGGER: MyLogger = MyLogger;
+
+struct MyLogger;
+
+impl log::Log for MyLogger {
+    fn enabled(&self, metadata: &Metadata) -> bool {
+        metadata.level() <= Level::Info
+    }
+
+    fn log(&self, record: &Record) {
+        let now: DateTime<Utc> = Utc::now();
+        if self.enabled(record.metadata()) {
+            println!(
+                "[{}]{} - {}",
+                now.to_rfc3339(),
+                record.level(),
+                record.args()
+            );
+        }
+    }
+    fn flush(&self) {}
+}
+
 const DEFAULT_OUTPUT_PATH: &str = "output.tar.xz";
 
 #[derive(Parser)]
@@ -41,43 +76,105 @@ enum Commands {
         output: Option<PathBuf>,
         start_date: Option<String>,
         end_date: Option<String>,
+        #[arg(short, long)]
+        summation: bool,
     },
 }
 
-async fn run_csv(start_date: &NaiveDate, end_date: &NaiveDate) -> String {
+async fn get_surveys_of_reservoirs(
+    start_date: &NaiveDate,
+    end_date: &NaiveDate,
+) -> Vec<ObservableRange> {
     // 1. get observations from date range
     let reservoirs = Reservoir::get_reservoir_vector();
     let client = Client::new();
-    let mut all_reservoir_observations = join_all(reservoirs.into_iter().map(|reservoir| {
+    let surveys = join_all(reservoirs.into_iter().filter_map(|reservoir| {
         let client_ref = &client;
         let start_date_ref = start_date;
         let end_date_ref = end_date;
         async move {
             reservoir
-                .get_surveys(client_ref, start_date_ref, end_date_ref)
+                .get_surveys_v2(client_ref, start_date_ref, end_date_ref)
                 .await
         }
     }))
     .await;
+    surveys
+}
+
+async fn run_csv_v2(start_date: &NaiveDate, end_date: &NaiveDate) -> String {
+    let reservoirs: HashMap<String, Reservoir> = Reservoir::get_reservoir_vector()
+        .iter()
+        .map(|res| {
+            let station = res.station_id.clone();
+            let res_copy = res.clone();
+            (station, res_copy)
+        })
+        .into_iter()
+        .collect();
+    info!("Reservoirs Loaded");
+    let mut all_reservoir_observations = get_surveys_of_reservoirs(start_date, end_date).await;
+    info!("Observations Downloaded");
+    all_reservoir_observations.interpolate_reservoir_observations();
+    info!("Observations Interpolated and Sorted");
+    // TODO: Cargo clippy; test if interpolate_reservoir_obserfvation does pad ending and einterpolation well
+    let mut california_water_level_observations: BTreeMap<NaiveDate, f64> = BTreeMap::new();
+    for observable_range in all_reservoir_observations {
+        for survey in observable_range.observations {
+            let tap = survey.get_tap();
+            let date_observation = tap.date_observation;
+            let station_id = tap.station_id.clone();
+            let recording = survey.get_value();
+            let reservoir = reservoirs.get(&station_id).unwrap();
+            let reservoir_capacity: f64 = reservoir.capacity.cast();
+            let observed_value = recording.min(reservoir_capacity);
+            california_water_level_observations
+                .entry(date_observation)
+                .and_modify(|e| *e += observed_value)
+                .or_insert(observed_value);
+        }
+    }
+    info!("Observations Accumulated");
+    let mut writer = Writer::from_writer(vec![]);
+    for (date, observation) in california_water_level_observations {
+        let date_string = date.format("%Y%m%d").to_string();
+        let date_str = date_string.as_str();
+        let observation_string = observation.to_string();
+        let observation_str = observation_string.as_str();
+        let string_record = StringRecord::from(vec![date_str, observation_str]);
+        if writer
+            .write_byte_record(string_record.as_byte_record())
+            .is_err()
+        {
+            panic!("Error: writiing record failed");
+        }
+    }
+    String::from_utf8(writer.into_inner().unwrap()).unwrap()
+}
+
+async fn run_csv(start_date: &NaiveDate, end_date: &NaiveDate) -> String {
+    let mut all_reservoir_observations = get_surveys_of_reservoirs(start_date, end_date).await;
     let option_of_compressed_string_records = all_reservoir_observations
         .iter_mut()
         .map(|surveys| {
-            surveys.sort();
+            surveys.observations.sort();
             let earliest_date = {
-                if let Some(survey_first) = surveys.first() {
+                if let Some(survey_first) = surveys.observations.first() {
                     let tap = survey_first.get_tap();
                     tap.date_observation
                 } else {
                     return None;
                 }
             };
-            let last_survey = surveys.last().unwrap();
+            let last_survey = surveys.observations.last().unwrap();
             let last_tap = last_survey.get_tap();
             let most_recent_date = last_tap.date_observation;
+            let month_datum: HashSet<MonthDatum> = HashSet::new();
             let mut observable_range = ObservableRange {
-                observations: surveys.clone(),
+                observations: surveys.observations.clone(),
                 start_date: earliest_date,
                 end_date: most_recent_date,
+                month_datum,
             };
             observable_range.retain();
             let records: Vec<CompressedStringRecord> = observable_range
@@ -109,6 +206,8 @@ async fn run_csv(start_date: &NaiveDate, end_date: &NaiveDate) -> String {
 
 #[tokio::main]
 async fn main() {
+    log::set_logger(&MY_LOGGER).unwrap();
+    log::set_max_level(LevelFilter::Info);
     let args = Cli::parse();
 
     match args.command {
@@ -116,6 +215,7 @@ async fn main() {
             output,
             start_date,
             end_date,
+            summation,
         }) => {
             let file_path = match output {
                 None => {
@@ -157,12 +257,16 @@ async fn main() {
                     }
                 }
             };
-
-            let csv_out = run_csv(&start_date_final, &end_date_final).await;
+            let csv_out = if summation {
+                run_csv_v2(&start_date_final, &end_date_final).await
+            } else {
+                run_csv(&start_date_final, &end_date_final).await
+            };
             let mut fs = std::fs::File::create(file_path.as_path()).unwrap();
             if fs.write_all(csv_out.as_bytes()).is_err() {
                 panic!("writing csv file failed");
             }
+            info!("Observations Written to CSV");
         }
         None => panic!("must specify a subcommand!"),
     }

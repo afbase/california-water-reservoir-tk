@@ -1,11 +1,11 @@
 use crate::{
-    observable::Observable,
+    observable::{MonthDatum, Observable},
     observation::{DataRecording, Duration, Observation},
 };
 use chrono::NaiveDate;
 use csv::StringRecord;
 use easy_cast::Cast;
-use std::{cmp::Ordering, convert::From};
+use std::{cmp::Ordering, convert::From, hash::Hash};
 
 // Survey and Tap are not great names but out of a need to have a name
 // Survey originates from a google search for synonomym of Observation
@@ -14,7 +14,7 @@ use std::{cmp::Ordering, convert::From};
 // be a meme for these types of situations:
 // https://www.youtube.com/watch?v=xaILTs-_1z4
 
-#[derive(Debug, Clone, PartialEq)]
+#[derive(Debug, Clone)]
 pub struct Tap {
     pub station_id: String,
     pub date_observation: NaiveDate,
@@ -27,6 +27,10 @@ pub enum Survey {
     Daily(Tap),
     Monthly(Tap),
 }
+
+pub type DailySurvey = Survey;
+
+pub type MonthlySurvey = Survey;
 
 pub struct CompressedStringRecord(pub StringRecord);
 
@@ -133,8 +137,18 @@ impl From<CompressedStringRecord> for Survey {
     fn from(value: CompressedStringRecord) -> Self {
         let station = value.0.get(0).unwrap();
         let duration = value.0.get(1).unwrap();
-        let date_observation =
-            NaiveDate::parse_from_str("%Y%m%d", value.0.get(3).unwrap()).unwrap();
+        let date_string = value.0.get(2).unwrap();
+        let date_observation = {
+            match NaiveDate::parse_from_str(date_string, "%Y%m%d") {
+                Ok(naive_date) => naive_date,
+                Err(_oi) => {
+                    panic!(
+                        "Date Parse Error: {} failed for {} station on duration {} ",
+                        date_string, station, duration
+                    );
+                }
+            }
+        };
         let date_recording = date_observation;
         let recording = match value.0.get(3).unwrap() {
             "ART" => DataRecording::Art,
@@ -231,6 +245,13 @@ impl Tap {
     }
 }
 
+impl Hash for Tap {
+    fn hash<H: std::hash::Hasher>(&self, state: &mut H) {
+        self.station_id.hash(state);
+        self.date_observation.hash(state);
+    }
+}
+
 impl Interpolate for (Survey, Survey) {
     fn interpolate_pair(self) -> Option<Vec<Survey>> {
         let start = self.0.clone();
@@ -278,6 +299,11 @@ impl Interpolate for (Survey, Survey) {
 }
 
 impl Survey {
+    pub fn as_month_datum(&self) -> MonthDatum {
+        let tap = self.get_tap();
+        let date = tap.date_observation;
+        MonthDatum::from(date)
+    }
     pub fn get_tap(&self) -> &Tap {
         match self {
             Survey::Daily(t) => t,
@@ -325,6 +351,13 @@ impl PartialEq for Survey {
 impl PartialOrd for Survey {
     fn partial_cmp(&self, other: &Self) -> Option<Ordering> {
         Some(self.cmp(other))
+    }
+}
+
+impl Hash for Survey {
+    fn hash<H: std::hash::Hasher>(&self, state: &mut H) {
+        let tap = self.get_tap();
+        tap.hash(state)
     }
 }
 
@@ -462,7 +495,7 @@ mod test {
     }
 
     #[test]
-    fn interpolate_a_pair() {
+    fn interpolate_a_pair_0() {
         let station_id = String::new();
         let date_0 = NaiveDate::from_ymd_opt(2022, 11, 12).unwrap();
         let date_1 = NaiveDate::from_ymd_opt(2022, 11, 17).unwrap();
@@ -488,6 +521,37 @@ mod test {
             DataRecording::Recording(14),
             DataRecording::Recording(16),
         ];
+        let actual_surveys = (start, end).interpolate_pair().unwrap();
+        let actual: Vec<DataRecording> = actual_surveys
+            .into_iter()
+            .map(|x| {
+                let k: Observation = x.into();
+                k.value
+            })
+            .collect::<Vec<_>>();
+        assert_eq!(actual, expected);
+    }
+
+    #[test]
+    fn interpolate_a_pair_1_trivial() {
+        let station_id = String::new();
+        let date_0 = NaiveDate::from_ymd_opt(2022, 11, 12).unwrap();
+        let date_1 = NaiveDate::from_ymd_opt(2022, 11, 13).unwrap();
+        let value_0 = DataRecording::Recording(7);
+        let value_1 = DataRecording::Recording(16);
+        let start = Survey::Daily(Tap {
+            station_id,
+            date_observation: date_0,
+            date_recording: date_0,
+            value: value_0,
+        });
+        let end = Survey::Daily(Tap {
+            station_id: String::new(),
+            date_observation: date_1,
+            date_recording: date_1,
+            value: value_1,
+        });
+        let expected = vec![DataRecording::Recording(7), DataRecording::Recording(16)];
         let actual_surveys = (start, end).interpolate_pair().unwrap();
         let actual: Vec<DataRecording> = actual_surveys
             .into_iter()

@@ -1,5 +1,5 @@
 use cdec::{
-    observable::{CompressedSurveyBuilder, ObservableRange},
+    observable::{CompressedSurveyBuilder, MonthDatum, ObservableRange},
     observation::{DataRecording, Observation},
     reservoir::Reservoir,
     survey::Survey,
@@ -7,6 +7,7 @@ use cdec::{
 };
 use chrono::NaiveDate;
 use itertools::Itertools;
+use std::collections::HashSet;
 use std::collections::{BTreeMap, HashMap};
 
 pub struct WaterLevelObservations {
@@ -18,6 +19,10 @@ pub struct WaterLevelObservations {
 }
 
 impl WaterLevelObservations {
+    /// this assumes everything has been tallied up already into total reservoir per day
+    pub fn init_from_lzma_v2() -> Self {
+        todo!()
+    }
     pub fn init_from_lzma() -> Self {
         let reservoirs: HashMap<String, Reservoir> = Reservoir::get_reservoir_vector()
             .iter()
@@ -54,10 +59,12 @@ impl WaterLevelObservations {
                 let last_survey = observations.last().unwrap();
                 let start_date = first_survey.get_tap().date_observation;
                 let end_date = last_survey.get_tap().date_observation;
+                let month_datum: HashSet<MonthDatum> = HashSet::new();
                 let mut observables = ObservableRange {
                     observations,
                     start_date,
                     end_date,
+                    month_datum,
                 };
                 observables.retain();
                 observables.finalize();
