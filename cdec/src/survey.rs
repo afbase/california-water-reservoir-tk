@@ -264,8 +264,8 @@ impl Interpolate for (Survey, Survey) {
             return None;
         }
         let days = (end_obs.date_observation - start_obs.date_observation).num_days();
-        let capacity = (days + 1) as usize;
-        let mut interpolated_surveys: Vec<Survey> = Vec::with_capacity(capacity);
+        let _capacity = (days + 1) as usize;
+        let mut interpolated_surveys: Vec<Survey> = Vec::new();
         // just force a daily ovservation
         let start_as_daily = Survey::Daily(Tap {
             station_id: start_tap.station_id.clone(),

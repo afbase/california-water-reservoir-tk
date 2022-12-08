@@ -212,7 +212,10 @@ impl InterpolateObservableRanges for Vec<ObservableRange> {
                 .num_days()
                 + 1) as usize;
             let observation_clone = reservoir_observable_range.observations.clone();
-            let mut reservoir_survey_hashset = HashSet::with_capacity(capacity);
+            let survey_data = reservoir_observable_range.observations.first().unwrap();
+            let tap_data = survey_data.get_tap();
+            println!("HashSet Capacity for {} is {}", tap_data.station_id, capacity);
+            let mut reservoir_survey_hashset = HashSet::new();
             // interpolate
             let surveys_slice = observation_clone.as_slice();
             let windows = surveys_slice.windows(2);
@@ -250,7 +253,11 @@ impl InterpolateObservableRanges for Vec<ObservableRange> {
                     hash_set_as_vec.push(tmp_survey);
                 }
                 hash_set_as_vec.sort();
+                println!("This has {} entries", hash_set_as_vec.len());
                 reservoir_observable_range.observations = hash_set_as_vec;
+            } else {
+                println!("This has {} entries", reservoir_survey_hashset.len());
+                reservoir_observable_range.observations = reservoir_survey_hashset.into_iter().collect::<Vec<_>>();
             }
         }
     }

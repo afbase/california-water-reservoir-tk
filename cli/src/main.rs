@@ -9,7 +9,7 @@ use chrono::{format::ParseError, DateTime, Local, NaiveDate, Utc};
 use clap::{Parser, Subcommand};
 use csv::{StringRecord, Writer};
 use easy_cast::Cast;
-use futures::{FutureExt, future::join_all};
+use futures::future::join_all;
 use log::{info, Level, LevelFilter, Metadata, Record};
 use reqwest::Client;
 use std::{
@@ -88,7 +88,7 @@ async fn get_surveys_of_reservoirs(
     // 1. get observations from date range
     let reservoirs = Reservoir::get_reservoir_vector();
     let client = Client::new();
-    let surveys = join_all(reservoirs.into_iter().filter_map(|reservoir| {
+    let surveys = join_all(reservoirs.into_iter().map(|reservoir| {
         let client_ref = &client;
         let start_date_ref = start_date;
         let end_date_ref = end_date;
@@ -99,7 +99,7 @@ async fn get_surveys_of_reservoirs(
         }
     }))
     .await;
-    surveys
+    surveys.into_iter().flatten().collect::<Vec<_>>()
 }
 
 async fn run_csv_v2(start_date: &NaiveDate, end_date: &NaiveDate) -> String {
@@ -116,8 +116,8 @@ async fn run_csv_v2(start_date: &NaiveDate, end_date: &NaiveDate) -> String {
     let mut all_reservoir_observations = get_surveys_of_reservoirs(start_date, end_date).await;
     info!("Observations Downloaded");
     all_reservoir_observations.interpolate_reservoir_observations();
+    // TODO: Fix why output.csv has not observations
     info!("Observations Interpolated and Sorted");
-    // TODO: Cargo clippy; test if interpolate_reservoir_obserfvation does pad ending and einterpolation well
     let mut california_water_level_observations: BTreeMap<NaiveDate, f64> = BTreeMap::new();
     for observable_range in all_reservoir_observations {
         for survey in observable_range.observations {
