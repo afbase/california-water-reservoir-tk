@@ -1,7 +1,7 @@
 use crate::{
     compression::{decompress_tar_file_to_csv_string, TAR_OBJECT},
     reservoir::Reservoir,
-    survey::CompressedStringRecord,
+    survey::{CompressedStringRecord, CumulativeSummedStringRecord},
 };
 use chrono::naive::NaiveDate;
 use core::result::Result;
@@ -48,6 +48,19 @@ pub struct Observation {
 }
 
 impl Observation {
+    pub fn get_all_records_v2() -> Vec<CumulativeSummedStringRecord> {
+        let bytes_of_csv_string = decompress_tar_file_to_csv_string(TAR_OBJECT);
+        csv::ReaderBuilder::new()
+            .has_headers(false)
+            .from_reader(bytes_of_csv_string.as_slice())
+            .records()
+            .map(|x| {
+                let a = x.expect("failed record parse");
+                CumulativeSummedStringRecord(a)
+            })
+            .collect::<Vec<_>>()
+    }
+
     pub fn get_all_records() -> Vec<CompressedStringRecord> {
         let bytes_of_csv_string = decompress_tar_file_to_csv_string(TAR_OBJECT);
         csv::ReaderBuilder::new()

@@ -34,8 +34,6 @@ mod test {
         let output = decompress_tar_file_to_csv_string(TAR_TEST_OBJECT);
         let mut hasher = Sha3_384::new();
         let bytes = output.as_slice();
-        // let strs = std::str::from_utf8(bytes).unwrap();
-        // println!("{:?}", strs);
         hasher.update(bytes);
         let result = hasher.finalize();
         assert_eq!(result[..], hex!("35f323d919c0c9ef3bd00f2421c28195506eb67cc971e7a9e3529742337ffdff3636ce839035fa273d90301245fff39d"));

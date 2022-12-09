@@ -118,48 +118,25 @@ impl Reservoir {
         let monthly_observables = self.get_monthly_surveys(client, start_date, end_date).await;
         match (daily_observables, monthly_observables) {
             (Some(mut daily), Some(monthly)) => {
-                println!("{}","Both");
                 for survey in monthly.observations {
                     let monthly_datum = survey.as_month_datum();
-                    let is_monthly_datum_in_dailies =
-                        daily.month_datum.contains(&monthly_datum);
+                    let is_monthly_datum_in_dailies = daily.month_datum.contains(&monthly_datum);
                     if !is_monthly_datum_in_dailies {
                         daily.observations.push(survey);
                     }
                 }
                 Some(daily)
-            },
+            }
             (Some(daily), None) => {
-                println!("{}","daily only");
                 Some(daily)
-            },
+            }
             (None, Some(monthly)) => {
-                println!("{}","montly only");
                 Some(monthly)
-            },
+            }
             (None, None) => {
-                println!("{}","hey wait a tick");
                 None
             }
-        };
-        // if let Some(mut daily_observables) =
-        //     self.get_daily_surveys(client, start_date, end_date).await
-        // {
-        //     if let Some(monthly_observables) =
-        //         self.get_monthly_surveys(client, start_date, end_date).await
-        //     {
-        //         for survey in monthly_observables.observations {
-        //             let monthly_datum = survey.as_month_datum();
-        //             let is_monthly_datum_in_dailies =
-        //                 daily_observables.month_datum.contains(&monthly_datum);
-        //             if !is_monthly_datum_in_dailies {
-        //                 daily_observables.observations.push(survey);
-        //             }
-        //         }
-        //         return Some(daily_observables);
-        //     }
-        // }
-        None 
+        }
     }
 
     pub async fn get_surveys(
@@ -222,7 +199,6 @@ impl Reservoir {
             .from_reader(CSV_OBJECT.as_bytes());
         for row in rdr.records() {
             let rho = row?;
-            // println!("{}", rho.as_slice());
             let capacity = Reservoir::parse_int(rho.get(4).unwrap_or_else(get_default_capacity));
             let fill_year = Reservoir::parse_int(rho.get(5).unwrap_or_else(get_default_year));
             let reservoir = Reservoir {

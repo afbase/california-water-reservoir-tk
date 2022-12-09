@@ -191,7 +191,7 @@ impl Component for ObservationsModel {
     type Message = DateChangeEvent;
     type Properties = ();
     fn create(_ctx: &Context<Self>) -> Self {
-        let w = WaterLevelObservations::init_from_lzma();
+        let w = WaterLevelObservations::init_from_lzma_v2();
         Self {
             observations: w.observations,
             start_date: w.start_date,
@@ -306,16 +306,6 @@ impl Component for ObservationsModel {
                 {svg_vnode}
             </div>
         }
-        // let svg_html = ObservationsModel::svg_html(
-        //     self,
-        //     &mut svg_inner,
-        //     &start_date,
-        //     &end_date,
-        //     &start_date_change_callback,
-        //     &end_date_change_callback,
-        // );
-        // let table_html = ObservationsModel::calculus_table_html(self, &start_date, &end_date);
-        // svg_html.unwrap()
     }
 }
 

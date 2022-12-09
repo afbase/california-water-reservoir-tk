@@ -28,14 +28,39 @@ pub enum Survey {
     Monthly(Tap),
 }
 
+pub const YEAR_FORMAT: &str = "%Y%m%d";
+
 pub type DailySurvey = Survey;
 
 pub type MonthlySurvey = Survey;
 
 pub struct CompressedStringRecord(pub StringRecord);
+pub struct CumulativeSummedStringRecord(pub StringRecord);
 
 pub trait VectorCompressedStringRecord {
     fn records_to_surveys(self) -> Vec<Survey>;
+}
+
+pub trait VectorCumulativeSummedStringRecord {
+    fn records_to_tuples(self) -> Vec<(NaiveDate, u32)>;
+}
+impl VectorCumulativeSummedStringRecord for Vec<CumulativeSummedStringRecord> {
+    fn records_to_tuples(self) -> Vec<(NaiveDate, u32)> {
+        self.iter()
+            .flat_map(|cumulative| {
+                let date_string_option = cumulative.0.get(0);
+                let record_string_option = cumulative.0.get(1);
+                match (date_string_option, record_string_option) {
+                    (Some(date_string), Some(record_string)) => {
+                        let date = NaiveDate::parse_from_str(date_string, YEAR_FORMAT).unwrap();
+                        let record: u32 = record_string.parse().unwrap();
+                        Some((date, record))
+                    }
+                    (_, _) => None,
+                }
+            })
+            .collect::<Vec<_>>()
+    }
 }
 
 impl VectorCompressedStringRecord for Vec<CompressedStringRecord> {

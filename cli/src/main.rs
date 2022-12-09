@@ -112,11 +112,15 @@ async fn run_csv_v2(start_date: &NaiveDate, end_date: &NaiveDate) -> String {
         })
         .into_iter()
         .collect();
-    info!("Reservoirs Loaded");
+    info!("{} Reservoirs Loaded", reservoirs.len());
     let mut all_reservoir_observations = get_surveys_of_reservoirs(start_date, end_date).await;
+    info!("Surveyed Reseroirs: {}", all_reservoir_observations.len());
     info!("Observations Downloaded");
     all_reservoir_observations.interpolate_reservoir_observations();
-    // TODO: Fix why output.csv has not observations
+    info!(
+        "Interpolated Reseroirs: {}",
+        all_reservoir_observations.len()
+    );
     info!("Observations Interpolated and Sorted");
     let mut california_water_level_observations: BTreeMap<NaiveDate, f64> = BTreeMap::new();
     for observable_range in all_reservoir_observations {
