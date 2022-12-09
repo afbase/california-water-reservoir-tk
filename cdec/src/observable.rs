@@ -212,12 +212,6 @@ impl InterpolateObservableRanges for Vec<ObservableRange> {
                 .num_days()
                 + 1) as usize;
             let observation_clone = reservoir_observable_range.observations.clone();
-            let survey_data = reservoir_observable_range.observations.first().unwrap();
-            let tap_data = survey_data.get_tap();
-            println!(
-                "HashSet Capacity for {} is {}",
-                tap_data.station_id, capacity
-            );
             let mut reservoir_survey_hashset = HashSet::new();
             // interpolate
             let surveys_slice = observation_clone.as_slice();

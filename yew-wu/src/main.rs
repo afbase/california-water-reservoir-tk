@@ -269,8 +269,6 @@ impl Component for ObservationsModel {
         let end_date = self.end_date;
         let mut svg_inner = String::new();
         let _svg_result = ObservationsModel::generate_svg(self, &mut svg_inner);
-        let console_log = format!("{} {}", "SVG_INNER:", svg_inner);
-        string_log(console_log);
         let svg_vnode = web_sys::window()
             .and_then(|window| window.document())
             .map_or_else(
