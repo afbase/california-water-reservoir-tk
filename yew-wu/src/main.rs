@@ -56,7 +56,7 @@ fn generic_callback(_event: Event, event_is_end: bool, dom_id_str: &str) -> Date
             || {
                 let log_string = "window document object not found.".to_string();
                 string_log(log_string);
-                NaiveDate::from_ymd(1992, 3, 26)
+                NaiveDate::from_ymd_opt(1992, 3, 26).unwrap()
             },
             |document| match document.get_element_by_id(dom_id_str) {
                 Some(input) => {
@@ -70,7 +70,7 @@ fn generic_callback(_event: Event, event_is_end: bool, dom_id_str: &str) -> Date
                 None => {
                     let log_string = format!("{} {}", dom_id_str, "dom object not found.");
                     string_log(log_string);
-                    NaiveDate::from_ymd(1999, 1, 1)
+                    NaiveDate::from_ymd_opt(1999, 1, 1).unwrap()
                 }
             },
         );
@@ -191,7 +191,7 @@ impl Component for ObservationsModel {
     type Message = DateChangeEvent;
     type Properties = ();
     fn create(_ctx: &Context<Self>) -> Self {
-        let w = WaterLevelObservations::init_from_lzma();
+        let w = WaterLevelObservations::init_from_lzma_v2();
         Self {
             observations: w.observations,
             start_date: w.start_date,
@@ -269,8 +269,6 @@ impl Component for ObservationsModel {
         let end_date = self.end_date;
         let mut svg_inner = String::new();
         let _svg_result = ObservationsModel::generate_svg(self, &mut svg_inner);
-        let console_log = format!("{} {}", "SVG_INNER:", svg_inner);
-        string_log(console_log);
         let svg_vnode = web_sys::window()
             .and_then(|window| window.document())
             .map_or_else(
@@ -306,16 +304,6 @@ impl Component for ObservationsModel {
                 {svg_vnode}
             </div>
         }
-        // let svg_html = ObservationsModel::svg_html(
-        //     self,
-        //     &mut svg_inner,
-        //     &start_date,
-        //     &end_date,
-        //     &start_date_change_callback,
-        //     &end_date_change_callback,
-        // );
-        // let table_html = ObservationsModel::calculus_table_html(self, &start_date, &end_date);
-        // svg_html.unwrap()
     }
 }
 
