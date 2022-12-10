@@ -12,8 +12,6 @@ use easy_cast::Cast;
 use futures::future::join_all;
 use log::{info, Level, LevelFilter, Metadata, Record};
 use reqwest::Client;
-use reqwest_middleware::ClientBuilder;
-use reqwest_retry::{policies::ExponentialBackoff, RetryTransientMiddleware};
 use std::{
     collections::HashSet,
     collections::{BTreeMap, HashMap},
