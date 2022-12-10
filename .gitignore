@@ -12,3 +12,4 @@ Cargo.lock
 .vscode/
 fixtures/output.*
 /yew-wu/dist
+/supply-chain/
