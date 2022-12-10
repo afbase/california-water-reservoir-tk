@@ -12,6 +12,8 @@ use easy_cast::Cast;
 use futures::future::join_all;
 use log::{info, Level, LevelFilter, Metadata, Record};
 use reqwest::Client;
+use reqwest_middleware::ClientBuilder;
+use reqwest_retry::{policies::ExponentialBackoff, RetryTransientMiddleware};
 use std::{
     collections::HashSet,
     collections::{BTreeMap, HashMap},
@@ -20,7 +22,6 @@ use std::{
     process,
     str::FromStr,
 };
-
 static MY_LOGGER: MyLogger = MyLogger;
 
 struct MyLogger;
@@ -34,7 +35,7 @@ impl log::Log for MyLogger {
         let now: DateTime<Utc> = Utc::now();
         if self.enabled(record.metadata()) {
             println!(
-                "[{}]{} - {}",
+                "[{}] {} - {}",
                 now.to_rfc3339(),
                 record.level(),
                 record.args()
@@ -62,7 +63,7 @@ struct Cli {
 
 fn date_error(date_type: String, err: ParseError) {
     let err_kind = err.kind();
-    eprintln!("{} Date Error: {:?}", date_type, err_kind);
+    eprintln!("{date_type} Date Error: {err_kind:?}");
     eprintln!("Date must be of YYYY-MM-DD format");
     process::exit(1);
 }
@@ -150,7 +151,7 @@ async fn run_csv_v2(start_date: &NaiveDate, end_date: &NaiveDate) -> String {
             .write_byte_record(string_record.as_byte_record())
             .is_err()
         {
-            panic!("Error: writiing record failed");
+            panic!("Error: writing record failed");
         }
     }
     String::from_utf8(writer.into_inner().unwrap()).unwrap()

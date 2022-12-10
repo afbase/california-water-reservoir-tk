@@ -127,15 +127,9 @@ impl Reservoir {
                 }
                 Some(daily)
             }
-            (Some(daily), None) => {
-                Some(daily)
-            }
-            (None, Some(monthly)) => {
-                Some(monthly)
-            }
-            (None, None) => {
-                None
-            }
+            (Some(daily), None) => Some(daily),
+            (None, Some(monthly)) => Some(monthly),
+            (None, None) => None,
         }
     }
 

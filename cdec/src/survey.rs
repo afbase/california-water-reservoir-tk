@@ -167,10 +167,7 @@ impl From<CompressedStringRecord> for Survey {
             match NaiveDate::parse_from_str(date_string, "%Y%m%d") {
                 Ok(naive_date) => naive_date,
                 Err(_oi) => {
-                    panic!(
-                        "Date Parse Error: {} failed for {} station on duration {} ",
-                        date_string, station, duration
-                    );
+                    panic!("Date Parse Error: {date_string} failed for {station} station on duration {duration} ");
                 }
             }
         };
