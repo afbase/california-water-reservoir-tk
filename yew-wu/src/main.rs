@@ -39,11 +39,6 @@ pub enum DateChangeEvent {
     EndDateUpdated(NaiveDate),
 }
 
-// #[derive(Debug)]
-// enum SvgHtmlError {
-//     GenericError(Html)
-// }
-
 fn string_log(log_string: String) {
     let log_js_string: JsString = log_string.into();
     gloo_log!(log_js_string);
@@ -344,5 +339,6 @@ fn main() {
                 }
             },
         );
-    yew::start_app_in_element::<ObservationsModel>(div_element);
+    let renderer = yew::Renderer::<ObservationsModel>::with_root(div_element);
+    renderer.render();
 }

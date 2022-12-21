@@ -5,3 +5,4 @@ pub mod observable;
 pub mod observation;
 pub mod reservoir;
 pub mod survey;
+pub mod water_year;

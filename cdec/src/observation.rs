@@ -1,5 +1,5 @@
 use crate::{
-    compression::{decompress_tar_file_to_csv_string, TAR_OBJECT},
+    compression::{decompress_tar_file_to_csv_string, CUMULATIVE_OBJECT, OBSERVATIONS_OBJECT},
     reservoir::Reservoir,
     survey::{CompressedStringRecord, CumulativeSummedStringRecord},
 };
@@ -49,7 +49,7 @@ pub struct Observation {
 
 impl Observation {
     pub fn get_all_records_v2() -> Vec<CumulativeSummedStringRecord> {
-        let bytes_of_csv_string = decompress_tar_file_to_csv_string(TAR_OBJECT);
+        let bytes_of_csv_string = decompress_tar_file_to_csv_string(CUMULATIVE_OBJECT);
         csv::ReaderBuilder::new()
             .has_headers(false)
             .from_reader(bytes_of_csv_string.as_slice())
@@ -62,7 +62,7 @@ impl Observation {
     }
 
     pub fn get_all_records() -> Vec<CompressedStringRecord> {
-        let bytes_of_csv_string = decompress_tar_file_to_csv_string(TAR_OBJECT);
+        let bytes_of_csv_string = decompress_tar_file_to_csv_string(OBSERVATIONS_OBJECT);
         csv::ReaderBuilder::new()
             .has_headers(false)
             .from_reader(bytes_of_csv_string.as_slice())
@@ -204,145 +204,6 @@ impl Observation {
             .collect::<Vec<StringRecord>>();
         Ok(records)
     }
-    /// Suppose we have gaps in our observations, e.g.:
-    ///
-    /// SHA,D,15,STORAGE,19850101 0000,19850101 0000,1543200,,AF
-    /// SHA,D,15,STORAGE,19850102 0000,19850102 0000,---,,AF
-    /// SHA,D,15,STORAGE,19850103 0000,19850103 0000,---,,AF
-    /// SHA,D,15,STORAGE,19850104 0000,19850104 0000,---,,AF
-    /// SHA,D,15,STORAGE,19850105 0000,19850105 0000,---,,AF
-    /// SHA,D,15,STORAGE,19850106 0000,19850106 0000,1694200,,AF
-    ///
-    /// `smooth_observations` does a linear interpolation of the
-    /// missing observations.
-    ///
-    /// From the example above, it becomes:
-    /// SHA,D,15,STORAGE,19850101 0000,19850101 0000,1543200,,AF
-    /// SHA,D,15,STORAGE,19850102 0000,19850102 0000,1573400,,AF
-    /// SHA,D,15,STORAGE,19850103 0000,19850103 0000,1603600,,AF
-    /// SHA,D,15,STORAGE,19850104 0000,19850104 0000,1633800,,AF
-    /// SHA,D,15,STORAGE,19850105 0000,19850105 0000,1664000,,AF
-    /// SHA,D,15,STORAGE,19850106 0000,19850106 0000,1694200,,AF
-    // pub fn smooth_observations(vec_records: &mut Vec<Observation>) -> Vec<Observation> {
-    //     let mut output_vector: Vec<Observation> = Vec::with_capacity(vec_records.len());
-    //     let observations_grouped_by_station_id = vec_records
-    //         .as_slice()
-    //         .group_by(|a, b| a.station_id == b.station_id);
-    //     // this for loop does two things:
-    //     // 1. Smoothy smoothy things by reservoir
-    //     // 2. places smoothed observations by reservoir into output_vector
-    //     for group in observations_grouped_by_station_id {
-    //         let mut sorted_group = Vec::from(group);
-    //         // sorting is the key step into the next flow
-    //         sorted_group.sort();
-    //         let group_len = group.len();
-    //         let mut markers: Vec<usize> = Vec::new();
-    //         let mut i: usize = 0;
-    //         // for the ith and (i+1)th element,
-    //         // 1. if ith element is a value and
-    //         //    (i+1)th is not, mark i
-    //         // 2. if not then ith element is
-    //         //    some error.  if (i+1)th
-    //         //    element is a value, then mark
-    //         //    (i+1)
-    //         loop {
-    //             let observation = &sorted_group[i];
-    //             let next_observation = &sorted_group[i + 1];
-    //             match (observation.value, next_observation.value) {
-    //                 (DataRecording::Recording(..), DataRecording::Dash) => {
-    //                     markers.push(i);
-    //                 }
-    //                 (DataRecording::Recording(..), DataRecording::Art) => {
-    //                     markers.push(i);
-    //                 }
-    //                 (DataRecording::Recording(..), DataRecording::Brt) => {
-    //                     markers.push(i);
-    //                 }
-    //                 (DataRecording::Dash, DataRecording::Recording(..)) => {
-    //                     markers.push(i + 1);
-    //                 }
-    //                 (DataRecording::Art, DataRecording::Recording(..)) => {
-    //                     markers.push(i + 1);
-    //                 }
-    //                 (DataRecording::Brt, DataRecording::Recording(..)) => {
-    //                     markers.push(i + 1);
-    //                 }
-    //                 _ => {}
-    //             }
-    //             if i == (group_len - 1) {
-    //                 break;
-    //             }
-    //             i += 1; // do not i+2; still need to loop one-by-one
-    //         }
-    //         // for each array chunk pair[1]:
-    //         // 1. do linear interpolation
-    //         // 2. if markers is odd length, then
-    //         // 2.1 from markers[len-1] to last observation:
-    //         // 2.1.1 check there are no recordings, if so,
-    //         // 2.1.2 set all recordings from markers[len-1]+1 to last observation
-    //         //       to the value observation[markers[len-1]]
-    //         // [1] - https://play.rust-lang.org/?version=nightly&mode=debug&edition=2018&gist=75bb6330866854040404a619c09c04f7
-    //         let markers_slice = markers.as_slice();
-    //         for [x0usize, x1usize] in markers_slice.array_chunks::<2>() {
-    //             let x0 = *x0usize as u32;
-    //             let x1 = *x1usize as u32;
-    //             let y0 = match sorted_group[*x0usize].value {
-    //                 DataRecording::Recording(k) => k,
-    //                 _ => panic!("failed to select value"),
-    //             };
-    //             let y1 = match sorted_group[*x1usize].value {
-    //                 DataRecording::Recording(k) => k,
-    //                 _ => panic!("failed to select value"),
-    //             };
-    //             let a = y1 - y0;
-    //             let b = x1 - x0;
-    //             let m = (a as f64) / (b as f64);
-
-    //             for x_i in x0..x1 {
-    //                 if x_i == x0 {
-    //                     continue;
-    //                 }
-    //                 let y_i = (m * ((x_i - x0) as f64) + (y1 as f64)).round() as u32;
-    //                 let x_i_as_usize = x_i as usize;
-    //                 sorted_group[x_i_as_usize].value = DataRecording::Recording(y_i);
-    //             }
-    //         } // step 1
-    //           // step 2
-    //         let markers_len = markers.len();
-    //         if markers_len % 2 == 1 {
-    //             let mut xi = markers[markers_len - 1];
-    //             // step 2.1.1
-    //             let mut is_need_of_filling = true;
-    //             loop {
-    //                 if let DataRecording::Recording(..) = sorted_group[xi].value {
-    //                     is_need_of_filling = false;
-    //                     break;
-    //                 }
-    //                 if xi == group_len {
-    //                     break;
-    //                 }
-    //                 xi += 1;
-    //             }
-    //             // step 2.1.2
-    //             if is_need_of_filling {
-    //                 let k = sorted_group[markers[markers_len - 1]].value;
-    //                 for item in sorted_group
-    //                     .iter_mut()
-    //                     .take(group_len)
-    //                     .skip(markers[markers_len - 1] + 1)
-    //                 {
-    //                     item.value = k;
-    //                 }
-    //                 // for idx in (markers[markers_len-1] + 1)..group_len {
-    //                 //     sorted_group[idx].value = k;
-    //                 // }
-    //             }
-    //         }
-    //         output_vector.append(&mut sorted_group);
-    //     }
-    //     output_vector
-    // }
-
     pub fn vector_to_hashmap(
         vec_observations: Vec<Observation>,
     ) -> HashMap<String, Vec<Observation>> {

@@ -1,6 +1,6 @@
 [workspace]
 
-members = ["ecco", "cdec", "cli", "yew-wu"]
+members = ["ecco", "cdec", "cli", "yew-nani", "yew-wu"]
 
 
 [profile.release]

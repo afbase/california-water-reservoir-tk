@@ -2,7 +2,7 @@ use crate::{
     observable::{MonthDatum, Observable},
     observation::{DataRecording, Duration, Observation},
 };
-use chrono::NaiveDate;
+use chrono::{NaiveDate};
 use csv::StringRecord;
 use easy_cast::Cast;
 use std::{cmp::Ordering, convert::From, hash::Hash};

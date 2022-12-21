@@ -48,6 +48,39 @@ pub struct ObservableRange {
     pub month_datum: HashSet<MonthDatum>,
 }
 
+impl From<Vec<Survey>> for ObservableRange {
+    fn from(value: Vec<Survey>) -> Self {
+        let mut working_vector = value.clone();
+        working_vector.sort();
+        let earliest_tap = working_vector[0].get_tap();
+        let vec_len = working_vector.len();
+        let most_recent_tap = working_vector[vec_len - 1].get_tap();
+        let earliest_date = earliest_tap.date_observation;
+        let most_recent_date = most_recent_tap.date_observation;
+        let mut hash_set = HashSet::new();
+        for survey in working_vector {
+            match survey {
+                Survey::Daily(tap) => {
+                    let month = tap.date_observation.month();
+                    let year = tap.date_observation.year() as u32;
+                    let _ = hash_set.insert(MonthDatum::new(year, month));
+                },
+                Survey::Monthly(tap) => {
+                    let month = tap.date_observation.month();
+                    let year = tap.date_observation.year() as u32;
+                    let _ = hash_set.insert(MonthDatum::new(year, month));
+                },
+            }
+        }
+        ObservableRange { 
+            observations: value,
+            start_date: earliest_date,
+            end_date: most_recent_date,
+            month_datum: hash_set 
+        }
+    }
+}
+
 impl CompressedSurveyBuilder for ObservableRange {
     fn new(start_date: NaiveDate, end_date: NaiveDate) -> Self {
         if end_date < start_date {

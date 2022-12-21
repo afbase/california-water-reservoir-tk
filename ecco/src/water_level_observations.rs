@@ -119,29 +119,7 @@ impl WaterLevelObservations {
                     .or_insert(observed_value);
             }
         }
-        // //build the data
-        // for observation in observations {
-        //     let res_capacity = match reservoirs.get(&observation.station_id) {
-        //         Some(r) => r.capacity as u32,
-        //         None => 0u32,
-        //     };
-        //     let observed_value = {
-        //         match observation.value {
-        //             DataRecording::Recording(v) => {
-        //                 // sometimes the data is very noisy so
-        //                 // simply choose the lesser of two values
-        //                 // either the observed value of capacity
-        //                 // of the reservoir
-        //                 v.min(res_capacity)
-        //             }
-        //             _ => 0,
-        //         }
-        //     };
-        //     california_water_level_observations
-        //         .entry(observation.date_observation)
-        //         .and_modify(|e| *e += observed_value)
-        //         .or_insert(observed_value);
-        // }
+
         let keys: Vec<NaiveDate> = california_water_level_observations
             .clone()
             .keys()
