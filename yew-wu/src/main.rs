@@ -77,53 +77,6 @@ fn generic_callback(_event: Event, event_is_end: bool, dom_id_str: &str) -> Date
 }
 
 impl<'a> ObservationsModel {
-    // pub fn calculus_table_html(
-    //     observation_model: &ObservationsModel,
-    //     start_date: &NaiveDate,
-    //     end_date: &NaiveDate
-    // ) -> Result<Html, SvgHtmlError> {
-    //     let resolution = match observation_model.len() {
-    //         0..=1 => 0,
-    //         2..=6 => 1,
-    //         7..=27 => 1,
-    //         28..=364=> 7,
-    //         _=>30
-    //     };
-    //     if resolution < 8 {
-    //         // it's not worth doing this on
-    //         // small scales
-    //         Ok(html!(
-    //             <div id="analysis-table">
-    //             </div>
-    //         ))
-    //     }
-    //     // resolution is 30 below this line
-    //     let derivative: Vec<i32> = observation_model
-    //     .observations
-    //     .iter()
-    //     .tuple_windows::<(_,_)>()
-    //     .map(|(d0, d1)| {
-    //         let obs_1 = *d1.1 as i32;
-    //         let obs_0 = *d0.1 as i32;
-    //         obs_1 - obs_0
-    //     })
-    //     .collect();
-    //     let sorted_rates: BTreeSet<i32> = derivative.iter().map(|x| *x).collect();
-    //     let min_change = sorted_rates.first().unwrap();
-    //     let max_change = sorted_rates.last().unwrap();
-
-    // }
-    // pub fn svg_html(
-    //     &self,
-    //     svg_inner: &'a mut String,
-    //     start_date: &NaiveDate,
-    //     end_date: &NaiveDate,
-    //     start_date_change_callback: &Callback<Event>,
-    //     end_date_change_callback: &Callback<Event>,
-    // ) -> Result<Html, ()> {
-
-    // }
-
     pub fn generate_svg(
         observation_model: &ObservationsModel,
         svg_inner_string: &'a mut String,
