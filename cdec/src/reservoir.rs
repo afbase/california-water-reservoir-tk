@@ -3,16 +3,11 @@ use crate::{
     observation::DataRecording,
     survey::Survey,
 };
-use chrono::{NaiveDate, Utc, DateTime};
+use chrono::NaiveDate;
 use csv::ReaderBuilder;
-use log::{info, error, Level, LevelFilter, Metadata, Record};
+use log::{error, info};
 use reqwest::Client;
-use std::{
-    collections::HashSet, 
-    include_str,
-    thread::sleep,
-    time::{Duration as StdDuration}
-};
+use std::{collections::HashSet, include_str, thread::sleep, time::Duration as StdDuration};
 
 static CSV_OBJECT: &str = include_str!("../../fixtures/capacity.csv");
 const YEAR_FORMAT: &str = "%Y-%m-%d";
@@ -26,27 +21,6 @@ pub struct Reservoir {
     pub capacity: i32,
     pub fill_year: i32,
 }
-
-// static INFO_LOGGER: InfoLogger = InfoLogger;
-// struct InfoLogger;
-// impl log::Log for InfoLogger {
-//     fn enabled(&self, metadata: &Metadata) -> bool {
-//         metadata.level() <= Level::Info
-//     }
-
-//     fn log(&self, record: &Record) {
-//         let now: DateTime<Utc> = Utc::now();
-//         if self.enabled(record.metadata()) {
-//             println!(
-//                 "[{}] {} - {}",
-//                 now.to_rfc3339(),
-//                 record.level(),
-//                 record.args()
-//             );
-//         }
-//     }
-//     fn flush(&self) {}
-// }
 
 trait StringRecordsToSurveys {
     fn response_to_surveys(&self) -> Option<ObservableRange>;
@@ -130,18 +104,23 @@ impl Reservoir {
                         }
                     }
                     match response.text().await {
-                        Ok(response_body) => 
-                        {
+                        Ok(response_body) => {
                             info!("Success for {}", self.station_id);
                             return response_body.response_to_surveys();
-                        },
+                        }
                         Err(e) => {
-                            error!("Failure to retrieve body of data for reservoir {}; {}", self.station_id, e);
-                        },
+                            error!(
+                                "Failure to retrieve body of data for reservoir {}; {}",
+                                self.station_id, e
+                            );
+                        }
                     };
                 }
                 Err(e) => {
-                    error!("Failure to make request for reservoir {}; {}", self.station_id, e);
+                    error!(
+                        "Failure to make request for reservoir {}; {}",
+                        self.station_id, e
+                    );
                 }
             }
         }

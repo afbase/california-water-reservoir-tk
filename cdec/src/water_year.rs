@@ -1,8 +1,8 @@
-use chrono::{Datelike, NaiveDate};
-use std::cmp::Ordering::{Less, Equal, Greater};
-use std::collections::HashMap;
-use crate::{observable::ObservableRange};
+use crate::observable::ObservableRange;
 use crate::survey::Survey;
+use chrono::{Datelike, NaiveDate};
+use std::cmp::Ordering::{Equal, Greater, Less};
+use std::collections::HashMap;
 /// California’s water year runs from October 1 to September 30 and is the official 12-month timeframe used by water managers to compile and compare hydrologic records.
 #[derive(Debug, Clone, PartialEq)]
 pub struct WaterYear(pub Vec<Survey>);
@@ -12,7 +12,7 @@ pub struct WaterYearStatistics {
     pub date_lowest: NaiveDate,
     pub date_highest: NaiveDate,
     pub highest_value: f64,
-    pub lowest_value: f64
+    pub lowest_value: f64,
 }
 
 impl WaterYear {
@@ -74,12 +74,12 @@ impl From<WaterYear> for WaterYearStatistics {
         let lowest_tap = lowest.get_tap();
         let highest = surveys[0].clone();
         let highest_tap = highest.get_tap();
-        WaterYearStatistics { 
-            year, 
-            date_lowest: lowest_tap.date_observation, 
-            date_highest: highest_tap.date_observation, 
-            highest_value: highest.get_value(), 
-            lowest_value: lowest.get_value()
+        WaterYearStatistics {
+            year,
+            date_lowest: lowest_tap.date_observation,
+            date_highest: highest_tap.date_observation,
+            highest_value: highest.get_value(),
+            lowest_value: lowest.get_value(),
         }
     }
 }
@@ -111,14 +111,16 @@ impl PartialOrd for WaterYearStatistics {
 
 impl PartialEq for WaterYearStatistics {
     fn eq(&self, other: &Self) -> bool {
-        self.year == other.year && self.date_lowest == other.date_lowest && self.date_highest == other.date_highest && self.highest_value == other.highest_value && self.lowest_value == other.lowest_value
+        self.year == other.year
+            && self.date_lowest == other.date_lowest
+            && self.date_highest == other.date_highest
+            && self.highest_value == other.highest_value
+            && self.lowest_value == other.lowest_value
     }
 }
 
 impl Ord for WaterYearStatistics {
-
     fn cmp(&self, other: &Self) -> std::cmp::Ordering {
-
         if self.lowest_value < other.lowest_value {
             Less
         } else if self.lowest_value == other.lowest_value {
@@ -167,10 +169,10 @@ mod tests {
             end_date: d.clone(),
             month_datum: b,
         };
-    
+
         let actual = WaterYear::water_years_from_observable_range(&obs);
         let expected = vec![
-                WaterYear(vec![Survey::Daily(Tap {
+            WaterYear(vec![Survey::Daily(Tap {
                 station_id: String::new(),
                 date_observation: d_1,
                 date_recording: d_1.clone(),
@@ -184,6 +186,5 @@ mod tests {
             })]),
         ];
         assert_eq!(actual, expected);
-
     }
 }

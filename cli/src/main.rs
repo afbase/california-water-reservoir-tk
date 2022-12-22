@@ -250,7 +250,8 @@ async fn main() {
                     }
                 }
             };
-            let mut all_reservoir_observations = get_surveys_of_reservoirs(&start_date_final, &end_date_final).await;
+            let mut all_reservoir_observations =
+                get_surveys_of_reservoirs(&start_date_final, &end_date_final).await;
             info!("Observations Downloaded");
             if let Some(file_path) = summation_output {
                 let csv_out = run_csv_v2(&mut all_reservoir_observations).await;
@@ -273,7 +274,7 @@ async fn main() {
             if !file_written {
                 panic!("use -s or -r to output reservoir details");
             }
-        },
+        }
         None => panic!("must specify a subcommand! Try query."),
     }
 }
