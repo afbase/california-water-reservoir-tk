@@ -1,5 +1,5 @@
 use crate::{
-    compression::{decompress_tar_file_to_csv_string, CUMULATIVE_OBJECT, OBSERVATIONS_OBJECT},
+    compression::{decompress_tar_file_to_csv_string, CUMULATIVE_OBJECT, RESERVOIRS_OBJECT},
     reservoir::Reservoir,
     survey::{CompressedStringRecord, CumulativeSummedStringRecord},
 };
@@ -62,7 +62,7 @@ impl Observation {
     }
 
     pub fn get_all_records() -> Vec<CompressedStringRecord> {
-        let bytes_of_csv_string = decompress_tar_file_to_csv_string(OBSERVATIONS_OBJECT);
+        let bytes_of_csv_string = decompress_tar_file_to_csv_string(RESERVOIRS_OBJECT);
         csv::ReaderBuilder::new()
             .has_headers(false)
             .from_reader(bytes_of_csv_string.as_slice())

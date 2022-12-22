@@ -18,7 +18,6 @@ use std::{
     io::Write,
     path::PathBuf,
     process,
-    str::FromStr,
 };
 static MY_LOGGER: MyLogger = MyLogger;
 
@@ -42,8 +41,6 @@ impl log::Log for MyLogger {
     }
     fn flush(&self) {}
 }
-
-const DEFAULT_OUTPUT_PATH: &str = "output.tar.xz";
 
 #[derive(Parser)]
 #[command(name = "cdec-tk", author, version, about = "Query CA CDEC Water Reservoir API", long_about = None)]
@@ -70,13 +67,14 @@ fn date_error(date_type: String, err: ParseError) {
 enum Commands {
     /// does testing things
     Query {
-        /// Sets a output file
+        /// Sets an output file for cumulative, total reservoir acrefeet for california
         #[arg(short, long, value_name = "FILE")]
-        output: Option<PathBuf>,
+        summation_output: Option<PathBuf>,
+        /// Sets an output file for reservoir acrefeet per reservoir
+        #[arg(short, long, value_name = "FILE")]
+        reservoir_output: Option<PathBuf>,
         start_date: Option<String>,
         end_date: Option<String>,
-        #[arg(short, long)]
-        summation: bool,
     },
 }
 
@@ -101,7 +99,7 @@ async fn get_surveys_of_reservoirs(
     surveys.into_iter().flatten().collect::<Vec<_>>()
 }
 
-async fn run_csv_v2(start_date: &NaiveDate, end_date: &NaiveDate) -> String {
+async fn run_csv_v2(all_reservoir_observations: &mut Vec<ObservableRange>) -> String {
     let reservoirs: HashMap<String, Reservoir> = Reservoir::get_reservoir_vector()
         .iter()
         .map(|res| {
@@ -112,9 +110,8 @@ async fn run_csv_v2(start_date: &NaiveDate, end_date: &NaiveDate) -> String {
         .into_iter()
         .collect();
     info!("{} Reservoirs Loaded", reservoirs.len());
-    let mut all_reservoir_observations = get_surveys_of_reservoirs(start_date, end_date).await;
+    // let mut all_reservoir_observations = get_surveys_of_reservoirs(start_date, end_date).await;
     info!("Surveyed Reseroirs: {}", all_reservoir_observations.len());
-    info!("Observations Downloaded");
     all_reservoir_observations.interpolate_reservoir_observations();
     info!(
         "Interpolated Reseroirs: {}",
@@ -122,7 +119,7 @@ async fn run_csv_v2(start_date: &NaiveDate, end_date: &NaiveDate) -> String {
     );
     info!("Observations Interpolated and Sorted");
     let mut california_water_level_observations: BTreeMap<NaiveDate, f64> = BTreeMap::new();
-    for observable_range in all_reservoir_observations {
+    for observable_range in all_reservoir_observations.clone() {
         for survey in observable_range.observations {
             let tap = survey.get_tap();
             let date_observation = tap.date_observation;
@@ -155,8 +152,8 @@ async fn run_csv_v2(start_date: &NaiveDate, end_date: &NaiveDate) -> String {
     String::from_utf8(writer.into_inner().unwrap()).unwrap()
 }
 
-async fn run_csv(start_date: &NaiveDate, end_date: &NaiveDate) -> String {
-    let mut all_reservoir_observations = get_surveys_of_reservoirs(start_date, end_date).await;
+async fn run_csv(all_reservoir_observations: &mut [ObservableRange]) -> String {
+    // let mut all_reservoir_observations = get_surveys_of_reservoirs(start_date, end_date).await;
     let option_of_compressed_string_records = all_reservoir_observations
         .iter_mut()
         .map(|surveys| {
@@ -210,23 +207,16 @@ async fn run_csv(start_date: &NaiveDate, end_date: &NaiveDate) -> String {
 #[tokio::main]
 async fn main() {
     log::set_logger(&MY_LOGGER).unwrap();
-    log::set_max_level(LevelFilter::Info);
+    log::set_max_level(LevelFilter::Trace);
     let args = Cli::parse();
-
+    let mut file_written = false;
     match args.command {
         Some(Commands::Query {
-            output,
+            summation_output,
+            reservoir_output,
             start_date,
             end_date,
-            summation,
         }) => {
-            let file_path = match output {
-                None => {
-                    let file_path = PathBuf::from_str(DEFAULT_OUTPUT_PATH);
-                    file_path.unwrap()
-                }
-                Some(file_path) => file_path,
-            };
             let start_date_final = match start_date {
                 None => {
                     //Oldest Reservoir Record is
@@ -260,17 +250,30 @@ async fn main() {
                     }
                 }
             };
-            let csv_out = if summation {
-                run_csv_v2(&start_date_final, &end_date_final).await
-            } else {
-                run_csv(&start_date_final, &end_date_final).await
+            let mut all_reservoir_observations = get_surveys_of_reservoirs(&start_date_final, &end_date_final).await;
+            info!("Observations Downloaded");
+            if let Some(file_path) = summation_output {
+                let csv_out = run_csv_v2(&mut all_reservoir_observations).await;
+                let mut fs = std::fs::File::create(file_path.as_path()).unwrap();
+                if fs.write_all(csv_out.as_bytes()).is_err() {
+                    panic!("writing csv file failed");
+                }
+                info!("Observations Written to CSV");
+                file_written = true;
             };
-            let mut fs = std::fs::File::create(file_path.as_path()).unwrap();
-            if fs.write_all(csv_out.as_bytes()).is_err() {
-                panic!("writing csv file failed");
+            if let Some(file_path) = reservoir_output {
+                let csv_out = run_csv(&mut all_reservoir_observations).await;
+                let mut fs = std::fs::File::create(file_path.as_path()).unwrap();
+                if fs.write_all(csv_out.as_bytes()).is_err() {
+                    panic!("writing csv file failed");
+                }
+                info!("Observations Written to CSV");
+                file_written = true;
+            };
+            if !file_written {
+                panic!("use -s or -r to output reservoir details");
             }
-            info!("Observations Written to CSV");
-        }
-        None => panic!("must specify a subcommand!"),
+        },
+        None => panic!("must specify a subcommand! Try query."),
     }
 }

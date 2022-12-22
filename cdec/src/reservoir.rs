@@ -3,10 +3,16 @@ use crate::{
     observation::DataRecording,
     survey::Survey,
 };
-use chrono::NaiveDate;
+use chrono::{NaiveDate, Utc, DateTime};
 use csv::ReaderBuilder;
+use log::{info, error, Level, LevelFilter, Metadata, Record};
 use reqwest::Client;
-use std::{collections::HashSet, include_str};
+use std::{
+    collections::HashSet, 
+    include_str,
+    thread::sleep,
+    time::{Duration as StdDuration}
+};
 
 static CSV_OBJECT: &str = include_str!("../../fixtures/capacity.csv");
 const YEAR_FORMAT: &str = "%Y-%m-%d";
@@ -20,6 +26,27 @@ pub struct Reservoir {
     pub capacity: i32,
     pub fill_year: i32,
 }
+
+// static INFO_LOGGER: InfoLogger = InfoLogger;
+// struct InfoLogger;
+// impl log::Log for InfoLogger {
+//     fn enabled(&self, metadata: &Metadata) -> bool {
+//         metadata.level() <= Level::Info
+//     }
+
+//     fn log(&self, record: &Record) {
+//         let now: DateTime<Utc> = Utc::now();
+//         if self.enabled(record.metadata()) {
+//             println!(
+//                 "[{}] {} - {}",
+//                 now.to_rfc3339(),
+//                 record.level(),
+//                 record.args()
+//             );
+//         }
+//     }
+//     fn flush(&self) {}
+// }
 
 trait StringRecordsToSurveys {
     fn response_to_surveys(&self) -> Option<ObservableRange>;
@@ -84,10 +111,41 @@ impl Reservoir {
     ) -> Option<ObservableRange> {
         let start_date_str = start_date.format(YEAR_FORMAT);
         let end_date_str = end_date.format(YEAR_FORMAT);
-        let url = format!("http://cdec.water.ca.gov/dynamicapp/req/CSVDataServlet?Stations={}&SensorNums=15&dur_code={}&Start={}&End={}", self.station_id.as_str(), duration_type, start_date_str, end_date_str);
-        let response = client.get(url).send().await.unwrap();
-        let response_body = response.text().await.unwrap();
-        response_body.response_to_surveys()
+        let mut idx = 2;
+        loop {
+            let url = format!("http://cdec.water.ca.gov/dynamicapp/req/CSVDataServlet?Stations={}&SensorNums=15&dur_code={}&Start={}&End={}", self.station_id.as_str(), duration_type, start_date_str, end_date_str);
+            match client.get(url).send().await {
+                Ok(response) => {
+                    let status = response.status();
+                    if !status.is_success() {
+                        let sleep_factor = StdDuration::from_secs(idx);
+                        sleep(sleep_factor);
+                        idx = idx * idx;
+                        if idx < 16 {
+                            info!("attempting to retry for {}", self.station_id);
+                            continue;
+                        } else {
+                            error!("failed to retrieve data for {}", self.station_id);
+                            break;
+                        }
+                    }
+                    match response.text().await {
+                        Ok(response_body) => 
+                        {
+                            info!("Success for {}", self.station_id);
+                            return response_body.response_to_surveys();
+                        },
+                        Err(e) => {
+                            error!("Failure to retrieve body of data for reservoir {}; {}", self.station_id, e);
+                        },
+                    };
+                }
+                Err(e) => {
+                    error!("Failure to make request for reservoir {}; {}", self.station_id, e);
+                }
+            }
+        }
+        None
     }
     pub async fn get_monthly_surveys(
         &self,
