@@ -9,7 +9,8 @@
     // "overrideCommand": "",
     "extensions": [
         "rust-lang.rust-analyzer",
-        "ms-vscode.sublime-keybindings",
+        "ms-vscode.sublime-keybindings", // sublime key bindings
+        "ritwickdey.LiveServer", // live server
         "tamasfe.even-better-toml", // for Cargo.toml
         "eamodio.gitlens", // IDE Git information
         "davidanson.vscode-markdownlint",
