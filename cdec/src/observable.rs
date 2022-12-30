@@ -64,19 +64,19 @@ impl From<Vec<Survey>> for ObservableRange {
                     let month = tap.date_observation.month();
                     let year = tap.date_observation.year() as u32;
                     let _ = hash_set.insert(MonthDatum::new(year, month));
-                },
+                }
                 Survey::Monthly(tap) => {
                     let month = tap.date_observation.month();
                     let year = tap.date_observation.year() as u32;
                     let _ = hash_set.insert(MonthDatum::new(year, month));
-                },
+                }
             }
         }
-        ObservableRange { 
+        ObservableRange {
             observations: value,
             start_date: earliest_date,
             end_date: most_recent_date,
-            month_datum: hash_set 
+            month_datum: hash_set,
         }
     }
 }

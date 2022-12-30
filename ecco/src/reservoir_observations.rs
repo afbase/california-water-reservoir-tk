@@ -1,16 +1,14 @@
 use cdec::{
-    observable::{CompressedSurveyBuilder,  ObservableRange, InterpolateObservableRanges},
-    observation::{ Observation},
-    reservoir::{Reservoir},
+    observable::{CompressedSurveyBuilder, InterpolateObservableRanges, ObservableRange},
+    observation::Observation,
+    reservoir::Reservoir,
     survey::Survey,
-    survey::{
-        CompressedStringRecord, VectorCompressedStringRecord,
-    },
-    water_year::WaterYear
+    survey::{CompressedStringRecord, VectorCompressedStringRecord},
+    water_year::WaterYear,
 };
 use chrono::NaiveDate;
-use std::{vec};
-use std::collections::{HashMap};
+use std::collections::HashMap;
+use std::vec;
 
 pub struct ReservoirObservations {
     pub observations: Vec<Survey>,
@@ -32,19 +30,19 @@ impl ReservoirObservations {
         for reservoir in reservoirs {
             let station_id = reservoir.station_id;
             let mut surveys = observations
-            .drain_filter(|survey| {
-                let tap = survey.get_tap();
-                let tap_station_id = tap.station_id.clone();
-                tap_station_id == station_id
-            })
-            .collect::<Vec<_>>();
+                .drain_filter(|survey| {
+                    let tap = survey.get_tap();
+                    let tap_station_id = tap.station_id.clone();
+                    tap_station_id == station_id
+                })
+                .collect::<Vec<_>>();
             surveys.sort();
             if surveys.is_empty() {
                 continue;
             }
             let surveys_len = surveys.len();
             let start_date = surveys[0].get_tap().date_observation;
-            let end_date = surveys[surveys_len-1].get_tap().date_observation;
+            let end_date = surveys[surveys_len - 1].get_tap().date_observation;
 
             // okay this part below is a bit wonky and lazy
             let mut observable_range = ObservableRange::new(start_date, end_date);
@@ -58,7 +56,7 @@ impl ReservoirObservations {
             let reservoir_observations = ReservoirObservations {
                 observations: surveys,
                 start_date,
-                end_date
+                end_date,
             };
             hash_map.insert(station_id, reservoir_observations);
         }
@@ -66,17 +64,17 @@ impl ReservoirObservations {
     }
 }
 
-
 /// TODO: finish this
 pub trait GetWaterYears {
-    fn get_water_years_from_reservoir_observations(&self) ->HashMap<String, Vec<WaterYear>>;
+    fn get_water_years_from_reservoir_observations(&self) -> HashMap<String, Vec<WaterYear>>;
 }
 
 impl GetWaterYears for HashMap<String, ReservoirObservations> {
- fn get_water_years_from_reservoir_observations(&self) ->HashMap<String, Vec<WaterYear>> {
+    fn get_water_years_from_reservoir_observations(&self) -> HashMap<String, Vec<WaterYear>> {
         let mut hash_map = HashMap::new();
         for (station_id, reservoir_observations) in self {
-            let observable_range: ObservableRange = reservoir_observations.observations.clone().into();
+            let observable_range: ObservableRange =
+                reservoir_observations.observations.clone().into();
             let water_years = WaterYear::water_years_from_observable_range(&observable_range);
             hash_map.insert(station_id.clone(), water_years);
         }

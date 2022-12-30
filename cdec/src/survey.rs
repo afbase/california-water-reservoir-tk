@@ -2,7 +2,7 @@ use crate::{
     observable::{MonthDatum, Observable},
     observation::{DataRecording, Duration, Observation},
 };
-use chrono::{NaiveDate};
+use chrono::NaiveDate;
 use csv::StringRecord;
 use easy_cast::Cast;
 use std::{cmp::Ordering, convert::From, hash::Hash};
@@ -321,6 +321,42 @@ impl Interpolate for (Survey, Survey) {
 }
 
 impl Survey {
+    pub fn tap(&mut self) -> &mut Tap {
+        match self {
+            Survey::Monthly(ref mut tap) => {
+                tap
+            },
+            Survey::Daily(ref mut tap) => {
+                tap
+            }
+        }
+    }
+    pub fn set_date_observation(&mut self, new_date: NaiveDate) {
+        match self {
+            Survey::Monthly(tap) => {
+                tap.date_observation = new_date;
+            },
+            Survey::Daily(tap) => {
+                tap.date_observation = new_date;
+            }
+        };
+    }
+    pub fn set_date_recording(&mut self, new_date: NaiveDate) {
+        match self {
+            Survey::Monthly(tap) => {
+                tap.date_recording = new_date;
+            },
+            Survey::Daily(tap) => {
+                tap.date_recording = new_date;
+            }
+        };
+    }
+    pub fn date_observation(&self) -> NaiveDate {
+        match self {
+            Survey::Monthly(tap) => tap.date_observation,
+            Survey::Daily(tap) => tap.date_observation,
+        }
+    }
     pub fn as_month_datum(&self) -> MonthDatum {
         let tap = self.get_tap();
         let date = tap.date_observation;
@@ -630,4 +666,32 @@ mod test {
         let actual_surveys = (start, end).interpolate_pair();
         assert_eq!(actual_surveys, None);
     }
+
+    #[test]
+    fn test_set_date_observation() {
+        let station_id = String::new();
+        let date_0 = NaiveDate::from_ymd_opt(2022, 11, 12).unwrap();
+        let date_1 = NaiveDate::from_ymd_opt(2022, 11, 17).unwrap();
+        let value_0 = DataRecording::Recording(7);
+        let value_1 = DataRecording::Brt;
+        let mut actual = Survey::Daily(
+            Tap{
+                station_id: station_id.clone(),
+                date_observation: date_0,
+                date_recording: date_0,
+                value: value_0,
+            }
+        );
+        actual.set_date_observation(date_1);
+        let expected = Survey::Daily(
+            Tap{
+                station_id: station_id.clone(),
+                date_observation: date_1,
+                date_recording: date_0,
+                value: value_0,
+            }
+        );
+        assert_eq!(actual,expected);
+    }
+
 }

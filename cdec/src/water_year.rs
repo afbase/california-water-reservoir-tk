@@ -1,8 +1,11 @@
+use crate::{
+    normalized_naive_date::NormalizedNaiveDate,
+    observable::ObservableRange,
+    survey::Survey,
+};
 use chrono::{Datelike, NaiveDate};
-use std::cmp::Ordering::{Less, Equal, Greater};
+use std::cmp::Ordering::{Equal, Greater, Less};
 use std::collections::HashMap;
-use crate::{observable::ObservableRange};
-use crate::survey::Survey;
 /// California’s water year runs from October 1 to September 30 and is the official 12-month timeframe used by water managers to compile and compare hydrologic records.
 #[derive(Debug, Clone, PartialEq)]
 pub struct WaterYear(pub Vec<Survey>);
@@ -12,7 +15,38 @@ pub struct WaterYearStatistics {
     pub date_lowest: NaiveDate,
     pub date_highest: NaiveDate,
     pub highest_value: f64,
-    pub lowest_value: f64
+    pub lowest_value: f64,
+}
+pub trait NormalizeCalendarYear {
+    fn normalize_calendar_years(&mut self);
+}
+
+impl NormalizeCalendarYear for WaterYear {
+    fn normalize_calendar_years(&mut self) {
+        if !self.0.iter().is_sorted() {
+            self.0.sort();
+        }
+        // let surveys = &mut self.0;
+        for survey in &mut self.0 {
+            // California’s water year runs from October 1 to September 30 and is the official 12-month timeframe
+            let obs_date = survey.date_observation();
+            let normalized_date: NormalizedNaiveDate = obs_date.into();
+            let normalized_naive_date: NaiveDate = normalized_date.into();
+            println!("{:?}", survey);
+            survey.set_date_observation(normalized_naive_date); // This does not get set properly
+            survey.set_date_recording(normalized_naive_date); // This does not get set properly
+            println!("{:?}", survey);
+            // survey.set_date_observation(normalized_naive_date);
+            // survey.set_date_recording(normalized_naive_date);
+        }
+        // get rid of feb_29
+        let _ = self.0.drain_filter(|survey| {
+            let obs_date = survey.date_observation();
+            let month = obs_date.month();
+            let day = obs_date.day();
+            matches!((month, day), (2, 29))
+        });
+    }
 }
 
 impl WaterYear {
@@ -74,12 +108,12 @@ impl From<WaterYear> for WaterYearStatistics {
         let lowest_tap = lowest.get_tap();
         let highest = surveys[0].clone();
         let highest_tap = highest.get_tap();
-        WaterYearStatistics { 
-            year, 
-            date_lowest: lowest_tap.date_observation, 
-            date_highest: highest_tap.date_observation, 
-            highest_value: highest.get_value(), 
-            lowest_value: lowest.get_value()
+        WaterYearStatistics {
+            year,
+            date_lowest: lowest_tap.date_observation,
+            date_highest: highest_tap.date_observation,
+            highest_value: highest.get_value(),
+            lowest_value: lowest.get_value(),
         }
     }
 }
@@ -92,9 +126,9 @@ impl From<&WaterYear> for WaterYearStatistics {
     }
 }
 
-/// let mut floats = [5f64, 4.0, 1.0, 3.0, 2.0];
-/// floats.sort_by(|a, b| a.partial_cmp(b).unwrap());
-/// assert_eq!(floats, [1.0, 2.0, 3.0, 4.0, 5.0]);
+// let mut floats = [5f64, 4.0, 1.0, 3.0, 2.0];
+// floats.sort_by(|a, b| a.partial_cmp(b).unwrap());
+// assert_eq!(floats, [1.0, 2.0, 3.0, 4.0, 5.0]);
 fn sort_by_values_ascending(surveys: &mut [Survey]) {
     surveys.sort_by(|survey_a, survey_b| {
         let a = survey_a.get_value();
@@ -111,14 +145,16 @@ impl PartialOrd for WaterYearStatistics {
 
 impl PartialEq for WaterYearStatistics {
     fn eq(&self, other: &Self) -> bool {
-        self.year == other.year && self.date_lowest == other.date_lowest && self.date_highest == other.date_highest && self.highest_value == other.highest_value && self.lowest_value == other.lowest_value
+        self.year == other.year
+            && self.date_lowest == other.date_lowest
+            && self.date_highest == other.date_highest
+            && self.highest_value == other.highest_value
+            && self.lowest_value == other.lowest_value
     }
 }
 
 impl Ord for WaterYearStatistics {
-
     fn cmp(&self, other: &Self) -> std::cmp::Ordering {
-
         if self.lowest_value < other.lowest_value {
             Less
         } else if self.lowest_value == other.lowest_value {
@@ -133,13 +169,13 @@ impl Eq for WaterYearStatistics {}
 
 #[cfg(test)]
 mod tests {
-    use chrono::NaiveDate;
-
     use super::WaterYear;
+    use crate::date_range::DateRange;
     use crate::observable::MonthDatum;
     use crate::observable::ObservableRange;
     use crate::observation::DataRecording;
     use crate::survey::{Survey, Tap};
+    use chrono::{DateTime, Datelike, Local, NaiveDate};
     use std::collections::HashSet;
     #[test]
     fn test_water_years_from_surveys() {
@@ -167,10 +203,10 @@ mod tests {
             end_date: d.clone(),
             month_datum: b,
         };
-    
+
         let actual = WaterYear::water_years_from_observable_range(&obs);
         let expected = vec![
-                WaterYear(vec![Survey::Daily(Tap {
+            WaterYear(vec![Survey::Daily(Tap {
                 station_id: String::new(),
                 date_observation: d_1,
                 date_recording: d_1.clone(),
@@ -184,6 +220,55 @@ mod tests {
             })]),
         ];
         assert_eq!(actual, expected);
-
+    }
+    #[test]
+    fn test_normalization() {
+        // for three years 1924 to 1926:
+        // make basic surveys
+        // convert to water years and normalize
+        // expect date observations years to be
+        // this year and last year
+        let start_day = 29;
+        let start_month = 12;
+        let end_day = 3;
+        let end_month = 1;
+        let actual_start_year = NaiveDate::from_ymd_opt(1924, start_month, start_day).unwrap();
+        let actual_end_year = NaiveDate::from_ymd_opt(1925, end_month, end_day).unwrap();
+        let actual_date_range = DateRange(actual_start_year, actual_end_year);
+        let mut surveys: Vec<Survey> = Vec::new();
+        let mut survey;
+        for day in actual_date_range {
+            survey = Survey::Daily(Tap {
+                station_id: String::new(),
+                date_observation: day,
+                date_recording: day.clone(),
+                value: DataRecording::Recording(3),
+            });
+            surveys.push(survey);
+        }
+        let actual_observable_range: ObservableRange = surveys.into();
+        let actual_water_years =
+            WaterYear::water_years_from_observable_range(&actual_observable_range);
+        // make expected
+        let dt: DateTime<Local> = Local::now();
+        let first_year = dt.naive_local().date().year() - 1;
+        let last_year = first_year + 1;
+        let first_date = NaiveDate::from_ymd_opt(first_year, start_month, start_day).unwrap();
+        let last_date = NaiveDate::from_ymd_opt(last_year, end_month, end_day).unwrap();
+        let expected_date_range = DateRange(first_date, last_date);
+        surveys = Vec::new();
+        for day in expected_date_range {
+            survey = Survey::Daily(Tap {
+                station_id: String::new(),
+                date_observation: day,
+                date_recording: day.clone(),
+                value: DataRecording::Recording(3),
+            });
+            surveys.push(survey);
+        }
+        let expected_observable_range: ObservableRange = surveys.into();
+        let expected_water_years =
+            WaterYear::water_years_from_observable_range(&expected_observable_range);
+        assert_eq!(actual_water_years, expected_water_years);
     }
 }
