@@ -673,7 +673,6 @@ mod test {
         let date_0 = NaiveDate::from_ymd_opt(2022, 11, 12).unwrap();
         let date_1 = NaiveDate::from_ymd_opt(2022, 11, 17).unwrap();
         let value_0 = DataRecording::Recording(7);
-        let value_1 = DataRecording::Brt;
         let mut actual = Survey::Daily(
             Tap{
                 station_id: station_id.clone(),

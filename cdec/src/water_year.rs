@@ -22,22 +22,17 @@ pub trait NormalizeCalendarYear {
 }
 
 impl NormalizeCalendarYear for WaterYear {
+    
     fn normalize_calendar_years(&mut self) {
         if !self.0.iter().is_sorted() {
             self.0.sort();
         }
-        // let surveys = &mut self.0;
         for survey in &mut self.0 {
             // California’s water year runs from October 1 to September 30 and is the official 12-month timeframe
-            let obs_date = survey.date_observation();
-            let normalized_date: NormalizedNaiveDate = obs_date.into();
-            let normalized_naive_date: NaiveDate = normalized_date.into();
-            println!("{:?}", survey);
-            survey.set_date_observation(normalized_naive_date); // This does not get set properly
-            survey.set_date_recording(normalized_naive_date); // This does not get set properly
-            println!("{:?}", survey);
-            // survey.set_date_observation(normalized_naive_date);
-            // survey.set_date_recording(normalized_naive_date);
+            let mut tap = survey.tap();
+            let normalized_date: NormalizedNaiveDate = tap.date_observation.into();
+            tap.date_observation = normalized_date.into();
+            tap.date_recording = normalized_date.into();
         }
         // get rid of feb_29
         let _ = self.0.drain_filter(|survey| {
@@ -175,6 +170,7 @@ mod tests {
     use crate::observable::ObservableRange;
     use crate::observation::DataRecording;
     use crate::survey::{Survey, Tap};
+    use crate::water_year::NormalizeCalendarYear;
     use chrono::{DateTime, Datelike, Local, NaiveDate};
     use std::collections::HashSet;
     #[test]
@@ -247,8 +243,64 @@ mod tests {
             surveys.push(survey);
         }
         let actual_observable_range: ObservableRange = surveys.into();
-        let actual_water_years =
+        let mut actual_water_years =
             WaterYear::water_years_from_observable_range(&actual_observable_range);
+        for water_year in &mut actual_water_years {
+            water_year.normalize_calendar_years();
+        }
+        // make expected
+        let dt: DateTime<Local> = Local::now();
+        let first_year = dt.naive_local().date().year() - 1;
+        let last_year = first_year + 1;
+        let first_date = NaiveDate::from_ymd_opt(first_year, start_month, start_day).unwrap();
+        let last_date = NaiveDate::from_ymd_opt(last_year, end_month, end_day).unwrap();
+        let expected_date_range = DateRange(first_date, last_date);
+        surveys = Vec::new();
+        for day in expected_date_range {
+            survey = Survey::Daily(Tap {
+                station_id: String::new(),
+                date_observation: day,
+                date_recording: day.clone(),
+                value: DataRecording::Recording(3),
+            });
+            surveys.push(survey);
+        }
+        let expected_observable_range: ObservableRange = surveys.into();
+        let expected_water_years =
+            WaterYear::water_years_from_observable_range(&expected_observable_range);
+        assert_eq!(actual_water_years, expected_water_years);
+    }
+    #[test]
+    fn test_normalization_2() {
+        // for three years 1924 to 1926:
+        // make basic surveys
+        // convert to water years and normalize
+        // expect date observations years to be
+        // this year and last year
+        let start_day = 1;
+        let start_month = 10;
+        let end_day = 30;
+        let end_month = 9;
+        let actual_start_year = NaiveDate::from_ymd_opt(1924, start_month, start_day).unwrap();
+        let actual_end_year = NaiveDate::from_ymd_opt(1925, end_month, end_day).unwrap();
+        let actual_date_range = DateRange(actual_start_year, actual_end_year);
+        let mut surveys: Vec<Survey> = Vec::new();
+        let mut survey;
+        for day in actual_date_range {
+            survey = Survey::Daily(Tap {
+                station_id: String::new(),
+                date_observation: day,
+                date_recording: day.clone(),
+                value: DataRecording::Recording(3),
+            });
+            surveys.push(survey);
+        }
+        let actual_observable_range: ObservableRange = surveys.into();
+        let mut actual_water_years =
+            WaterYear::water_years_from_observable_range(&actual_observable_range);
+        for water_year in &mut actual_water_years {
+            water_year.normalize_calendar_years();
+        }
         // make expected
         let dt: DateTime<Local> = Local::now();
         let first_year = dt.naive_local().date().year() - 1;
