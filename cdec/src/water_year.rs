@@ -1,7 +1,5 @@
 use crate::{
-    normalized_naive_date::NormalizedNaiveDate,
-    observable::ObservableRange,
-    survey::Survey,
+    normalized_naive_date::NormalizedNaiveDate, observable::ObservableRange, survey::Survey,
 };
 use chrono::{Datelike, NaiveDate};
 use std::cmp::Ordering::{Equal, Greater, Less};
@@ -22,7 +20,6 @@ pub trait NormalizeCalendarYear {
 }
 
 impl NormalizeCalendarYear for WaterYear {
-    
     fn normalize_calendar_years(&mut self) {
         if !self.0.iter().is_sorted() {
             self.0.sort();

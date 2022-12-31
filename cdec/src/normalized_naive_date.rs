@@ -1,23 +1,20 @@
-use chrono::{IsoWeek, Duration, Datelike, NaiveDate, DateTime, Local, Weekday};
-use core::{
-    ops::Add,
-    mem::replace,
-};
+use chrono::{DateTime, Datelike, Duration, IsoWeek, Local, NaiveDate, Weekday};
+use core::{mem::replace, ops::Add};
 
 #[derive(Debug, PartialEq, Eq, Hash, PartialOrd, Ord, Copy, Clone)]
 pub struct NormalizedNaiveDate {
-    year: i32, 
-    month: u32, 
-    day: u32
+    year: i32,
+    month: u32,
+    day: u32,
 }
 
 impl NormalizedNaiveDate {
     pub fn from_md_opt(month: u32, day: u32) -> Option<NormalizedNaiveDate> {
         let normalized_year = NormalizedNaiveDate::derive_normalized_year(month);
-        NaiveDate::from_ymd_opt(normalized_year, month, day).map(|_| NormalizedNaiveDate{
+        NaiveDate::from_ymd_opt(normalized_year, month, day).map(|_| NormalizedNaiveDate {
             year: normalized_year,
             month,
-            day
+            day,
         })
     }
     pub fn normalized_year(&self) -> i32 {
@@ -27,16 +24,16 @@ impl NormalizedNaiveDate {
         let day = self.day;
         let month = self.month;
         let year = self.normalized_year();
-        NaiveDate::from_ymd_opt(year,month,day).unwrap()
+        NaiveDate::from_ymd_opt(year, month, day).unwrap()
     }
     fn derive_normalized_year(month: u32) -> i32 {
         let dt: DateTime<Local> = Local::now();
         let first_year = dt.naive_local().date().year() - 1;
         let second_year = first_year + 1;
         match month {
-                10..=12 => first_year,
-                _ => second_year,
-            }
+            10..=12 => first_year,
+            _ => second_year,
+        }
     }
     fn map_to_option_self(sub_result: Option<NaiveDate>) -> Option<Self> {
         if let Some(naive_date) = sub_result {
@@ -84,31 +81,31 @@ impl Datelike for NormalizedNaiveDate {
         let naive = self.as_naive_date();
         naive.iso_week()
     }
-    fn with_year(&self, year: i32) -> Option<Self>{
+    fn with_year(&self, year: i32) -> Option<Self> {
         let naive = self.as_naive_date();
         NormalizedNaiveDate::map_to_option_self(naive.with_year(year))
     }
-    fn with_month(&self, month: u32) -> Option<Self>{
+    fn with_month(&self, month: u32) -> Option<Self> {
         let naive = self.as_naive_date();
         NormalizedNaiveDate::map_to_option_self(naive.with_month(month))
     }
-    fn with_month0(&self, month0: u32) -> Option<Self>{
+    fn with_month0(&self, month0: u32) -> Option<Self> {
         let naive = self.as_naive_date();
         NormalizedNaiveDate::map_to_option_self(naive.with_month0(month0))
     }
-    fn with_day(&self, day: u32) -> Option<Self>{
+    fn with_day(&self, day: u32) -> Option<Self> {
         let naive = self.as_naive_date();
         NormalizedNaiveDate::map_to_option_self(naive.with_day(day))
     }
-    fn with_day0(&self, day0: u32) -> Option<Self>{
+    fn with_day0(&self, day0: u32) -> Option<Self> {
         let naive = self.as_naive_date();
         NormalizedNaiveDate::map_to_option_self(naive.with_day0(day0))
     }
-    fn with_ordinal(&self, ordinal: u32) -> Option<Self>{
+    fn with_ordinal(&self, ordinal: u32) -> Option<Self> {
         let naive = self.as_naive_date();
         NormalizedNaiveDate::map_to_option_self(naive.with_ordinal(ordinal))
     }
-    fn with_ordinal0(&self, ordinal0: u32) -> Option<Self>{
+    fn with_ordinal0(&self, ordinal0: u32) -> Option<Self> {
         let naive = self.as_naive_date();
         NormalizedNaiveDate::map_to_option_self(naive.with_ordinal0(ordinal0))
     }
