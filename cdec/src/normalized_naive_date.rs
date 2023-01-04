@@ -17,15 +17,28 @@ impl NormalizedNaiveDate {
             day,
         })
     }
+    pub fn get_normalized_ranged_date() -> RangedDate<NormalizedNaiveDate> {
+        // California’s water year runs from October 1 to September 30 and is the official 12-month timeframe
+            let start = NormalizedNaiveDate::from_md_opt(10,1).unwrap();
+            let end = NormalizedNaiveDate::from_md_opt(9,30).unwrap();
+            let date_range = Range {
+                start,
+                end,
+            };
+            let ranged_date: RangedDate<NormalizedNaiveDate> = date_range.clone().into();
+    }
+
     pub fn normalized_year(&self) -> i32 {
         Self::derive_normalized_year(self.month)
     }
+
     pub fn as_naive_date(&self) -> NaiveDate {
         let day = self.day;
         let month = self.month;
         let year = self.normalized_year();
         NaiveDate::from_ymd_opt(year, month, day).unwrap()
     }
+
     fn derive_normalized_year(month: u32) -> i32 {
         let dt: DateTime<Local> = Local::now();
         let first_year = dt.naive_local().date().year() - 1;
@@ -35,6 +48,7 @@ impl NormalizedNaiveDate {
             _ => second_year,
         }
     }
+
     fn map_to_option_self(sub_result: Option<NaiveDate>) -> Option<Self> {
         if let Some(naive_date) = sub_result {
             let inner_result: NormalizedNaiveDate = naive_date.into();

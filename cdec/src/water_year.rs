@@ -19,6 +19,70 @@ pub trait NormalizeCalendarYear {
     fn normalize_calendar_years(&mut self);
 }
 
+enum WaterYearErrors {
+    InsufficientWaterYears
+}
+
+impl Vec<WaterYear> {
+    pub fn get_largest_acrefeet_over_n_years(&self, len: usize) -> Result<f64, WaterYearErrors>  {
+        let number_of_charts = self.len().min(len);
+        if number_of_charts > 0 {
+            let largest_acrefeet = self[0..number_of_charts].to_vec().iter().map(|water_year| {
+                let water_stat: WaterYearStatistics = water_year.into();
+                water_stat.highest_value
+            }).collect::<Vec<_>>();
+            let y_max: f64 = ((largest_acrefeet.iter().max().unwrap() + 500000) as i64).cast();
+            return Ok(y_max)
+        } else {
+            return Err(WaterYearErrors::InsufficientWaterYears);
+        }
+    }
+    pub fn get_complete_normalized_water_years(&self) -> Vec<WaterYear> {
+        let mut vector_clone = self.clone();
+        vector_clone.retain(|water_year| {
+            // keep the water year if it has at least ~11 months of data
+            water_year.0.len() >= 335
+        });
+        for water_year in &mut vector_clone {
+            water_year.normalize_calendar_years();
+        }
+        vector_clone
+    }
+
+    pub fn sort_by_lowest_recorded_years(&mut self) {
+        self.sort_by(|a,b| {
+            let a_water_stat: WaterYearStatistics = a.into();
+            let b_water_stat: WaterYearStatistics = b.into();
+            let a_year = a_water_stat.year;
+            let b_year = b_water_stat.year;
+            a_year.partial_cmp(b_year).unwrap()
+        });
+    }
+
+    pub fn sort_by_most_recent(&mut self) {
+        let mut water_year_and_statistics = self
+                .iter()
+                .map(|water_year| (water_year, water_year.into()))
+                .collect::<Vec<(WaterYear, WaterYearStatistics)>>();
+        water_year_and_statistics.sort_by(|a,b| a.1.partial_cmp(b.1).unwrap());
+        water_year_and_statistics.reverse();
+        for water_year in self.iter_mut() {
+            let popped_tuple = water_year_and_statistics.pop()
+            water_year = popped_tuple.0;
+        }
+    }
+}
+
+impl HashMap<String, Vec<WaterYear>> {
+    pub fn get_clean_reservoir_water_years(&self, key: String) -> Option<Vec<WaterYear>> {
+        if let Some(mut selected_reservoir_data) = self.get(&key) {
+            result = selected_reservoir_date.get_complete_normalized_water_years();
+            return Some(result);
+        }
+        None
+    }
+}
+
 impl NormalizeCalendarYear for WaterYear {
     fn normalize_calendar_years(&mut self) {
         if !self.0.iter().is_sorted() {
