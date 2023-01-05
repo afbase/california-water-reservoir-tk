@@ -1,18 +1,9 @@
 use cdec::{
-    normalized_naive_date::NormalizedNaiveDate,
     reservoir::Reservoir,
-    water_year::{WaterYear, WaterYearStatistics},
+    water_year::WaterYear,
 };
-use chrono::{DateTime, Datelike, Duration, IsoWeek, Local, NaiveDate, Weekday};
-use easy_cast::traits::Cast;
-use ecco::reservoir_observations::{GetWaterYears, ReservoirObservations};
-use gloo_console::log as gloo_log;
-use js_sys::JsString;
 use plotters::prelude::*;
 use std::collections::HashMap;
-use wasm_bindgen::JsCast;
-use web_sys::HtmlSelectElement;
-use yew::prelude::*;
 
 pub struct CalendarYearModel {
     // The selected reservoir
@@ -22,13 +13,8 @@ pub struct CalendarYearModel {
     pub reservoir_vector: Vec<Reservoir>,
 }
 
-impl<'a> CalendarYearModel {
-    pub fn generate_svg(&self, svg_inner_string: &'a mut String) -> DrawResult<(), SVGBackend<'a>> {
-    }
-}
-
 pub fn get_colors(number_of_colors: usize) -> Result<Vec<RGBColor>, String> {
-    let vector_of_colors = vec![
+    let vec_of_colors = vec![
         // Oranges - 9
         RGBColor(102, 37, 6),
         RGBColor(153, 52, 4),
@@ -56,8 +42,8 @@ pub fn get_colors(number_of_colors: usize) -> Result<Vec<RGBColor>, String> {
     let vec_len = vec_of_colors.len();
     if number_of_colors <= vec_len {
         let slice = vec_of_colors.as_slice();
-        let result_slice = slice[0..(number_of_colors - 1)];
-        return Ok(result_slice.as_vec());
+        let result_slice = &slice[0..number_of_colors];
+        return Ok(result_slice.to_vec());
     }
     return Err(String::from("too many colors requested"));
 }

@@ -2,6 +2,7 @@ use crate::{
     normalized_naive_date::NormalizedNaiveDate, observable::ObservableRange, survey::Survey,
 };
 use chrono::{Datelike, NaiveDate};
+use easy_cast::Cast;
 use std::cmp::Ordering::{Equal, Greater, Less};
 use std::collections::HashMap;
 /// California’s water year runs from October 1 to September 30 and is the official 12-month timeframe used by water managers to compile and compare hydrologic records.
@@ -31,7 +32,7 @@ pub trait NormalizeWaterYears {
 }
 
 impl NormalizeWaterYears for Vec<WaterYear> {
-    pub fn get_largest_acrefeet_over_n_years(&self, len: usize) -> Result<f64, WaterYearErrors> {
+    fn get_largest_acrefeet_over_n_years(&self, len: usize) -> Result<f64, WaterYearErrors> {
         let number_of_charts = self.len().min(len);
         if number_of_charts > 0 {
             let largest_acrefeet = self[0..number_of_charts]
@@ -42,14 +43,14 @@ impl NormalizeWaterYears for Vec<WaterYear> {
                     water_stat.highest_value
                 })
                 .collect::<Vec<_>>();
-            let y_max: f64 = ((largest_acrefeet.iter().max().unwrap() + 500000) as i64).cast();
+            let y_max: f64 = ((largest_acrefeet.iter().max_by(|a, b| a.total_cmp(b)).unwrap() + 500000.0) as i64).cast();
             return Ok(y_max);
         } else {
             return Err(WaterYearErrors::InsufficientWaterYears);
         }
     }
 
-    pub fn get_complete_normalized_water_years(&self) -> Self {
+    fn get_complete_normalized_water_years(&self) -> Self {
         let mut vector_clone = self.clone();
         vector_clone.retain(|water_year| {
             // keep the water year if it has at least ~11 months of data
@@ -61,26 +62,29 @@ impl NormalizeWaterYears for Vec<WaterYear> {
         vector_clone
     }
 
-    pub fn sort_by_lowest_recorded_years(&mut self) {
+    fn sort_by_lowest_recorded_years(&mut self) {
         self.sort_by(|a, b| {
             let a_water_stat: WaterYearStatistics = a.into();
             let b_water_stat: WaterYearStatistics = b.into();
             let a_year = a_water_stat.year;
             let b_year = b_water_stat.year;
-            a_year.partial_cmp(b_year).unwrap()
+            a_year.partial_cmp(&b_year).unwrap()
         });
     }
 
-    pub fn sort_by_most_recent(&mut self) {
+    fn sort_by_most_recent(&mut self) {
         let mut water_year_and_statistics = self
             .iter()
-            .map(|water_year| (water_year, water_year.into()))
+            .map(|water_year| {
+                let result: (WaterYear, WaterYearStatistics) = (water_year.clone(), water_year.into());
+                result
+            })
             .collect::<Vec<(WaterYear, WaterYearStatistics)>>();
-        water_year_and_statistics.sort_by(|a, b| a.1.partial_cmp(b.1).unwrap());
+        water_year_and_statistics.sort_by(|a, b| a.1.partial_cmp(&b.1).unwrap());
         water_year_and_statistics.reverse();
-        for water_year in self.iter_mut() {
-            let popped_tuple = water_year_and_statistics.pop();
-            water_year = popped_tuple.0;
+        for mut water_year in self.iter() {
+            let mut popped_tuple = water_year_and_statistics.pop().unwrap();
+            water_year = &mut popped_tuple.0;
         }
     }
 }
@@ -90,11 +94,10 @@ pub trait CleanReservoirData {
 }
 
 impl CleanReservoirData for HashMap<String, Vec<WaterYear>> {
-    pub fn get_clean_reservoir_water_years(&self, key: String) -> Option<Vec<WaterYear>> {
+    fn get_clean_reservoir_water_years(&self, key: String) -> Option<Vec<WaterYear>> {
         let mut result = None;
-        if let Some(mut selected_reservoir_data) = self.get(&key) {
-            result = selected_reservoir_date.get_complete_normalized_water_years();
-            return Some(result);
+        if let Some(selected_reservoir_data) = self.get(&key) {
+            result = Some(selected_reservoir_data.get_complete_normalized_water_years());
         }
         result
     }
@@ -126,10 +129,10 @@ impl NormalizeCalendarYear for WaterYear {
 impl WaterYear {
     pub fn calendar_year_from_normalized_water_year(&self) -> (NaiveDate, NaiveDate) {
         // in a normalized water year - the date_recording has the original date_observation
-        let surveys = self.0;
+        let mut surveys = self.0.clone();
         let surveys_len = surveys.len();
-        let first_date = surveys[0].date_recording.clone();
-        let last_date = surveys[surveys_len - 1].clone();
+        let first_date = surveys[0].tap().date_recording.clone();
+        let last_date = surveys[surveys_len - 1].tap().date_recording.clone();
         (first_date, last_date)
     }
     pub fn calendar_year_change(&mut self) -> f64 {

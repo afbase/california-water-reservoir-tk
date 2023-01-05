@@ -2,7 +2,10 @@ use cdec::{
     reservoir::Reservoir,
     water_year::{WaterYear, WaterYearStatistics},
 };
-use ecco::reservoir_observations::{GetWaterYears, ReservoirObservations};
+use ecco::{
+    reservoir_observations::{GetWaterYears, ReservoirObservations},
+    calendar_year_model::CalendarYearModel
+};
 use gloo_console::log as gloo_log;
 use js_sys::JsString;
 use std::collections::HashMap;
@@ -11,13 +14,13 @@ use web_sys::HtmlSelectElement;
 use yew::prelude::*;
 const DIV_BLOG_NAME: &str = "california-table";
 const RESERVOIR_SELECTION_ID: &str = "reservoir-selections";
-struct Model {
+//struct Model {
     // The selected reservoir
-    selected_reservoir: String,
+//    selected_reservoir: String,
     // The data for the selected reservoir
-    reservoir_data: HashMap<String, Vec<WaterYear>>,
-    reservoir_vector: Vec<Reservoir>,
-}
+//    reservoir_data: HashMap<String, Vec<WaterYear>>,
+//    reservoir_vector: Vec<Reservoir>,
+//}
 
 enum Msg {
     // The user selected a reservoir from the dropdown list
@@ -54,7 +57,7 @@ fn generic_callback(_event: Event, dom_id_str: &str) -> Msg {
     Msg::SelectReservoir(updated_reservoir)
 }
 
-impl Component for Model {
+impl Component for CalendarYearModel {
     type Message = Msg;
     type Properties = ();
 
@@ -252,6 +255,6 @@ fn main() {
                 }
             },
         );
-    let renderer = yew::Renderer::<Model>::with_root(div_element);
+    let renderer = yew::Renderer::<CalendarYearModel>::with_root(div_element);
     renderer.render();
 }

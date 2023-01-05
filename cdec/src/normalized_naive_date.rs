@@ -25,6 +25,7 @@ impl NormalizedNaiveDate {
         let end = NormalizedNaiveDate::from_md_opt(9, 30).unwrap();
         let date_range = Range { start, end };
         let ranged_date: RangedDate<NormalizedNaiveDate> = date_range.clone().into();
+        ranged_date
     }
 
     pub fn normalized_year(&self) -> i32 {

@@ -1,9 +1,9 @@
 use cdec::{
     normalized_naive_date::NormalizedNaiveDate,
     reservoir::Reservoir,
-    water_year::{WaterYear, WaterYearStatistics},
+    water_year::{WaterYear, WaterYearStatistics, CleanReservoirData, NormalizeWaterYears},
 };
-use chrono::{DateTime, Datelike, Duration, IsoWeek, Local, NaiveDate, Weekday};
+use chrono::{DateTime, Duration, IsoWeek, Local, NaiveDate, Weekday};
 use easy_cast::traits::Cast;
 use ecco::{
     calendar_year_model::get_colors,
@@ -12,6 +12,7 @@ use ecco::{
 use gloo_console::log as gloo_log;
 use js_sys::JsString;
 use std::collections::HashMap;
+use plotters::prelude::*;
 use wasm_bindgen::JsCast;
 use web_sys::HtmlSelectElement;
 use yew::prelude::*;
@@ -149,7 +150,7 @@ impl<'a> Model {
                 // date_recording is the original date in normalization
                 let (first, last) = water_year.calendar_year_from_normalized_water_year();
                 let year_string = format!("{}-{}", first.year(), last.format("%y"));
-                let final_legend_title = format("{} {}", year_string, legend_base).as_str();
+                let final_legend_title = format!("{} {}", year_string, legend_base).as_str();
                 chart
                     .draw_series(LineSeries::new(
                         water_year
