@@ -1,5 +1,7 @@
 use chrono::{DateTime, Datelike, Duration, IsoWeek, Local, NaiveDate, Weekday};
 use core::{mem::replace, ops::Add};
+use plotters::prelude::*;
+use std::ops::Range;
 
 #[derive(Debug, PartialEq, Eq, Hash, PartialOrd, Ord, Copy, Clone)]
 pub struct NormalizedNaiveDate {
@@ -19,13 +21,10 @@ impl NormalizedNaiveDate {
     }
     pub fn get_normalized_ranged_date() -> RangedDate<NormalizedNaiveDate> {
         // California’s water year runs from October 1 to September 30 and is the official 12-month timeframe
-            let start = NormalizedNaiveDate::from_md_opt(10,1).unwrap();
-            let end = NormalizedNaiveDate::from_md_opt(9,30).unwrap();
-            let date_range = Range {
-                start,
-                end,
-            };
-            let ranged_date: RangedDate<NormalizedNaiveDate> = date_range.clone().into();
+        let start = NormalizedNaiveDate::from_md_opt(10, 1).unwrap();
+        let end = NormalizedNaiveDate::from_md_opt(9, 30).unwrap();
+        let date_range = Range { start, end };
+        let ranged_date: RangedDate<NormalizedNaiveDate> = date_range.clone().into();
     }
 
     pub fn normalized_year(&self) -> i32 {

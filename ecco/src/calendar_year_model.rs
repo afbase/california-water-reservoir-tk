@@ -1,7 +1,7 @@
 use cdec::{
+    normalized_naive_date::NormalizedNaiveDate,
     reservoir::Reservoir,
     water_year::{WaterYear, WaterYearStatistics},
-    normalized_naive_date::NormalizedNaiveDate,
 };
 use chrono::{DateTime, Datelike, Duration, IsoWeek, Local, NaiveDate, Weekday};
 use easy_cast::traits::Cast;
@@ -23,40 +23,35 @@ pub struct CalendarYearModel {
 }
 
 impl<'a> CalendarYearModel {
-
-    pub fn generate_svg(
-        &self,
-        svg_inner_string: &'a mut String
-    ) -> DrawResult<(), SVGBackend<'a>> {
-
+    pub fn generate_svg(&self, svg_inner_string: &'a mut String) -> DrawResult<(), SVGBackend<'a>> {
     }
 }
 
 pub fn get_colors(number_of_colors: usize) -> Result<Vec<RGBColor>, String> {
     let vector_of_colors = vec![
         // Oranges - 9
-        RGBColor(102,37,6),
-        RGBColor(153,52,4),
-        RGBColor(204,76,2),
-        RGBColor(236,112,20),
-        RGBColor(254,153,41),
-        RGBColor(254,196,79),
-        RGBColor(254,227,145),
-        RGBColor(255,247,188),
-        RGBColor(255,255,229),
+        RGBColor(102, 37, 6),
+        RGBColor(153, 52, 4),
+        RGBColor(204, 76, 2),
+        RGBColor(236, 112, 20),
+        RGBColor(254, 153, 41),
+        RGBColor(254, 196, 79),
+        RGBColor(254, 227, 145),
+        RGBColor(255, 247, 188),
+        RGBColor(255, 255, 229),
         //PuBuGn - 9
-        RGBColor(1,70,54),
-        RGBColor(1,108,89),
-        RGBColor(2,129,138),
-        RGBColor(54,144,192),
-        RGBColor(103,169,207),
-        RGBColor(166,189,219),
-        RGBColor(208,209,230),
-        RGBColor(236,226,240),
-        RGBColor(255,247,251),
+        RGBColor(1, 70, 54),
+        RGBColor(1, 108, 89),
+        RGBColor(2, 129, 138),
+        RGBColor(54, 144, 192),
+        RGBColor(103, 169, 207),
+        RGBColor(166, 189, 219),
+        RGBColor(208, 209, 230),
+        RGBColor(236, 226, 240),
+        RGBColor(255, 247, 251),
         //Accent - 2
-        RGBColor(127,201,127),
-        RGBColor(190,174,212),
+        RGBColor(127, 201, 127),
+        RGBColor(190, 174, 212),
     ]; // total of 20
     let vec_len = vec_of_colors.len();
     if number_of_colors <= vec_len {
