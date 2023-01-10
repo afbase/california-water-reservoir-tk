@@ -44,9 +44,9 @@ impl NormalizeWaterYears for Vec<WaterYear> {
                 })
                 .collect::<Vec<_>>();
             let y_max: f64 = ((largest_acrefeet.iter().max_by(|a, b| a.total_cmp(b)).unwrap() + 500000.0) as i64).cast();
-            return Ok(y_max);
+            Ok(y_max)
         } else {
-            return Err(WaterYearErrors::InsufficientWaterYears);
+            Err(WaterYearErrors::InsufficientWaterYears)
         }
     }
 
@@ -82,7 +82,7 @@ impl NormalizeWaterYears for Vec<WaterYear> {
             .collect::<Vec<(WaterYear, WaterYearStatistics)>>();
         water_year_and_statistics.sort_by(|a, b| a.1.partial_cmp(&b.1).unwrap());
         water_year_and_statistics.reverse();
-        for mut water_year in self.iter() {
+        for mut water_year in &mut self.iter() {
             let mut popped_tuple = water_year_and_statistics.pop().unwrap();
             water_year = &mut popped_tuple.0;
         }
@@ -113,7 +113,7 @@ impl NormalizeCalendarYear for WaterYear {
             let mut tap = survey.tap();
             let normalized_date: NormalizedNaiveDate = tap.date_observation.into();
             // turn date_recording into date_observation of the original date
-            tap.date_recording = tap.date_observation.clone();
+            tap.date_recording = tap.date_observation;
             tap.date_observation = normalized_date.into();
         }
         // get rid of feb_29
@@ -131,8 +131,8 @@ impl WaterYear {
         // in a normalized water year - the date_recording has the original date_observation
         let mut surveys = self.0.clone();
         let surveys_len = surveys.len();
-        let first_date = surveys[0].tap().date_recording.clone();
-        let last_date = surveys[surveys_len - 1].tap().date_recording.clone();
+        let first_date = surveys[0].tap().date_recording;
+        let last_date = surveys[surveys_len - 1].tap().date_recording;
         (first_date, last_date)
     }
     pub fn calendar_year_change(&mut self) -> f64 {

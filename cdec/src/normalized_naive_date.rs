@@ -24,7 +24,7 @@ impl NormalizedNaiveDate {
         let start = NormalizedNaiveDate::from_md_opt(10, 1).unwrap();
         let end = NormalizedNaiveDate::from_md_opt(9, 30).unwrap();
         let date_range = Range { start, end };
-        let ranged_date: RangedDate<NormalizedNaiveDate> = date_range.clone().into();
+        let ranged_date: RangedDate<NormalizedNaiveDate> = date_range.into();
         ranged_date
     }
 

@@ -1,6 +1,6 @@
 use cdec::{
     reservoir::Reservoir,
-    water_year::{WaterYear, WaterYearStatistics},
+    water_year::WaterYearStatistics,
 };
 use ecco::{
     reservoir_observations::{GetWaterYears, ReservoirObservations},

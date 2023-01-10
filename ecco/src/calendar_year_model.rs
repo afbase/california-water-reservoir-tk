@@ -45,5 +45,5 @@ pub fn get_colors(number_of_colors: usize) -> Result<Vec<RGBColor>, String> {
         let result_slice = &slice[0..number_of_colors];
         return Ok(result_slice.to_vec());
     }
-    return Err(String::from("too many colors requested"));
+    Err(String::from("too many colors requested"))
 }

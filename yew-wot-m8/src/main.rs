@@ -3,8 +3,8 @@ use cdec::{
     reservoir::Reservoir,
     water_year::{WaterYear, WaterYearStatistics, CleanReservoirData, NormalizeWaterYears},
 };
-use chrono::{DateTime, Duration, IsoWeek, Local, NaiveDate, Weekday};
-use easy_cast::traits::Cast;
+// use chrono::{DateTime, Duration, IsoWeek, Local, NaiveDate, Weekday};
+// use easy_cast::traits::Cast;
 use ecco::{
     calendar_year_model::get_colors,
     reservoir_observations::{GetWaterYears, ReservoirObservations},
@@ -132,7 +132,7 @@ impl<'a> Model {
             let y_max = normalized_water_years
                 .get_largest_acrefeet_over_n_years(NUMBER_OF_CHARTS_TO_DISPLAY_DEFAULT);
             let colors_for_water_years = get_colors(NUMBER_OF_CHARTS_TO_DISPLAY_DEFAULT).unwrap();
-            let plot_and_color = normalize_calendar_years
+            let plot_and_color = normalized_water_years
                 .iter()
                 .zip(colors_for_water_years.iter());
             // set up svg drawing area
@@ -239,17 +239,18 @@ impl Component for Model {
                     }
                 },
             );
-        html! {
-            <div id="chart">
-                <div id={DIV_START_DATE_NAME}>
-                    {START_DATE_STRING} <input min={self.min_date.format(DATE_FORMAT).to_string()} max={self.max_date.format(DATE_FORMAT).to_string()} onchange={start_date_change_callback} type="date" id={START_DATE_NAME} value={start_date.format(DATE_FORMAT).to_string()}/>
-                </div>
-                <div id={DIV_END_DATE_NAME}>
-                    {END_DATE_STRING} <input min={self.min_date.format(DATE_FORMAT).to_string()} max={self.max_date.format(DATE_FORMAT).to_string()} onchange={end_date_change_callback} type="date" id={END_DATE_NAME} value={end_date.format(DATE_FORMAT).to_string()}/>
-                </div>
-                {svg_vnode}
-            </div>
-        }
+        //. TODO: do you need this????
+        // html! {
+        //     <div id="chart">
+        //         <div id={DIV_START_DATE_NAME}>
+        //             {START_DATE_STRING} <input min={self.min_date.format(DATE_FORMAT).to_string()} max={self.max_date.format(DATE_FORMAT).to_string()} onchange={start_date_change_callback} type="date" id={START_DATE_NAME} value={start_date.format(DATE_FORMAT).to_string()}/>
+        //         </div>
+        //         <div id={DIV_END_DATE_NAME}>
+        //             {END_DATE_STRING} <input min={self.min_date.format(DATE_FORMAT).to_string()} max={self.max_date.format(DATE_FORMAT).to_string()} onchange={end_date_change_callback} type="date" id={END_DATE_NAME} value={end_date.format(DATE_FORMAT).to_string()}/>
+        //         </div>
+        //         {svg_vnode}
+        //     </div>
+        // }
         let reservoir_selection_callback = ctx
             .link()
             .callback(|event: Event| generic_callback(event, RESERVOIR_SELECTION_ID));
@@ -302,7 +303,6 @@ impl Component for Model {
                     }
                     </select>
                     // Needs to show normalized annual charts
-
             }
         } else {
             html! {}
