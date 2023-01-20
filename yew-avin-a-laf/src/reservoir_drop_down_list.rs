@@ -1,6 +1,14 @@
 use yew::{function_component, html, Html};
 
-pub enum ReservervoirSelectionEvent {
+pub struct CalendarYearModel {
+    // The selected reservoir
+    pub selected_reservoir: String,
+    // The data for the selected reservoir
+    pub reservoir_data: HashMap<String, Vec<WaterYear>>,
+    pub reservoir_vector: Vec<Reservoir>,
+}
+
+pub enum ReservoirSelectionEvent {
     // The user selected a reservoir from the dropdown list
     SelectReservoir(String),
 }
@@ -8,7 +16,7 @@ pub enum ReservervoirSelectionEvent {
 #[derive(Properties, PartialEq)]
 pub struct ReservoirsDropDownProps {
     // see generic_callback
-    pub on_change: Fn(Event, &str) -> ReservervoirSelectionEvent),
+    pub on_change: Fn(Event, &str) -> ReservoirSelectionEvent,
     pub div_id: String,
     pub select_id: String,
     pub model: CalendarYearModel,
@@ -17,7 +25,7 @@ pub struct ReservoirsDropDownProps {
 
 #[function_component]
 pub fn reservoir_drop_down_list(props: &ReservoirsDropDownProps) -> Html {
-    let reservoir_vector props.model.reservoir_vector;
+    let reservoir_vector = props.model.reservoir_vector;
     let mut reservoir_ids_sorted = props.model
                 .reservoir_data
                 .keys()

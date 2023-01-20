@@ -3,6 +3,7 @@ use cdec::{
     reservoir::Reservoir,
     water_year::{WaterYear, WaterYearStatistics, CleanReservoirData, NormalizeWaterYears},
 };
+use chrono::{Datelike, NaiveDate};
 // use chrono::{DateTime, Duration, IsoWeek, Local, NaiveDate, Weekday};
 // use easy_cast::traits::Cast;
 use ecco::{
@@ -12,6 +13,7 @@ use ecco::{
 use gloo_console::log as gloo_log;
 use js_sys::JsString;
 use std::collections::HashMap;
+use std::ops::Range;
 use plotters::prelude::*;
 use wasm_bindgen::JsCast;
 use web_sys::HtmlSelectElement;
@@ -22,10 +24,19 @@ const END_DATE_NAME: &str = "end-date";
 const START_DATE_NAME: &str = "start-date";
 const DIV_END_DATE_NAME: &str = "div-end-date";
 const DIV_START_DATE_NAME: &str = "div-start-date";
+const DIV_SORT_BY_SELECTION_ID: &str = "div-select-sort-by";
+pub const DIV_BLOG_NAME: &str = "california-years";
+pub const DIV_RESERVOIR_SELECTION_ID: &str = "div-reservoir-selections";
 const _ELEMENT_ID: &str = "svg-chart";
 const START_DATE_STRING: &str = "Start Date: ";
 const END_DATE_STRING: &str = "End Date: ";
-pub const DIV_BLOG_NAME: &str = "california-years";
+const MOST_RECENT: &str = "Most Recent";
+const DRIEST: &str = "Driest";
+const DRIEST_OPTION_TEXT: &str = "Sort By Driest";
+const MOST_RECENT_OPTION_TEXT: &str = "Sort By Most Recent";
+const SORT_BY_SELECTION_ID: &str = "select-sort-by";
+const SELECT_RESERVOIR_TEXT: &str = "Select Reservoir: ";
+const SORT_BY_TEXT: &str = "Sort by: ";
 pub const RESERVOIR_SELECTION_ID: &str = "reservoir-selections";
 pub const NUMBER_OF_CHARTS_TO_DISPLAY_DEFAULT: usize = 20;
 
@@ -75,7 +86,7 @@ enum SortBy {
     MostRecent,
     DriestYears,
 }
-enum Msg {
+pub enum Msg {
     // The user selected a reservoir from the dropdown list
     SelectReservoir(String),
     SelectedSort(SortBy),
@@ -94,9 +105,9 @@ impl<'a> Model {
     fn derive_legend_name(&self) -> String {
         let data = self.reservoir_data.get(&self.selected_reservoir).unwrap();
         let data_len = data.len();
-        let first_date = data[0].tap().date_observation;
-        let last_date = data[data_len - 1].tap().date_observation;
-        let station_id = data[0].tap().station_id;
+        // let _first_date = data[0].0[0].tap().date_observation;
+        // let _last_date = data[data_len - 1].0[0].tap().date_observation;
+        let station_id = data[0].clone().0[0].tap().station_id.clone();
         let reservoir = self
             .reservoir_vector
             .iter()
@@ -116,9 +127,14 @@ impl<'a> Model {
         let legend_base = self.derive_legend_name();
         if let Some(mut normalized_water_years) = self
             .reservoir_data
-            .get_clean_reservoir_water_years(self.selected_reservoir)
+            .get_clean_reservoir_water_years(self.selected_reservoir.clone())
         {
-            let ranged_date = NormalizedNaiveDate::get_normalized_ranged_date();
+            let date_range_tuple = NormalizedNaiveDate::get_normalized_tuple_date_range();
+            let range_date = Range{
+                start: date_range_tuple.0,
+                end: date_range_tuple.1
+            };
+            let ranged_date: RangedDate<NaiveDate> = range_date.into();
             match self.selected_sort {
                 Msg::SelectedSort(SortBy::DriestYears) => {
                     normalized_water_years.sort_by_lowest_recorded_years()
@@ -130,7 +146,7 @@ impl<'a> Model {
                 _ => normalized_water_years.sort_by_most_recent(),
             }
             let y_max = normalized_water_years
-                .get_largest_acrefeet_over_n_years(NUMBER_OF_CHARTS_TO_DISPLAY_DEFAULT);
+                .get_largest_acrefeet_over_n_years(NUMBER_OF_CHARTS_TO_DISPLAY_DEFAULT).unwrap();
             let colors_for_water_years = get_colors(NUMBER_OF_CHARTS_TO_DISPLAY_DEFAULT).unwrap();
             let plot_and_color = normalized_water_years
                 .iter()
@@ -150,7 +166,8 @@ impl<'a> Model {
                 // date_recording is the original date in normalization
                 let (first, last) = water_year.calendar_year_from_normalized_water_year();
                 let year_string = format!("{}-{}", first.year(), last.format("%y"));
-                let final_legend_title = format!("{} {}", year_string, legend_base).as_str();
+                let final_legend_title_string = format!("{} {}", year_string, legend_base);
+                let final_legend_title = final_legend_title_string.as_str();
                 chart
                     .draw_series(LineSeries::new(
                         water_year
@@ -158,16 +175,17 @@ impl<'a> Model {
                             .iter()
                             .map(|survey| {
                                 let normalized_date_observation: NormalizedNaiveDate =
-                                    survey.tap().date_observation;
-                                let observation = survey.tap().value_as_f64();
-                                (*normalized_date_observation, observation)
+                                    survey.clone().tap().date_observation.into();
+                                let normalized_naive_date_observation = normalized_date_observation.into();
+                                let observation = survey.clone().tap().value_as_f64();
+                                (normalized_naive_date_observation, observation)
                             })
                             .collect::<Vec<_>>(),
                         rgb_color,
                     ))
                     .unwrap()
                     .label(final_legend_title)
-                    .legend(|(x, y)| PathElement::new(vec![(x, y), (x + 20, y)], rgb_color));
+                    .legend(|(x, y)| PathElement::new(vec![(x, y), (x + 20, y)], *rgb_color));
             }
             chart
                 .configure_series_labels()
@@ -176,8 +194,8 @@ impl<'a> Model {
                 .draw()
                 .unwrap();
             backend_drawing_area.present().unwrap();
-            Ok(())
         };
+        Ok(())
     }
 }
 
@@ -195,6 +213,7 @@ impl Component for Model {
             reservoir_data: water_years_from_observable_range,
             selected_reservoir: String::from("SHA"),
             reservoir_vector: reservoirs,
+            selected_sort: Msg::SelectedSort(SortBy::MostRecent)
         }
     }
 
@@ -207,6 +226,12 @@ impl Component for Model {
                 reversed.truncate(3);
                 let station_id = reversed.chars().rev().collect::<String>();
                 self.selected_reservoir = station_id;
+            },
+            Msg::SelectedSort(sortie) => {
+                match sortie {
+                    SortBy::DriestYears => {self.selected_sort = Msg::SelectedSort(SortBy::DriestYears); },
+                    SortBy::MostRecent => {self.selected_sort = Msg::SelectedSort(SortBy::MostRecent); },
+                }   
             }
         }
         true
@@ -251,6 +276,9 @@ impl Component for Model {
         //         {svg_vnode}
         //     </div>
         // }
+        let sort_callback = ctx
+        .link()
+        .callback(|event: Event| generic_callback(event, SORT_BY_SELECTION_ID));
         let reservoir_selection_callback = ctx
             .link()
             .callback(|event: Event| generic_callback(event, RESERVOIR_SELECTION_ID));
@@ -271,38 +299,86 @@ impl Component for Model {
             reservoir_ids_sorted.sort();
 
             html! {
-                <div>
-                    // Dropdown list for selecting a reservoir
-                    <select id={RESERVOIR_SELECTION_ID} onchange={reservoir_selection_callback}>
-                    { for
-                        reservoir_ids_sorted.iter().map(|station_id| {
-                            let station_id_value = station_id.clone();
-                            let station_id_option = station_id.clone();
-                            let reservoir = self.reservoir_vector.iter().find_map(|resy|
-                                {
-                                    let mut result = None;
-                                    let reservoir_station_id = resy.station_id.clone();
-                                    let station_id_cloned = station_id.clone();
-                                    if reservoir_station_id == station_id_cloned {
-                                        result = Some(resy.clone());
+                <div id={DIV_BLOG_NAME}>
+                    <div id={DIV_RESERVOIR_SELECTION_ID}>
+                        // Dropdown list for selecting a reservoir
+                        {SELECT_RESERVOIR_TEXT}
+                        <select id={RESERVOIR_SELECTION_ID} onchange={reservoir_selection_callback}>
+                        { for
+                            reservoir_ids_sorted.iter().map(|station_id| {
+                                let station_id_value = station_id.clone();
+                                let station_id_option = station_id.clone();
+                                let reservoir = self.reservoir_vector.iter().find_map(|resy|
+                                    {
+                                        let mut result = None;
+                                        let reservoir_station_id = resy.station_id.clone();
+                                        let station_id_cloned = station_id.clone();
+                                        if reservoir_station_id == station_id_cloned {
+                                            result = Some(resy.clone());
+                                        }
+                                        result
+                                    }).unwrap();
+                                let option_text = format!("{} - {}", reservoir.dam, station_id_option);
+                                if *station_id == self.selected_reservoir {
+                                        html!{
+                                            <option value={station_id_value} selected=true>{option_text}</option>
+                                        }
+                                    } else {
+                                        html!{
+                                            <option value={station_id_value}>{option_text}</option>
+                                        }
                                     }
-                                    result
-                                }).unwrap();
-                            let option_text = format!("{} - {}", reservoir.dam, station_id_option);
-                            if *station_id == self.selected_reservoir {
-                                    html!{
-                                        <option value={station_id_value} selected=true>{option_text}</option>
-                                    }
-                                } else {
-                                    html!{
-                                        <option value={station_id_value}>{option_text}</option>
-                                    }
-                                }
 
-                        })
-                    }
-                    </select>
+                            })
+                        }
+                        </select>
+                    </div>
                     // Needs to show normalized annual charts
+                    <div id={DIV_SORT_BY_SELECTION_ID}>
+                    {SORT_BY_TEXT}
+                        <select id={SORT_BY_SELECTION_ID} onchange={sort_callback}>
+                        {
+                            match self.selected_sort {
+                                Msg::SelectedSort(SortBy::MostRecent) => {
+                                    html!{
+                                        <option value={MOST_RECENT} selected=true>{MOST_RECENT_OPTION_TEXT}</option>
+                                    }
+                                },
+                                Msg::SelectedSort(SortBy::DriestYears) => {
+                                    html!{
+                                    <option value={MOST_RECENT}>{MOST_RECENT_OPTION_TEXT}</option>
+                                    }
+                                },
+                                _ => {
+                                    html!{
+                                        <option value={MOST_RECENT} selected=true>{MOST_RECENT_OPTION_TEXT}</option>
+                                    }
+                                },
+                            }
+                        }
+                        {
+                            match self.selected_sort {
+                                Msg::SelectedSort(SortBy::MostRecent) => {
+                                    html!{
+                                        <option value={DRIEST}>{DRIEST_OPTION_TEXT}</option>
+                                    }
+                                },
+                                Msg::SelectedSort(SortBy::DriestYears) => {
+                                    html!{
+                                    <option value={DRIEST} selected=true>{DRIEST_OPTION_TEXT}</option>
+                                    }
+                                },
+                                _ => {
+                                    html!{
+                                        <option value={DRIEST}>{DRIEST_OPTION_TEXT}</option>
+                                    }
+                                },
+                            }
+                        }
+                        </select>
+                    </div>
+                    {svg_vnode}
+                </div>
             }
         } else {
             html! {}
@@ -317,7 +393,7 @@ pub fn string_log(log_string: String) {
 
 // TODO fix this so it is not about dates but reservoir ids
 pub fn generic_callback(_event: Event, dom_id_str: &str) -> Msg {
-    let updated_reservoir = web_sys::window()
+    let input_string = web_sys::window()
         .and_then(|window| window.document())
         .map_or_else(
             || {
@@ -337,6 +413,24 @@ pub fn generic_callback(_event: Event, dom_id_str: &str) -> Msg {
                 }
             },
         );
-    Msg::SelectReservoir(updated_reservoir)
+    match dom_id_str {
+        RESERVOIR_SELECTION_ID => {
+            Msg::SelectReservoir(input_string)
+        },
+        SORT_BY_SELECTION_ID => {
+            let input_str = input_string.as_str();
+            match input_str {
+                MOST_RECENT => Msg::SelectedSort(SortBy::MostRecent),
+                DRIEST => Msg::SelectedSort(SortBy::DriestYears),
+                // this seems to be the least harmful
+                _ => Msg::SelectedSort(SortBy::MostRecent),
+            }
+        }
+        _ => {
+            // fix this if there is ever a false positive
+            // this seems to be the least harmful
+            Msg::SelectedSort(SortBy::MostRecent)
+        }
+    }
 }
 

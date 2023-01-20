@@ -28,6 +28,14 @@ impl NormalizedNaiveDate {
         ranged_date
     }
 
+    pub fn get_normalized_tuple_date_range() -> (NaiveDate, NaiveDate) {
+        // California’s water year runs from October 1 to September 30 and is the official 12-month timeframe
+        let start = NormalizedNaiveDate::from_md_opt(10, 1).unwrap();
+        let end = NormalizedNaiveDate::from_md_opt(9, 30).unwrap();
+        let date_range: (NaiveDate, NaiveDate) = (start.into(), end.into());
+        date_range
+    }
+
     pub fn normalized_year(&self) -> i32 {
         Self::derive_normalized_year(self.month)
     }

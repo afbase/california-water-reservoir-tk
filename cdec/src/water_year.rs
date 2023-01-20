@@ -19,7 +19,7 @@ pub struct WaterYearStatistics {
 pub trait NormalizeCalendarYear {
     fn normalize_calendar_years(&mut self);
 }
-
+#[derive(Debug)]
 pub enum WaterYearErrors {
     InsufficientWaterYears,
 }

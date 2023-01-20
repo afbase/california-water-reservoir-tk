@@ -256,7 +256,7 @@ impl std::convert::TryFrom<Survey> for StringRecord {
 }
 
 impl Tap {
-    fn value_as_f64(&self) -> f64 {
+    pub fn value_as_f64(&self) -> f64 {
         match self.value {
             DataRecording::Recording(a) => {
                 let k: f64 = a.cast();

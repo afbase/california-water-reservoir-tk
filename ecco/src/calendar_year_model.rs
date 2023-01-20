@@ -5,12 +5,30 @@ use cdec::{
 use plotters::prelude::*;
 use std::collections::HashMap;
 
+use crate::reservoir_observations::ReservoirObservations;
+use crate::reservoir_observations::GetWaterYears;
 pub struct CalendarYearModel {
     // The selected reservoir
     pub selected_reservoir: String,
     // The data for the selected reservoir
     pub reservoir_data: HashMap<String, Vec<WaterYear>>,
     pub reservoir_vector: Vec<Reservoir>,
+}
+
+impl Default for CalendarYearModel {
+    fn default() -> Self {
+        let reservoirs = Reservoir::get_reservoir_vector();
+        let observations_hash_map: HashMap<String, ReservoirObservations> =
+            ReservoirObservations::init_from_lzma();
+        let water_years_from_observable_range =
+            observations_hash_map.get_water_years_from_reservoir_observations();
+        let selected_reservoir = String::from("SHA");
+        Self {
+            selected_reservoir,
+            reservoir_data: water_years_from_observable_range,
+            reservoir_vector: reservoirs
+        }
+    }
 }
 
 pub fn get_colors(number_of_colors: usize) -> Result<Vec<RGBColor>, String> {
