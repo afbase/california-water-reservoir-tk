@@ -11,6 +11,5 @@ Cargo.lock
 # clinton things
 .vscode/
 fixtures/output.*
-/yew-wu/dist
-/yew-nani/dist
+/yew-*/dist
 /supply-chain/
