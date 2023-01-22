@@ -53,8 +53,8 @@ impl NormalizeWaterYears for Vec<WaterYear> {
     fn get_complete_normalized_water_years(&self) -> Self {
         let mut vector_clone = self.clone();
         vector_clone.retain(|water_year| {
-            // keep the water year if it has at least ~11 months of data
-            water_year.0.len() >= 335
+            // keep the water year if it has at least ~12 months of data
+            water_year.0.len() >= 364
         });
         for water_year in &mut vector_clone {
             water_year.normalize_calendar_years();
@@ -95,11 +95,14 @@ pub trait CleanReservoirData {
 
 impl CleanReservoirData for HashMap<String, Vec<WaterYear>> {
     fn get_clean_reservoir_water_years(&self, key: String) -> Option<Vec<WaterYear>> {
-        let mut result = None;
-        if let Some(selected_reservoir_data) = self.get(&key) {
-            result = Some(selected_reservoir_data.get_complete_normalized_water_years());
+        let test = self
+        .get(&key);
+        if test.is_none() {
+            panic!("something is going on here");
         }
-        result
+        test.map(|selected_reservoir_data| {
+            selected_reservoir_data.get_complete_normalized_water_years()
+        })
     }
 }
 
@@ -109,12 +112,23 @@ impl NormalizeCalendarYear for WaterYear {
             self.0.sort();
         }
         for survey in &mut self.0 {
-            // California’s water year runs from October 1 to September 30 and is the official 12-month timeframe
-            let mut tap = survey.tap();
-            let normalized_date: NormalizedNaiveDate = tap.date_observation.into();
             // turn date_recording into date_observation of the original date
+            let mut tap = survey.tap();
             tap.date_recording = tap.date_observation;
-            tap.date_observation = normalized_date.into();
+            // California’s water year runs from October 1 to September 30 and is the official 12-month timeframe
+            let month = tap.date_observation.month();
+            let day = tap.date_observation.day();
+            let normalized_year = NormalizedNaiveDate::derive_normalized_year(month);
+            let normalized_date = NaiveDate::from_ymd_opt(normalized_year, month, day).map(|_| NormalizedNaiveDate {
+                year: normalized_year,
+                month: month,
+                day: day,
+            });
+            if normalized_date.is_none() {
+                continue;
+            }
+            let normalized_naive_date: NaiveDate = normalized_date.unwrap().into();
+            tap.date_observation = normalized_naive_date;
         }
         // get rid of feb_29
         let _ = self.0.drain_filter(|survey| {

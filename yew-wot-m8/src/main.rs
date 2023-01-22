@@ -19,17 +19,17 @@ use wasm_bindgen::JsCast;
 use web_sys::HtmlSelectElement;
 use yew::prelude::*;
 
-const DATE_FORMAT: &str = "%Y-%m-%d";
-const END_DATE_NAME: &str = "end-date";
-const START_DATE_NAME: &str = "start-date";
-const DIV_END_DATE_NAME: &str = "div-end-date";
-const DIV_START_DATE_NAME: &str = "div-start-date";
+// const DATE_FORMAT: &str = "%Y-%m-%d";
+// const END_DATE_NAME: &str = "end-date";
+// const START_DATE_NAME: &str = "start-date";
+// const DIV_END_DATE_NAME: &str = "div-end-date";
+// const DIV_START_DATE_NAME: &str = "div-start-date";
 const DIV_SORT_BY_SELECTION_ID: &str = "div-select-sort-by";
 pub const DIV_BLOG_NAME: &str = "california-years";
 pub const DIV_RESERVOIR_SELECTION_ID: &str = "div-reservoir-selections";
 const _ELEMENT_ID: &str = "svg-chart";
-const START_DATE_STRING: &str = "Start Date: ";
-const END_DATE_STRING: &str = "End Date: ";
+// const START_DATE_STRING: &str = "Start Date: ";
+// const END_DATE_STRING: &str = "End Date: ";
 const MOST_RECENT: &str = "Most Recent";
 const DRIEST: &str = "Driest";
 const DRIEST_OPTION_TEXT: &str = "Sort By Driest";
@@ -40,6 +40,10 @@ const SORT_BY_TEXT: &str = "Sort by: ";
 pub const RESERVOIR_SELECTION_ID: &str = "reservoir-selections";
 pub const NUMBER_OF_CHARTS_TO_DISPLAY_DEFAULT: usize = 20;
 
+fn string_log(log_string: String) {
+    let log_js_string: JsString = log_string.into();
+    gloo_log!(log_js_string);
+}
 
 fn main() {
     web_sys::window()
@@ -82,7 +86,7 @@ fn main() {
     renderer.render();
 }
 
-enum SortBy {
+pub enum SortBy {
     MostRecent,
     DriestYears,
 }
@@ -104,7 +108,7 @@ pub struct Model {
 impl<'a> Model {
     fn derive_legend_name(&self) -> String {
         let data = self.reservoir_data.get(&self.selected_reservoir).unwrap();
-        let data_len = data.len();
+        // let data_len = data.len();
         // let _first_date = data[0].0[0].tap().date_observation;
         // let _last_date = data[data_len - 1].0[0].tap().date_observation;
         let station_id = data[0].clone().0[0].tap().station_id.clone();
@@ -125,9 +129,34 @@ impl<'a> Model {
     }
     pub fn generate_svg(&self, svg_inner_string: &'a mut String) -> DrawResult<(), SVGBackend<'a>> {
         let legend_base = self.derive_legend_name();
-        if let Some(mut normalized_water_years) = self
+        let log_string = format!("selected reservoir: {}", self.selected_reservoir);
+        string_log(log_string);
+        let log_string = format!("reservoir data: {:?}", self.reservoir_data.get(&self.selected_reservoir));
+        string_log(log_string);
+        if let Some(mut normalized_water_years) = {
+            let test = self
             .reservoir_data
-            .get_clean_reservoir_water_years(self.selected_reservoir.clone())
+            .get(&self.selected_reservoir);
+            if test.is_none() {
+                let log_string = format!("failed to get data: {:?}", self.selected_reservoir);
+                string_log(log_string);
+                panic!("something is going on here");
+            }
+            test.map(|selected_reservoir_data| {
+                let result = selected_reservoir_data.get_complete_normalized_water_years();
+                let log_string = format!("normalized reservoir data: {:?}", result);
+                string_log(log_string);
+                result
+            })
+        // } {
+
+
+        
+        // self
+        //     .reservoir_data
+        //     .clone()
+        //     .get_clean_reservoir_water_years(self.selected_reservoir.clone())
+        }
         {
             let date_range_tuple = NormalizedNaiveDate::get_normalized_tuple_date_range();
             let range_date = Range{
@@ -166,7 +195,7 @@ impl<'a> Model {
                 // date_recording is the original date in normalization
                 let (first, last) = water_year.calendar_year_from_normalized_water_year();
                 let year_string = format!("{}-{}", first.year(), last.format("%y"));
-                let final_legend_title_string = format!("{} {}", year_string, legend_base);
+                let final_legend_title_string = format!("{year_string} {legend_base}");
                 let final_legend_title = final_legend_title_string.as_str();
                 chart
                     .draw_series(LineSeries::new(
@@ -174,10 +203,12 @@ impl<'a> Model {
                             .0
                             .iter()
                             .map(|survey| {
+                                let log_string = format!("{} - {}", survey.get_tap().station_id, survey.get_tap().date_observation);
+                                string_log(log_string);
                                 let normalized_date_observation: NormalizedNaiveDate =
-                                    survey.clone().tap().date_observation.into();
+                                survey.get_tap().date_observation.into();
                                 let normalized_naive_date_observation = normalized_date_observation.into();
-                                let observation = survey.clone().tap().value_as_f64();
+                                let observation = survey.get_tap().value_as_f64();
                                 (normalized_naive_date_observation, observation)
                             })
                             .collect::<Vec<_>>(),
@@ -293,7 +324,6 @@ impl Component for Model {
             let mut reservoir_ids_sorted = self
                 .reservoir_data
                 .keys()
-                .into_iter()
                 .cloned()
                 .collect::<Vec<_>>();
             reservoir_ids_sorted.sort();
@@ -384,11 +414,6 @@ impl Component for Model {
             html! {}
         }
     }
-}
-
-pub fn string_log(log_string: String) {
-    let log_js_string: JsString = log_string.into();
-    gloo_log!(log_js_string);
 }
 
 // TODO fix this so it is not about dates but reservoir ids

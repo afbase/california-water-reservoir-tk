@@ -5,9 +5,9 @@ use std::ops::Range;
 
 #[derive(Debug, PartialEq, Eq, Hash, PartialOrd, Ord, Copy, Clone)]
 pub struct NormalizedNaiveDate {
-    year: i32,
-    month: u32,
-    day: u32,
+    pub year: i32,
+    pub month: u32,
+    pub day: u32,
 }
 
 impl NormalizedNaiveDate {
@@ -47,10 +47,13 @@ impl NormalizedNaiveDate {
         NaiveDate::from_ymd_opt(year, month, day).unwrap()
     }
 
-    fn derive_normalized_year(month: u32) -> i32 {
+    pub fn derive_normalized_year(month: u32) -> i32 {
         let dt: DateTime<Local> = Local::now();
-        let first_year = dt.naive_local().date().year() - 1;
-        let second_year = first_year + 1;
+        let (first_year, second_year) = {
+            let ref this = dt.naive_local().date();
+            let year = this.year();
+            (year - 1, year)
+        };
         match month {
             10..=12 => first_year,
             _ => second_year,
