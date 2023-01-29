@@ -140,8 +140,8 @@ impl NormalizeCalendarYear for WaterYear {
             let normalized_year = NormalizedNaiveDate::derive_normalized_year(month);
             let normalized_date = NaiveDate::from_ymd_opt(normalized_year, month, day).map(|_| NormalizedNaiveDate {
                 year: normalized_year,
-                month: month,
-                day: day,
+                month,
+                day,
             });
             if normalized_date.is_none() {
                 continue;
@@ -306,20 +306,20 @@ mod tests {
             Survey::Daily(Tap {
                 station_id: String::new(),
                 date_observation: d,
-                date_recording: d.clone(),
+                date_recording: d,
                 value: DataRecording::Recording(3),
             }),
             Survey::Daily(Tap {
                 station_id: String::new(),
                 date_observation: d_1,
-                date_recording: d_1.clone(),
+                date_recording: d_1,
                 value: DataRecording::Recording(3),
             }),
         ];
         let obs = ObservableRange {
             observations: surveys,
-            start_date: d_1.clone(),
-            end_date: d.clone(),
+            start_date: d_1,
+            end_date: d,
             month_datum: b,
         };
 
@@ -328,13 +328,13 @@ mod tests {
             WaterYear(vec![Survey::Daily(Tap {
                 station_id: String::new(),
                 date_observation: d_1,
-                date_recording: d_1.clone(),
+                date_recording: d_1,
                 value: DataRecording::Recording(3),
             })]),
             WaterYear(vec![Survey::Daily(Tap {
                 station_id: String::new(),
                 date_observation: d,
-                date_recording: d.clone(),
+                date_recording: d,
                 value: DataRecording::Recording(3),
             })]),
         ];
@@ -360,7 +360,7 @@ mod tests {
             survey = Survey::Daily(Tap {
                 station_id: String::new(),
                 date_observation: day,
-                date_recording: day.clone(),
+                date_recording: day,
                 value: DataRecording::Recording(3),
             });
             surveys.push(survey);
@@ -383,7 +383,7 @@ mod tests {
             survey = Survey::Daily(Tap {
                 station_id: String::new(),
                 date_observation: day,
-                date_recording: day.clone(),
+                date_recording: day,
                 value: DataRecording::Recording(3),
             });
             surveys.push(survey);
@@ -413,7 +413,7 @@ mod tests {
             survey = Survey::Daily(Tap {
                 station_id: String::new(),
                 date_observation: day,
-                date_recording: day.clone(),
+                date_recording: day,
                 value: DataRecording::Recording(3),
             });
             surveys.push(survey);
@@ -436,7 +436,7 @@ mod tests {
             survey = Survey::Daily(Tap {
                 station_id: String::new(),
                 date_observation: day,
-                date_recording: day.clone(),
+                date_recording: day,
                 value: DataRecording::Recording(3),
             });
             surveys.push(survey);

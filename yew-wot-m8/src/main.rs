@@ -125,8 +125,8 @@ impl<'a> Model {
         if let Some(mut normalized_water_years) = {
             let test = self.reservoir_data.get(&self.selected_reservoir);
             test.map(|selected_reservoir_data| {
-                let result = selected_reservoir_data.get_complete_normalized_water_years();
-                result
+                
+                selected_reservoir_data.get_complete_normalized_water_years()
             })
         } {
             let date_range_tuple = NormalizedNaiveDate::get_normalized_tuple_date_range();

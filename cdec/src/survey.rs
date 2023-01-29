@@ -480,28 +480,28 @@ mod test {
         let value = DataRecording::Recording(921);
         let survey_0 = Survey::Daily(Tap {
             station_id: station_id.clone(),
-            date_observation: date_observation.clone(),
-            date_recording: date_recording.clone(),
-            value: value.clone(),
+            date_observation: date_observation,
+            date_recording: date_recording,
+            value: value,
         });
         let survey_1 = Survey::Monthly(Tap {
             station_id: station_id.clone(),
-            date_observation: date_observation.clone(),
-            date_recording: date_recording.clone(),
-            value: value.clone(),
+            date_observation: date_observation,
+            date_recording: date_recording,
+            value: value,
         });
         let observation_0 = Observation {
             station_id: station_id.clone(),
-            date_observation: date_observation.clone(),
-            date_recording: date_recording.clone(),
-            value: value.clone(),
+            date_observation: date_observation,
+            date_recording: date_recording,
+            value: value,
             duration: Duration::Daily,
         };
         let observation_1 = Observation {
-            station_id: station_id.clone(),
-            date_observation: date_observation.clone(),
-            date_recording: date_recording.clone(),
-            value: value.clone(),
+            station_id: station_id,
+            date_observation: date_observation,
+            date_recording: date_recording,
+            value: value,
             duration: Duration::Monthly,
         };
         let actual_0: Observation = survey_0.into();
@@ -518,28 +518,28 @@ mod test {
         let value = DataRecording::Recording(921);
         let survey_0 = Survey::Daily(Tap {
             station_id: station_id.clone(),
-            date_observation: date_observation.clone(),
-            date_recording: date_recording.clone(),
-            value: value.clone(),
+            date_observation: date_observation,
+            date_recording: date_recording,
+            value: value,
         });
         let survey_1 = Survey::Monthly(Tap {
             station_id: station_id.clone(),
-            date_observation: date_observation.clone(),
-            date_recording: date_recording.clone(),
-            value: value.clone(),
+            date_observation: date_observation,
+            date_recording: date_recording,
+            value: value,
         });
         let observation_0 = Observation {
             station_id: station_id.clone(),
-            date_observation: date_observation.clone(),
-            date_recording: date_recording.clone(),
-            value: value.clone(),
+            date_observation: date_observation,
+            date_recording: date_recording,
+            value: value,
             duration: Duration::Daily,
         };
         let observation_1 = Observation {
-            station_id: station_id.clone(),
-            date_observation: date_observation.clone(),
-            date_recording: date_recording.clone(),
-            value: value.clone(),
+            station_id: station_id,
+            date_observation: date_observation,
+            date_recording: date_recording,
+            value: value,
             duration: Duration::Monthly,
         };
         let actual_0: Survey = observation_0.into();
@@ -677,7 +677,7 @@ mod test {
         });
         actual.set_date_observation(date_1);
         let expected = Survey::Daily(Tap {
-            station_id: station_id.clone(),
+            station_id: station_id,
             date_observation: date_1,
             date_recording: date_0,
             value: value_0,

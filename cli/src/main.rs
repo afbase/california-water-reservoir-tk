@@ -109,7 +109,6 @@ async fn run_csv_v2(start_date: &NaiveDate, end_date: &NaiveDate) -> String {
             let res_copy = res.clone();
             (station, res_copy)
         })
-        .into_iter()
         .collect();
     info!("{} Reservoirs Loaded", reservoirs.len());
     let mut all_reservoir_observations = get_surveys_of_reservoirs(start_date, end_date).await;

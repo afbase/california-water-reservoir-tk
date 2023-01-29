@@ -385,8 +385,8 @@ mod test {
             a_8,
             a_9,
         ];
-        observations.push(a_0.clone());
-        observations.push(a_5.clone());
+        observations.push(a_0);
+        observations.push(a_5);
         let observable_range_actual = ObservableRange {
             observations,
             start_date: NaiveDate::from_ymd_opt(2022, 12, 1).unwrap(),

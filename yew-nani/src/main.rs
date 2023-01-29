@@ -117,7 +117,6 @@ impl Component for CalendarYearModel {
             let mut reservoir_ids_sorted = self
                 .reservoir_data
                 .keys()
-                .into_iter()
                 .cloned()
                 .collect::<Vec<_>>();
             reservoir_ids_sorted.sort();

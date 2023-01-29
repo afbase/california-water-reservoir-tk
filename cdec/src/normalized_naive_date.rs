@@ -50,7 +50,7 @@ impl NormalizedNaiveDate {
     pub fn derive_normalized_year(month: u32) -> i32 {
         let dt: DateTime<Local> = Local::now();
         let (first_year, second_year) = {
-            let ref this = dt.naive_local().date();
+            let this = &dt.naive_local().date();
             let year = this.year();
             (year - 1, year)
         };
