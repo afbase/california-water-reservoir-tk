@@ -1,11 +1,8 @@
 use cdec::{
     reservoir::Reservoir,
-    water_year::WaterYearStatistics,
+    water_year::{WaterYear, WaterYearStatistics},
 };
-use ecco::{
-    reservoir_observations::{GetWaterYears, ReservoirObservations},
-    calendar_year_model::CalendarYearModel
-};
+use ecco::reservoir_observations::{GetWaterYears, ReservoirObservations};
 use gloo_console::log as gloo_log;
 use js_sys::JsString;
 use std::collections::HashMap;
@@ -14,15 +11,32 @@ use web_sys::HtmlSelectElement;
 use yew::prelude::*;
 const DIV_BLOG_NAME: &str = "california-table";
 const RESERVOIR_SELECTION_ID: &str = "reservoir-selections";
-//struct Model {
-    // The selected reservoir
-//    selected_reservoir: String,
-    // The data for the selected reservoir
-//    reservoir_data: HashMap<String, Vec<WaterYear>>,
-//    reservoir_vector: Vec<Reservoir>,
-//}
 
-enum Msg {
+pub struct CalendarYearModel {
+    // The selected reservoir
+    pub selected_reservoir: String,
+    // The data for the selected reservoir
+    pub reservoir_data: HashMap<String, Vec<WaterYear>>,
+    pub reservoir_vector: Vec<Reservoir>,
+}
+
+impl Default for CalendarYearModel {
+    fn default() -> Self {
+        let reservoirs = Reservoir::get_reservoir_vector();
+        let observations_hash_map: HashMap<String, ReservoirObservations> =
+            ReservoirObservations::init_from_lzma();
+        let water_years_from_observable_range =
+            observations_hash_map.get_water_years_from_reservoir_observations();
+        let selected_reservoir = String::from("SHA");
+        Self {
+            selected_reservoir,
+            reservoir_data: water_years_from_observable_range,
+            reservoir_vector: reservoirs,
+        }
+    }
+}
+#[derive(Debug)]
+pub enum Msg {
     // The user selected a reservoir from the dropdown list
     SelectReservoir(String),
 }

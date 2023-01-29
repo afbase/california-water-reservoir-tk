@@ -43,7 +43,12 @@ impl NormalizeWaterYears for Vec<WaterYear> {
                     water_stat.highest_value
                 })
                 .collect::<Vec<_>>();
-            let y_max: f64 = ((largest_acrefeet.iter().max_by(|a, b| a.total_cmp(b)).unwrap() + 500000.0) as i64).cast();
+            let mut y_max: f64 = ((largest_acrefeet.iter().max_by(|a, b| a.total_cmp(b)).unwrap() + 0.0) as i64).cast();
+            if y_max > 500000.0 {
+                y_max += 500000.0;
+            } else {
+                y_max += y_max/5.0;
+            }
             Ok(y_max)
         } else {
             Err(WaterYearErrors::InsufficientWaterYears)
@@ -64,28 +69,42 @@ impl NormalizeWaterYears for Vec<WaterYear> {
 
     fn sort_by_lowest_recorded_years(&mut self) {
         self.sort_by(|a, b| {
-            let a_water_stat: WaterYearStatistics = a.into();
-            let b_water_stat: WaterYearStatistics = b.into();
-            let a_year = a_water_stat.year;
-            let b_year = b_water_stat.year;
-            a_year.partial_cmp(&b_year).unwrap()
+            let a_surveys = &a.0;
+            let b_surveys = &b.0;
+            let a_min = {
+                let mut val = f64::MAX;
+                let mut other;
+                for survey in a_surveys {
+                    other = survey.get_value();
+                    val = val.min(other)
+                }
+                val
+            };
+            let b_min = {
+                let mut val = f64::MAX;
+                let mut other;
+                for survey in b_surveys {
+                    other = survey.get_value();
+                    val = val.min(other)
+                }
+                val
+            };
+            a_min.partial_cmp(&b_min).unwrap()
         });
     }
 
     fn sort_by_most_recent(&mut self) {
-        let mut water_year_and_statistics = self
-            .iter()
-            .map(|water_year| {
-                let result: (WaterYear, WaterYearStatistics) = (water_year.clone(), water_year.into());
-                result
-            })
-            .collect::<Vec<(WaterYear, WaterYearStatistics)>>();
-        water_year_and_statistics.sort_by(|a, b| a.1.partial_cmp(&b.1).unwrap());
-        water_year_and_statistics.reverse();
-        for mut water_year in &mut self.iter() {
-            let mut popped_tuple = water_year_and_statistics.pop().unwrap();
-            water_year = &mut popped_tuple.0;
-        }
+        // use date recording
+        self.sort_by(|a, b| {
+            let a_surveys = &a.0;
+            let b_surveys = &b.0;
+            let a_survey = a_surveys.first().unwrap();
+            let b_survey = b_surveys.first().unwrap();
+            let a_year = a_survey.get_tap().date_recording.year();
+            let b_year = b_survey.get_tap().date_recording.year();
+            a_year.partial_cmp(&b_year).unwrap()
+        });
+        self.reverse();
     }
 }
 

@@ -1,7 +1,7 @@
 use cdec::{
     normalized_naive_date::NormalizedNaiveDate,
     reservoir::Reservoir,
-    water_year::{WaterYear, WaterYearStatistics, CleanReservoirData, NormalizeWaterYears},
+    water_year::{NormalizeWaterYears, WaterYear, WaterYearStatistics},
 };
 use chrono::{Datelike, NaiveDate};
 // use chrono::{DateTime, Duration, IsoWeek, Local, NaiveDate, Weekday};
@@ -12,24 +12,17 @@ use ecco::{
 };
 use gloo_console::log as gloo_log;
 use js_sys::JsString;
+use plotters::prelude::*;
 use std::collections::HashMap;
 use std::ops::Range;
-use plotters::prelude::*;
 use wasm_bindgen::JsCast;
 use web_sys::HtmlSelectElement;
 use yew::prelude::*;
 
-// const DATE_FORMAT: &str = "%Y-%m-%d";
-// const END_DATE_NAME: &str = "end-date";
-// const START_DATE_NAME: &str = "start-date";
-// const DIV_END_DATE_NAME: &str = "div-end-date";
-// const DIV_START_DATE_NAME: &str = "div-start-date";
 const DIV_SORT_BY_SELECTION_ID: &str = "div-select-sort-by";
 pub const DIV_BLOG_NAME: &str = "california-years";
 pub const DIV_RESERVOIR_SELECTION_ID: &str = "div-reservoir-selections";
 const _ELEMENT_ID: &str = "svg-chart";
-// const START_DATE_STRING: &str = "Start Date: ";
-// const END_DATE_STRING: &str = "End Date: ";
 const MOST_RECENT: &str = "Most Recent";
 const DRIEST: &str = "Driest";
 const DRIEST_OPTION_TEXT: &str = "Sort By Driest";
@@ -86,10 +79,13 @@ fn main() {
     renderer.render();
 }
 
+#[derive(Debug)]
 pub enum SortBy {
     MostRecent,
     DriestYears,
 }
+
+#[derive(Debug)]
 pub enum Msg {
     // The user selected a reservoir from the dropdown list
     SelectReservoir(String),
@@ -108,9 +104,6 @@ pub struct Model {
 impl<'a> Model {
     fn derive_legend_name(&self) -> String {
         let data = self.reservoir_data.get(&self.selected_reservoir).unwrap();
-        // let data_len = data.len();
-        // let _first_date = data[0].0[0].tap().date_observation;
-        // let _last_date = data[data_len - 1].0[0].tap().date_observation;
         let station_id = data[0].clone().0[0].tap().station_id.clone();
         let reservoir = self
             .reservoir_vector
@@ -129,41 +122,21 @@ impl<'a> Model {
     }
     pub fn generate_svg(&self, svg_inner_string: &'a mut String) -> DrawResult<(), SVGBackend<'a>> {
         let legend_base = self.derive_legend_name();
-        let log_string = format!("selected reservoir: {}", self.selected_reservoir);
-        string_log(log_string);
-        let log_string = format!("reservoir data: {:?}", self.reservoir_data.get(&self.selected_reservoir));
-        string_log(log_string);
         if let Some(mut normalized_water_years) = {
-            let test = self
-            .reservoir_data
-            .get(&self.selected_reservoir);
-            if test.is_none() {
-                let log_string = format!("failed to get data: {:?}", self.selected_reservoir);
-                string_log(log_string);
-                panic!("something is going on here");
-            }
+            let test = self.reservoir_data.get(&self.selected_reservoir);
             test.map(|selected_reservoir_data| {
                 let result = selected_reservoir_data.get_complete_normalized_water_years();
-                let log_string = format!("normalized reservoir data: {:?}", result);
-                string_log(log_string);
                 result
             })
-        // } {
-
-
-        
-        // self
-        //     .reservoir_data
-        //     .clone()
-        //     .get_clean_reservoir_water_years(self.selected_reservoir.clone())
-        }
-        {
+        } {
             let date_range_tuple = NormalizedNaiveDate::get_normalized_tuple_date_range();
-            let range_date = Range{
+            let range_date = Range {
                 start: date_range_tuple.0,
-                end: date_range_tuple.1
+                end: date_range_tuple.1,
             };
             let ranged_date: RangedDate<NaiveDate> = range_date.into();
+            let log_string = format!("selected sort: {:?}", self.selected_sort);
+            string_log(log_string);
             match self.selected_sort {
                 Msg::SelectedSort(SortBy::DriestYears) => {
                     normalized_water_years.sort_by_lowest_recorded_years()
@@ -175,7 +148,8 @@ impl<'a> Model {
                 _ => normalized_water_years.sort_by_most_recent(),
             }
             let y_max = normalized_water_years
-                .get_largest_acrefeet_over_n_years(NUMBER_OF_CHARTS_TO_DISPLAY_DEFAULT).unwrap();
+                .get_largest_acrefeet_over_n_years(NUMBER_OF_CHARTS_TO_DISPLAY_DEFAULT)
+                .unwrap();
             let colors_for_water_years = get_colors(NUMBER_OF_CHARTS_TO_DISPLAY_DEFAULT).unwrap();
             let plot_and_color = normalized_water_years
                 .iter()
@@ -191,6 +165,7 @@ impl<'a> Model {
                 .y_label_area_size(40u32)
                 .build_cartesian_2d(ranged_date, 0f64..y_max)
                 .unwrap();
+            chart.configure_mesh().x_labels(10_usize).draw()?;
             for (water_year, rgb_color) in plot_and_color {
                 // date_recording is the original date in normalization
                 let (first, last) = water_year.calendar_year_from_normalized_water_year();
@@ -203,11 +178,10 @@ impl<'a> Model {
                             .0
                             .iter()
                             .map(|survey| {
-                                let log_string = format!("{} - {}", survey.get_tap().station_id, survey.get_tap().date_observation);
-                                string_log(log_string);
                                 let normalized_date_observation: NormalizedNaiveDate =
-                                survey.get_tap().date_observation.into();
-                                let normalized_naive_date_observation = normalized_date_observation.into();
+                                    survey.get_tap().date_observation.into();
+                                let normalized_naive_date_observation =
+                                    normalized_date_observation.into();
                                 let observation = survey.get_tap().value_as_f64();
                                 (normalized_naive_date_observation, observation)
                             })
@@ -244,7 +218,7 @@ impl Component for Model {
             reservoir_data: water_years_from_observable_range,
             selected_reservoir: String::from("SHA"),
             reservoir_vector: reservoirs,
-            selected_sort: Msg::SelectedSort(SortBy::MostRecent)
+            selected_sort: Msg::SelectedSort(SortBy::MostRecent),
         }
     }
 
@@ -257,13 +231,15 @@ impl Component for Model {
                 reversed.truncate(3);
                 let station_id = reversed.chars().rev().collect::<String>();
                 self.selected_reservoir = station_id;
-            },
-            Msg::SelectedSort(sortie) => {
-                match sortie {
-                    SortBy::DriestYears => {self.selected_sort = Msg::SelectedSort(SortBy::DriestYears); },
-                    SortBy::MostRecent => {self.selected_sort = Msg::SelectedSort(SortBy::MostRecent); },
-                }   
             }
+            Msg::SelectedSort(sortie) => match sortie {
+                SortBy::DriestYears => {
+                    self.selected_sort = Msg::SelectedSort(SortBy::DriestYears);
+                }
+                SortBy::MostRecent => {
+                    self.selected_sort = Msg::SelectedSort(SortBy::MostRecent);
+                }
+            },
         }
         true
     }
@@ -295,21 +271,9 @@ impl Component for Model {
                     }
                 },
             );
-        //. TODO: do you need this????
-        // html! {
-        //     <div id="chart">
-        //         <div id={DIV_START_DATE_NAME}>
-        //             {START_DATE_STRING} <input min={self.min_date.format(DATE_FORMAT).to_string()} max={self.max_date.format(DATE_FORMAT).to_string()} onchange={start_date_change_callback} type="date" id={START_DATE_NAME} value={start_date.format(DATE_FORMAT).to_string()}/>
-        //         </div>
-        //         <div id={DIV_END_DATE_NAME}>
-        //             {END_DATE_STRING} <input min={self.min_date.format(DATE_FORMAT).to_string()} max={self.max_date.format(DATE_FORMAT).to_string()} onchange={end_date_change_callback} type="date" id={END_DATE_NAME} value={end_date.format(DATE_FORMAT).to_string()}/>
-        //         </div>
-        //         {svg_vnode}
-        //     </div>
-        // }
         let sort_callback = ctx
-        .link()
-        .callback(|event: Event| generic_callback(event, SORT_BY_SELECTION_ID));
+            .link()
+            .callback(|event: Event| generic_callback(event, SORT_BY_SELECTION_ID));
         let reservoir_selection_callback = ctx
             .link()
             .callback(|event: Event| generic_callback(event, RESERVOIR_SELECTION_ID));
@@ -321,11 +285,7 @@ impl Component for Model {
                 .map(|water_year| water_year.into())
                 .collect::<Vec<WaterYearStatistics>>();
             water_statistics.sort();
-            let mut reservoir_ids_sorted = self
-                .reservoir_data
-                .keys()
-                .cloned()
-                .collect::<Vec<_>>();
+            let mut reservoir_ids_sorted = self.reservoir_data.keys().cloned().collect::<Vec<_>>();
             reservoir_ids_sorted.sort();
 
             html! {
@@ -439,9 +399,7 @@ pub fn generic_callback(_event: Event, dom_id_str: &str) -> Msg {
             },
         );
     match dom_id_str {
-        RESERVOIR_SELECTION_ID => {
-            Msg::SelectReservoir(input_string)
-        },
+        RESERVOIR_SELECTION_ID => Msg::SelectReservoir(input_string),
         SORT_BY_SELECTION_ID => {
             let input_str = input_string.as_str();
             match input_str {
@@ -458,4 +416,3 @@ pub fn generic_callback(_event: Event, dom_id_str: &str) -> Msg {
         }
     }
 }
-
