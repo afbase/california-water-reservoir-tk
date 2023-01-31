@@ -1,12 +1,9 @@
-use cdec::{
-    reservoir::Reservoir,
-    water_year::WaterYear,
-};
+use cdec::{reservoir::Reservoir, water_year::WaterYear};
 use plotters::prelude::*;
 use std::collections::HashMap;
 
-use crate::reservoir_observations::ReservoirObservations;
 use crate::reservoir_observations::GetWaterYears;
+use crate::reservoir_observations::ReservoirObservations;
 pub struct CalendarYearModel {
     // The selected reservoir
     pub selected_reservoir: String,
@@ -26,7 +23,7 @@ impl Default for CalendarYearModel {
         Self {
             selected_reservoir,
             reservoir_data: water_years_from_observable_range,
-            reservoir_vector: reservoirs
+            reservoir_vector: reservoirs,
         }
     }
 }

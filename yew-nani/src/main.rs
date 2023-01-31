@@ -114,11 +114,7 @@ impl Component for CalendarYearModel {
                 .map(|water_year| water_year.into())
                 .collect::<Vec<WaterYearStatistics>>();
             water_statistics.sort();
-            let mut reservoir_ids_sorted = self
-                .reservoir_data
-                .keys()
-                .cloned()
-                .collect::<Vec<_>>();
+            let mut reservoir_ids_sorted = self.reservoir_data.keys().cloned().collect::<Vec<_>>();
             reservoir_ids_sorted.sort();
 
             html! {

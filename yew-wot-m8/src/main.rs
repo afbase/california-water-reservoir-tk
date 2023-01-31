@@ -240,10 +240,6 @@ impl Component for Model {
     fn create(_ctx: &Context<Self>) -> Self {
         let reservoirs = Reservoir::get_reservoir_vector();
         let reservoir_data = WaterYear::init_reservoirs_from_lzma_without_interpolation();
-        // let observations_hash_map: HashMap<String, ReservoirObservations> =
-        //     ReservoirObservations::init_from_lzma_without_interpolation();
-        // let water_years_from_observable_range =
-        //     observations_hash_map.get_water_years_from_reservoir_observations();
         let mut init_self = Self {
             selected_reservoir: String::from("SHA"),
             selected_sort: Msg::SelectedSort(SortBy::MostRecent),

@@ -48,11 +48,16 @@ impl NormalizeWaterYears for Vec<WaterYear> {
                     water_stat.highest_value
                 })
                 .collect::<Vec<_>>();
-            let mut y_max: f64 = ((largest_acrefeet.iter().max_by(|a, b| a.total_cmp(b)).unwrap() + 0.0) as i64).cast();
+            let mut y_max: f64 = ((largest_acrefeet
+                .iter()
+                .max_by(|a, b| a.total_cmp(b))
+                .unwrap()
+                + 0.0) as i64)
+                .cast();
             if y_max > 500000.0 {
                 y_max += 500000.0;
             } else {
-                y_max += y_max/5.0;
+                y_max += y_max / 5.0;
             }
             Ok(y_max)
         } else {
@@ -119,8 +124,7 @@ pub trait CleanReservoirData {
 
 impl CleanReservoirData for HashMap<String, Vec<WaterYear>> {
     fn get_clean_reservoir_water_years(&self, key: String) -> Option<Vec<WaterYear>> {
-        let test = self
-        .get(&key);
+        let test = self.get(&key);
         if test.is_none() {
             panic!("something is going on here");
         }
@@ -143,11 +147,12 @@ impl NormalizeCalendarYear for WaterYear {
             let month = tap.date_observation.month();
             let day = tap.date_observation.day();
             let normalized_year = NormalizedNaiveDate::derive_normalized_year(month);
-            let normalized_date = NaiveDate::from_ymd_opt(normalized_year, month, day).map(|_| NormalizedNaiveDate {
-                year: normalized_year,
-                month,
-                day,
-            });
+            let normalized_date =
+                NaiveDate::from_ymd_opt(normalized_year, month, day).map(|_| NormalizedNaiveDate {
+                    year: normalized_year,
+                    month,
+                    day,
+                });
             if normalized_date.is_none() {
                 continue;
             }
@@ -189,17 +194,17 @@ impl WaterYear {
             let min_year = start_date.year() - 1;
             let max_year = end_date.year();
             let mut water_years: Vec<WaterYear> = Vec::new();
-            // build vecs of water years 
+            // build vecs of water years
             for year in min_year..=max_year {
                 let start_of_year = NaiveDate::from_ymd_opt(year, 10, 1).unwrap();
                 let end_of_year = NaiveDate::from_ymd_opt(year + 1, 9, 30).unwrap();
                 let water_year_of_surveys = surveys
-                .drain_filter(|survey| {
-                    let tap = survey.get_tap();
-                    let obs_date = tap.date_observation;
-                    start_of_year <= obs_date && obs_date <= end_of_year
-                })
-                .collect::<Vec<_>>();
+                    .drain_filter(|survey| {
+                        let tap = survey.get_tap();
+                        let obs_date = tap.date_observation;
+                        start_of_year <= obs_date && obs_date <= end_of_year
+                    })
+                    .collect::<Vec<_>>();
                 water_years.push(WaterYear(water_year_of_surveys));
             }
             if water_years.len() >= NUMBER_OF_CHARTS_TO_DISPLAY_DEFAULT {
@@ -256,18 +261,20 @@ impl From<WaterYear> for WaterYearStatistics {
         // surveys should be sorted by date
         let mut surveys = value.0;
         let year = {
-            if let Some(survey) = surveys.first() {
-                let date_observation = survey.get_tap().date_observation;
-                let date_observation_year = date_observation.year();
-                // if date precedes water calendar year, then it is year minus 1
-                let start_of_year = NaiveDate::from_ymd_opt(date_observation_year, 10, 1).unwrap();
-                if date_observation < start_of_year {
-                    date_observation_year - 1
-                } else {
-                    date_observation_year
+            match surveys.first() {
+                Some(survey) => {
+                    let date_observation = survey.get_tap().date_observation;
+                    let date_observation_year = date_observation.year();
+                    // if date precedes water calendar year, then it is year minus 1
+                    let start_of_year =
+                        NaiveDate::from_ymd_opt(date_observation_year, 10, 1).unwrap();
+                    if date_observation < start_of_year {
+                        date_observation_year - 1
+                    } else {
+                        date_observation_year
+                    }
                 }
-            } else {
-                0
+                None => 0,
             }
         };
         sort_by_values_ascending(&mut surveys);
