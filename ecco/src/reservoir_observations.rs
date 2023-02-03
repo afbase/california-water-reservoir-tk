@@ -10,6 +10,7 @@ use chrono::NaiveDate;
 use std::collections::HashMap;
 use std::vec;
 
+#[derive(Debug, Clone)]
 pub struct ReservoirObservations {
     pub observations: Vec<Survey>,
     pub start_date: NaiveDate,

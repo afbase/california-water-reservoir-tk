@@ -22,10 +22,8 @@ yew = { version = "0.20.0", features = ["csr"] }
 [dependencies.web-sys]
 version = "0.3.4"
 features = [
-  'CanvasRenderingContext2d',
   'Document',
   'Element',
-  'HtmlCanvasElement',
   'HtmlInputElement',
   'Window',
   'console'
