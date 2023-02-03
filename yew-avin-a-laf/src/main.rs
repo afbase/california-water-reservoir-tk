@@ -11,10 +11,7 @@ use gloo_console::log as gloo_log;
 // use itertools::Itertools;
 use js_sys::JsString;
 use plotters::prelude::*;
-use std::{
-    collections::HashMap,
-    ops::Range,
-};
+use std::{collections::HashMap, ops::Range};
 use wasm_bindgen::JsCast;
 use yew::prelude::*;
 
@@ -118,9 +115,7 @@ fn generic_callback(_event: Event, dom_id_str: &str) -> CallbackChangeEvent {
                         CallbackChangeEvent::EndDateFail
                     }
                 },
-                _ => {
-                    CallbackChangeEvent::DomIdFail
-                }
+                _ => CallbackChangeEvent::DomIdFail,
             },
         )
 }
@@ -163,10 +158,10 @@ impl<'a> ObservationsModel {
             })
             .collect::<Vec<(NaiveDate, f64)>>();
         values.sort_by(|a, b| {
-                let a_date = a.0;
-                let b_date = b.0;
-                a_date.partial_cmp(&b_date).unwrap()
-            });
+            let a_date = a.0;
+            let b_date = b.0;
+            a_date.partial_cmp(&b_date).unwrap()
+        });
         let y_max: f64 = {
             let mut tmp: f64 = values
                 .iter()
@@ -198,8 +193,8 @@ impl<'a> ObservationsModel {
             .draw_series(LineSeries::new(values, RED))
             .unwrap()
             .label(observation_model.selected_reservoir.clone())
-            .legend(|(x,y)| Rectangle::new([(x - 15, y + 1), (x, y)], RED));
-            // .legend(|(x, y)| PathElement::new(vec![(x, y), (x + 20, y)], RED));
+            .legend(|(x, y)| Rectangle::new([(x - 15, y + 1), (x, y)], RED));
+        // .legend(|(x, y)| PathElement::new(vec![(x, y), (x + 20, y)], RED));
 
         chart
             .configure_series_labels()

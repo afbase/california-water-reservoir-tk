@@ -19,14 +19,14 @@ use yew::prelude::*;
 
 const DIV_SORT_BY_SELECTION_ID: &str = "div-select-sort-by";
 pub const DIV_BLOG_NAME: &str = "california-years";
-pub const DIV_RESERVOIR_SELECTION_ID: &str = "div-reservoir-selections";//
+pub const DIV_RESERVOIR_SELECTION_ID: &str = "div-reservoir-selections"; //
 const _ELEMENT_ID: &str = "svg-chart";
 const MOST_RECENT: &str = "Most Recent";
 const DRIEST: &str = "Driest";
 const DRIEST_OPTION_TEXT: &str = "Sort By Driest";
 const MOST_RECENT_OPTION_TEXT: &str = "Sort By Most Recent";
 const SORT_BY_SELECTION_ID: &str = "select-sort-by";
-const SELECT_RESERVOIR_TEXT: &str = "Select Reservoir: ";//
+const SELECT_RESERVOIR_TEXT: &str = "Select Reservoir: "; //
 const SORT_BY_TEXT: &str = "Sort by: ";
 pub const RESERVOIR_SELECTION_ID: &str = "reservoir-selections";
 pub const NUMBER_OF_CHARTS_TO_DISPLAY_DEFAULT: usize = 20;
