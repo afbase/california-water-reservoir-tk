@@ -276,6 +276,8 @@ impl Component for ObservationsModel {
             | CallbackChangeEvent::ReservoirSelectionFail => false,
             CallbackChangeEvent::SelectReservoir(selected_reservoir) => {
                 // Set the selected reservoir and fetch the data for that reservoir
+                // note that the dates provided in the date fields may be for a different
+                // reservoir and needs to be reset
                 let mut reversed = selected_reservoir.chars().rev().collect::<String>();
                 reversed.truncate(3);
                 let station_id = reversed.chars().rev().collect::<String>();
