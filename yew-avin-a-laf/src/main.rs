@@ -4,12 +4,11 @@ use cdec::{
     reservoir::Reservoir,
     survey::Survey,
 };
-// #![feature(map_first_last)]
-use chrono::NaiveDate;
-use ecco::reservoir_observations::ReservoirObservations;
+use chrono::{DateTime, NaiveDate, Utc};
+use ecco::reservoir_observations::{ReservoirObservations, ReservoirObservationsLike};
 use gloo_console::log as gloo_log;
-// use itertools::Itertools;
 use js_sys::JsString;
+use log::{info, Level, LevelFilter, Metadata, Record};
 use plotters::prelude::*;
 use std::{collections::HashMap, ops::Range};
 use wasm_bindgen::JsCast;
@@ -27,6 +26,31 @@ const END_DATE_STRING: &str = "End Date: ";
 const DIV_RESERVOIR_SELECTION_ID: &str = "div-reservoir-selections";
 const SELECT_RESERVOIR_TEXT: &str = "Select Reservoir: ";
 const RESERVOIR_SELECTION_ID: &str = "reservoir-selections";
+
+static MY_LOGGER: MyLogger = MyLogger;
+
+struct MyLogger;
+
+impl log::Log for MyLogger {
+    fn enabled(&self, metadata: &Metadata) -> bool {
+        metadata.level() <= Level::Info
+    }
+
+    fn log(&self, record: &Record) {
+        let now: DateTime<Utc> = Utc::now();
+        if self.enabled(record.metadata()) {
+            let str_log: JsString = format!(
+                "[{}] {} - {}",
+                now.to_rfc3339(),
+                record.level(),
+                record.args()
+            )
+            .into();
+            gloo_log!(str_log);
+        }
+    }
+    fn flush(&self) {}
+}
 
 #[derive(Debug, Clone)]
 struct ObservationsModel {
@@ -59,18 +83,13 @@ pub enum CallbackChangeEvent {
     DomIdFail,
 }
 
-fn string_log(log_string: String) {
-    let log_js_string: JsString = log_string.into();
-    gloo_log!(log_js_string);
-}
-
 fn generic_callback(_event: Event, dom_id_str: &str) -> CallbackChangeEvent {
     web_sys::window()
         .and_then(|window| window.document())
         .map_or_else(
             || {
                 let log_string = "window document object not found.".to_string();
-                string_log(log_string);
+                info!("{}", log_string);
                 CallbackChangeEvent::WindowDocumentFail
             },
             |document| match dom_id_str {
@@ -81,7 +100,7 @@ fn generic_callback(_event: Event, dom_id_str: &str) -> CallbackChangeEvent {
                     }
                     None => {
                         let log_string = format!("{} {}", dom_id_str, "dom object not found.");
-                        string_log(log_string);
+                        info!("{}", log_string);
                         CallbackChangeEvent::ReservoirSelectionFail
                     }
                 },
@@ -91,12 +110,12 @@ fn generic_callback(_event: Event, dom_id_str: &str) -> CallbackChangeEvent {
                         let date_value: String = input_element.value();
                         let result = NaiveDate::parse_from_str(&date_value, DATE_FORMAT).unwrap();
                         let log_string = format!("callback: {}", result.format(DATE_FORMAT));
-                        string_log(log_string);
+                        info!("{}", log_string);
                         CallbackChangeEvent::StartDateUpdated(result)
                     }
                     None => {
                         let log_string = format!("{} {}", dom_id_str, "dom object not found.");
-                        string_log(log_string);
+                        info!("{}", log_string);
                         CallbackChangeEvent::StartDateFail
                     }
                 },
@@ -106,12 +125,12 @@ fn generic_callback(_event: Event, dom_id_str: &str) -> CallbackChangeEvent {
                         let date_value: String = input_element.value();
                         let result = NaiveDate::parse_from_str(&date_value, DATE_FORMAT).unwrap();
                         let log_string = format!("callback: {}", result.format(DATE_FORMAT));
-                        string_log(log_string);
+                        info!("{}", log_string);
                         CallbackChangeEvent::EndDateUpdated(result)
                     }
                     None => {
                         let log_string = format!("{} {}", dom_id_str, "dom object not found.");
-                        string_log(log_string);
+                        info!("{}", log_string);
                         CallbackChangeEvent::EndDateFail
                     }
                 },
@@ -213,15 +232,20 @@ impl Component for ObservationsModel {
     type Message = CallbackChangeEvent;
     type Properties = ();
     fn create(_ctx: &Context<Self>) -> Self {
+        info!("create reservoir vector");
         let reservoir_vector = Reservoir::get_reservoir_vector();
+        info!("un-lzma csv things");
         let observations = ReservoirObservations::init_from_lzma_without_interpolation();
+        info!("un-lzma csv things done!");
         let selected_reservoir = String::from("ORO");
         if let Some(selected_reservoir_observations) = observations.get(&selected_reservoir) {
             let (start_date, end_date) = (
                 selected_reservoir_observations.start_date,
                 selected_reservoir_observations.end_date,
             );
+            info!("clone observations start");
             let selected_reservoir_data = selected_reservoir_observations.observations.clone();
+            info!("clone observations end");
             let mut active_model = Self {
                 observations,
                 selected_reservoir,
@@ -232,12 +256,14 @@ impl Component for ObservationsModel {
                 max_date: end_date,
                 reservoir_vector,
             };
+            info!("begin interpolation");
             active_model.interpolate_data_for_selected_reservoir();
+            info!("end interpolation");
             return active_model;
         }
         // if we get to this point, we've failed
         let log_string = format!("Failed to get data for selected reservoir {selected_reservoir}");
-        string_log(log_string.clone());
+        info!("{}", log_string);
         panic!("{}", log_string);
     }
 
@@ -263,7 +289,13 @@ impl Component for ObservationsModel {
                     self.min_date = start_date;
                     self.end_date = end_date;
                     self.max_date = end_date;
+                    self.selected_reservoir_data = self
+                        .observations
+                        .observations(&self.selected_reservoir)
+                        .unwrap();
+                    info!("begin interpolation");
                     self.interpolate_data_for_selected_reservoir();
+                    info!("end interpolation");
                 }
                 true
             }
@@ -278,7 +310,7 @@ impl Component for ObservationsModel {
                             new_end_date.format(DATE_FORMAT),
                             end_date.format(DATE_FORMAT)
                         );
-                        string_log(log_string);
+                        info!("{}", log_string);
                         self.end_date = new_end_date;
                     } else if self.min_date <= new_end_date {
                         let log_string = format!(
@@ -286,10 +318,17 @@ impl Component for ObservationsModel {
                             new_end_date.format(DATE_FORMAT),
                             end_date.format(DATE_FORMAT)
                         );
-                        string_log(log_string);
+                        info!("{}", log_string);
                         self.start_date = self.min_date;
                         self.end_date = new_end_date;
                     }
+                    self.selected_reservoir_data = self
+                        .observations
+                        .observations(&self.selected_reservoir)
+                        .unwrap();
+                    info!("begin interpolation");
+                    self.interpolate_data_for_selected_reservoir();
+                    info!("end interpolation");
                     true
                 }
             }
@@ -304,7 +343,7 @@ impl Component for ObservationsModel {
                             new_start_date.format(DATE_FORMAT),
                             start_date.format(DATE_FORMAT)
                         );
-                        string_log(log_string);
+                        info!("{}", log_string);
                         self.start_date = new_start_date;
                     } else if new_start_date <= self.max_date {
                         let log_string = format!(
@@ -312,10 +351,17 @@ impl Component for ObservationsModel {
                             new_start_date.format(DATE_FORMAT),
                             start_date.format(DATE_FORMAT)
                         );
-                        string_log(log_string);
+                        info!("{}", log_string);
                         self.start_date = new_start_date;
                         self.end_date = self.max_date;
                     }
+                    self.selected_reservoir_data = self
+                        .observations
+                        .observations(&self.selected_reservoir)
+                        .unwrap();
+                    info!("begin interpolation");
+                    self.interpolate_data_for_selected_reservoir();
+                    info!("end interpolation");
                     true
                 }
             }
@@ -334,10 +380,15 @@ impl Component for ObservationsModel {
             .callback(|event: Event| generic_callback(event, END_DATE_NAME));
         let start_date = self.start_date;
         let end_date = self.end_date;
+        info!("begin sorting reservoir_ids_sorted");
         let mut reservoir_ids_sorted = self.observations.keys().cloned().collect::<Vec<_>>();
         reservoir_ids_sorted.sort();
+        info!("end sorting reservoir_ids_sorted");
         let mut svg_inner = String::new();
+        info!("begin generate_svg");
         let _svg_result = ObservationsModel::generate_svg(self, &mut svg_inner);
+        info!("end generate_svg");
+        info!("begin svg vnode");
         let svg_vnode = web_sys::window()
             .and_then(|window| window.document())
             .map_or_else(
@@ -362,6 +413,8 @@ impl Component for ObservationsModel {
                     }
                 },
             );
+        info!("end svg vnode");
+        info!("begin html");
         html! {
             <div id="chart">
                 <div id={DIV_START_DATE_NAME}>
@@ -410,13 +463,15 @@ impl Component for ObservationsModel {
 }
 
 fn main() {
+    log::set_logger(&MY_LOGGER).unwrap();
+    log::set_max_level(LevelFilter::Info);
     web_sys::window()
         .and_then(|window| window.document())
         .map_or_else(
             || {
                 let log_str = "failed to load wasm module successfully";
                 let log_string = String::from(log_str);
-                string_log(log_string);
+                info!("{}", log_string);
                 panic!("{}", log_str);
             },
             |document| match document.get_element_by_id(DIV_BLOG_NAME) {
@@ -433,7 +488,7 @@ fn main() {
             || {
                 let log_str = "failed to load wasm module successfully part 2";
                 let log_string = String::from(log_str);
-                string_log(log_string);
+                info!("{}", log_string);
                 panic!("{}", log_str);
             },
             |document| match document.get_element_by_id(DIV_BLOG_NAME) {
@@ -441,7 +496,7 @@ fn main() {
                 None => {
                     let log_str = "failed to load wasm module successfully part 3";
                     let log_string = String::from(log_str);
-                    string_log(log_string);
+                    info!("{}", log_string);
                     panic!("{}", log_str);
                 }
             },

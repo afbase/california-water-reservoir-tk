@@ -17,6 +17,33 @@ pub struct ReservoirObservations {
     pub end_date: NaiveDate,
 }
 
+pub trait ReservoirObservationsLike {
+    fn observations(&self, station_id: &str) -> Option<Vec<Survey>>;
+    fn start_date(&self, station_id: &str) -> Option<NaiveDate>;
+    fn end_date(&self, station_id: &str) -> Option<NaiveDate>;
+}
+
+impl ReservoirObservationsLike for HashMap<String, ReservoirObservations> {
+    fn observations(&self, station_id: &str) -> Option<Vec<Survey>> {
+        if let Some(reservoir_observations) = self.get(station_id) {
+            return Some(reservoir_observations.observations.clone());
+        }
+        None
+    }
+    fn start_date(&self, station_id: &str) -> Option<NaiveDate> {
+        if let Some(reservoir_observations) = self.get(station_id) {
+            return Some(reservoir_observations.start_date);
+        }
+        None
+    }
+    fn end_date(&self, station_id: &str) -> Option<NaiveDate> {
+        if let Some(reservoir_observations) = self.get(station_id) {
+            return Some(reservoir_observations.end_date);
+        }
+        None
+    }
+}
+
 impl ReservoirObservations {
     pub fn station_id(&self) -> String {
         let survey = &self.observations[0];

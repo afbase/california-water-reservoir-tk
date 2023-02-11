@@ -1,10 +1,9 @@
-// #![feature(map_first_last)]
-use chrono::NaiveDate;
+use chrono::{DateTime, NaiveDate, Utc};
 use easy_cast::Cast;
 use ecco::water_level_observations::WaterLevelObservations;
 use gloo_console::log as gloo_log;
-// use itertools::Itertools;
 use js_sys::JsString;
+use log::{info, Level, LevelFilter, Metadata, Record};
 use plotters::prelude::*;
 use std::{collections::BTreeMap, ops::Range};
 use wasm_bindgen::JsCast;
@@ -19,6 +18,31 @@ const _ELEMENT_ID: &str = "svg-chart";
 const DIV_BLOG_NAME: &str = "california-chart";
 const START_DATE_STRING: &str = "Start Date: ";
 const END_DATE_STRING: &str = "End Date: ";
+
+static MY_LOGGER: MyLogger = MyLogger;
+
+struct MyLogger;
+
+impl log::Log for MyLogger {
+    fn enabled(&self, metadata: &Metadata) -> bool {
+        metadata.level() <= Level::Info
+    }
+
+    fn log(&self, record: &Record) {
+        let now: DateTime<Utc> = Utc::now();
+        if self.enabled(record.metadata()) {
+            let str_log: JsString = format!(
+                "[{}] {} - {}",
+                now.to_rfc3339(),
+                record.level(),
+                record.args()
+            )
+            .into();
+            gloo_log!(str_log);
+        }
+    }
+    fn flush(&self) {}
+}
 
 #[derive(Debug, Clone)]
 struct ObservationsModel {
@@ -39,18 +63,13 @@ pub enum DateChangeEvent {
     EndDateUpdated(NaiveDate),
 }
 
-fn string_log(log_string: String) {
-    let log_js_string: JsString = log_string.into();
-    gloo_log!(log_js_string);
-}
-
 fn generic_callback(_event: Event, event_is_end: bool, dom_id_str: &str) -> DateChangeEvent {
     let updated_date = web_sys::window()
         .and_then(|window| window.document())
         .map_or_else(
             || {
                 let log_string = "window document object not found.".to_string();
-                string_log(log_string);
+                info!("{}", log_string);
                 NaiveDate::from_ymd_opt(1992, 3, 26).unwrap()
             },
             |document| match document.get_element_by_id(dom_id_str) {
@@ -59,12 +78,12 @@ fn generic_callback(_event: Event, event_is_end: bool, dom_id_str: &str) -> Date
                     let date_value: String = input_element.value();
                     let result = NaiveDate::parse_from_str(&date_value, DATE_FORMAT).unwrap();
                     let log_string = format!("callback: {}", result.format(DATE_FORMAT));
-                    string_log(log_string);
+                    info!("{}", log_string);
                     result
                 }
                 None => {
                     let log_string = format!("{} {}", dom_id_str, "dom object not found.");
-                    string_log(log_string);
+                    info!("{}", log_string);
                     NaiveDate::from_ymd_opt(1999, 1, 1).unwrap()
                 }
             },
@@ -162,7 +181,7 @@ impl Component for ObservationsModel {
                             new_end_date.format(DATE_FORMAT),
                             end_date.format(DATE_FORMAT)
                         );
-                        string_log(log_string);
+                        info!("{}", log_string);
                         self.end_date = new_end_date;
                     } else if self.min_date <= new_end_date {
                         let log_string = format!(
@@ -170,7 +189,7 @@ impl Component for ObservationsModel {
                             new_end_date.format(DATE_FORMAT),
                             end_date.format(DATE_FORMAT)
                         );
-                        string_log(log_string);
+                        info!("{}", log_string);
                         self.start_date = self.min_date;
                         self.end_date = new_end_date;
                     }
@@ -188,7 +207,7 @@ impl Component for ObservationsModel {
                             new_start_date.format(DATE_FORMAT),
                             start_date.format(DATE_FORMAT)
                         );
-                        string_log(log_string);
+                        info!("{}", log_string);
                         self.start_date = new_start_date;
                     } else if new_start_date <= self.max_date {
                         let log_string = format!(
@@ -196,7 +215,7 @@ impl Component for ObservationsModel {
                             new_start_date.format(DATE_FORMAT),
                             start_date.format(DATE_FORMAT)
                         );
-                        string_log(log_string);
+                        info!("{}", log_string);
                         self.start_date = new_start_date;
                         self.end_date = self.max_date;
                     }
@@ -256,13 +275,15 @@ impl Component for ObservationsModel {
 }
 
 fn main() {
+    log::set_logger(&MY_LOGGER).unwrap();
+    log::set_max_level(LevelFilter::Info);
     web_sys::window()
         .and_then(|window| window.document())
         .map_or_else(
             || {
                 let log_str = "failed to load wasm module successfully";
                 let log_string = String::from(log_str);
-                string_log(log_string);
+                info!("{}", log_string);
                 panic!("{}", log_str);
             },
             |document| match document.get_element_by_id(DIV_BLOG_NAME) {
@@ -279,7 +300,7 @@ fn main() {
             || {
                 let log_str = "failed to load wasm module successfully part 2";
                 let log_string = String::from(log_str);
-                string_log(log_string);
+                info!("{}", log_string);
                 panic!("{}", log_str);
             },
             |document| match document.get_element_by_id(DIV_BLOG_NAME) {
@@ -287,7 +308,7 @@ fn main() {
                 None => {
                     let log_str = "failed to load wasm module successfully part 2";
                     let log_string = String::from(log_str);
-                    string_log(log_string);
+                    info!("{}", log_string);
                     panic!("{}", log_str);
                 }
             },

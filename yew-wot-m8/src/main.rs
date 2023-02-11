@@ -4,12 +4,11 @@ use cdec::{
     reservoir::Reservoir,
     water_year::{NormalizeWaterYears, WaterYear},
 };
-use chrono::{Datelike, NaiveDate};
-// use chrono::{DateTime, Duration, IsoWeek, Local, NaiveDate, Weekday};
-// use easy_cast::traits::Cast;
+use chrono::{DateTime, Datelike, NaiveDate, Utc};
 use ecco::calendar_year_model::get_colors;
 use gloo_console::log as gloo_log;
 use js_sys::JsString;
+use log::{info, Level, LevelFilter, Metadata, Record};
 use plotters::prelude::*;
 use std::collections::HashMap;
 use std::ops::Range;
@@ -30,20 +29,41 @@ const SELECT_RESERVOIR_TEXT: &str = "Select Reservoir: "; //
 const SORT_BY_TEXT: &str = "Sort by: ";
 pub const RESERVOIR_SELECTION_ID: &str = "reservoir-selections";
 pub const NUMBER_OF_CHARTS_TO_DISPLAY_DEFAULT: usize = 20;
+static MY_LOGGER: MyLogger = MyLogger;
 
-fn string_log(log_string: String) {
-    let log_js_string: JsString = log_string.into();
-    gloo_log!(log_js_string);
+struct MyLogger;
+
+impl log::Log for MyLogger {
+    fn enabled(&self, metadata: &Metadata) -> bool {
+        metadata.level() <= Level::Info
+    }
+
+    fn log(&self, record: &Record) {
+        let now: DateTime<Utc> = Utc::now();
+        if self.enabled(record.metadata()) {
+            let str_log: JsString = format!(
+                "[{}] {} - {}",
+                now.to_rfc3339(),
+                record.level(),
+                record.args()
+            )
+            .into();
+            gloo_log!(str_log);
+        }
+    }
+    fn flush(&self) {}
 }
 
 fn main() {
+    log::set_logger(&MY_LOGGER).unwrap();
+    log::set_max_level(LevelFilter::Info);
     web_sys::window()
         .and_then(|window| window.document())
         .map_or_else(
             || {
                 let log_str = "failed to load wasm module successfully part 1";
                 let log_string = String::from(log_str);
-                string_log(log_string);
+                info!("{}", log_string);
                 panic!("{}", log_str);
             },
             |document| match document.get_element_by_id(DIV_BLOG_NAME) {
@@ -60,7 +80,7 @@ fn main() {
             || {
                 let log_str = "failed to load wasm module successfully part 2";
                 let log_string = String::from(log_str);
-                string_log(log_string);
+                info!("{}", log_string);
                 panic!("{}", log_str);
             },
             |document| match document.get_element_by_id(DIV_BLOG_NAME) {
@@ -68,7 +88,7 @@ fn main() {
                 None => {
                     let log_str = "failed to load wasm module successfully part 3";
                     let log_string = String::from(log_str);
-                    string_log(log_string);
+                    info!("{}", log_string);
                     panic!("{}", log_str);
                 }
             },
@@ -164,11 +184,11 @@ impl<'a> Model {
         };
         let ranged_date: RangedDate<NaiveDate> = range_date.into();
         let log_string = format!("selected sort: {:?}", self.selected_sort);
-        string_log(log_string);
+        info!("{}", log_string);
         let log_string = format!("selected reservoir: {:?}", self.selected_reservoir);
-        string_log(log_string);
+        info!("{}", log_string);
         let log_string = format!("number of water years: {:?}", normalized_water_years.len());
-        string_log(log_string);
+        info!("{}", log_string);
         match self.selected_sort {
             Msg::SelectedSort(SortBy::DriestYears) => {
                 normalized_water_years.sort_by_lowest_recorded_years()
@@ -411,7 +431,7 @@ pub fn generic_callback(_event: Event, dom_id_str: &str) -> Msg {
         .map_or_else(
             || {
                 let log_string = "window document object not found.".to_string();
-                string_log(log_string);
+                info!("{}", log_string);
                 String::from("none")
             },
             |document| match document.get_element_by_id(dom_id_str) {
@@ -421,7 +441,7 @@ pub fn generic_callback(_event: Event, dom_id_str: &str) -> Msg {
                 }
                 None => {
                     let log_string = format!("{} {}", dom_id_str, "dom object not found.");
-                    string_log(log_string);
+                    info!("{}", log_string);
                     String::from("none")
                 }
             },
