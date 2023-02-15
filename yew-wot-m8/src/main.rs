@@ -10,11 +10,9 @@ use gloo_console::log as gloo_log;
 use js_sys::JsString;
 use log::{info, Level, LevelFilter, Metadata, Record};
 use plotters::prelude::*;
-use rayon::prelude::*;
 use std::{
     collections::HashMap,
     ops::Range,
-    sync::{Arc, Mutex},
 };
 use wasm_bindgen::JsCast;
 use web_sys::HtmlSelectElement;
@@ -227,38 +225,37 @@ impl Component for ObservationsModel {
     fn create(_ctx: &Context<Self>) -> Self {
         info!("create reservoir vector");
         let reservoir_vector = Reservoir::get_reservoir_vector();
+        let mut station_ids_sorted: Vec<String> = reservoir_vector.iter().map(|resy| resy.station_id.clone()).collect::<Vec<_>>();
+        station_ids_sorted.sort();
         info!("un-lzma csv things");
         let observations = ReservoirObservations::init_from_lzma_without_interpolation();
         info!("un-lzma csv things done!");
         let selected_reservoir = String::from("ORO");
         let selected_sort = Msg::SelectedSort(SortBy::MostRecent);
-        let driest_water_years_arc_mutex: Arc<Mutex<HashMap<String, Vec<WaterYear>>>> = Arc::new(Mutex::new(HashMap::new()));
-        let most_recent_water_years_arc_mutex: Arc<Mutex<HashMap<String, Vec<WaterYear>>>> = Arc::new(Mutex::new(HashMap::new()));
-        let mut station_ids_sorted: Vec<String> = reservoir_vector.iter().map(|resy| resy.station_id.clone()).collect::<Vec<_>>();
-        station_ids_sorted.sort();
-        observations.into_par_iter().for_each(|(reservoir_id, reservoir_observations)| {
-            let mut most_recent_vec: Vec<WaterYear> = Vec::with_capacity(NUMBER_OF_CHARTS_TO_DISPLAY_DEFAULT);
-            let mut driest_vec: Vec<WaterYear> = Vec::with_capacity(NUMBER_OF_CHARTS_TO_DISPLAY_DEFAULT);
+        let mut driest_water_years: HashMap<String, Vec<WaterYear>> = HashMap::new();
+        let mut most_recent_water_years: HashMap<String, Vec<WaterYear>> = HashMap::new();
+        for (reservoir_id, reservoir_observations) in observations {
+            let mut most_recent_vec: Vec<WaterYear> = Vec::new();
+            let mut driest_vec: Vec<WaterYear> = Vec::new();
             let mut observable_range = ObservableRange::new(reservoir_observations.start_date, reservoir_observations.end_date);
             observable_range.observations = reservoir_observations.observations;
             let mut vec_observable_range: Vec<ObservableRange> = vec![observable_range];
             vec_observable_range.interpolate_reservoir_observations();
             if let Some(observable_range) = vec_observable_range.first() {
                 let mut water_years = WaterYear::water_years_from_observable_range(observable_range);
+                let idx_max = NUMBER_OF_CHARTS_TO_DISPLAY_DEFAULT.min(water_years.len());
                 // need to sort by most recent, store the top 20
                 // and then sort by driest, store the top 20
                 water_years.sort_by_most_recent();
-                most_recent_vec.clone_from_slice(&water_years[0..NUMBER_OF_CHARTS_TO_DISPLAY_DEFAULT]);
-                most_recent_water_years_arc_mutex.lock().unwrap().insert(reservoir_id.clone(), most_recent_vec);
+                let mut other = water_years[0..idx_max].to_vec().clone();
+                most_recent_vec.append(&mut other);
+                most_recent_water_years.insert(reservoir_id.clone(), most_recent_vec);
                 water_years.sort_by_lowest_recorded_years();
-                driest_vec.clone_from_slice(&water_years[0..NUMBER_OF_CHARTS_TO_DISPLAY_DEFAULT]);
-                driest_water_years_arc_mutex.lock().unwrap().insert(reservoir_id, driest_vec);
+                other = water_years[0..idx_max].to_vec().clone();
+                driest_vec.append(&mut other);
+                driest_water_years.insert(reservoir_id, driest_vec);
             };
-        });
-        let driest_water_years_mutex = Arc::try_unwrap(driest_water_years_arc_mutex).unwrap();
-        let driest_water_years = driest_water_years_mutex.into_inner().unwrap();
-        let most_recent_water_years_mutex = Arc::try_unwrap(most_recent_water_years_arc_mutex).unwrap();
-        let most_recent_water_years =  most_recent_water_years_mutex.into_inner().unwrap();
+        }
         Self{
             selected_reservoir,
             selected_sort,
