@@ -236,7 +236,7 @@ impl Component for ObservationsModel {
         let most_recent_water_years_arc_mutex: Arc<Mutex<HashMap<String, Vec<WaterYear>>>> = Arc::new(Mutex::new(HashMap::new()));
         let mut station_ids_sorted: Vec<String> = reservoir_vector.iter().map(|resy| resy.station_id.clone()).collect::<Vec<_>>();
         station_ids_sorted.sort();
-        observations.clone().into_par_iter().for_each(|(reservoir_id, reservoir_observations)| {
+        observations.into_par_iter().for_each(|(reservoir_id, reservoir_observations)| {
             let mut most_recent_vec: Vec<WaterYear> = Vec::with_capacity(NUMBER_OF_CHARTS_TO_DISPLAY_DEFAULT);
             let mut driest_vec: Vec<WaterYear> = Vec::with_capacity(NUMBER_OF_CHARTS_TO_DISPLAY_DEFAULT);
             let mut observable_range = ObservableRange::new(reservoir_observations.start_date, reservoir_observations.end_date);
