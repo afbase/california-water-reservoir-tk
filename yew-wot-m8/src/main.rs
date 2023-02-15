@@ -117,8 +117,6 @@ pub enum Msg {
 
 #[derive(Debug, Clone)]
 struct ObservationsModel {
-    // try not to delete this. just init it once.
-    pub observations: HashMap<String, ReservoirObservations>,
     // The selected reservoir
     pub selected_reservoir: String,
     // the type of sort
@@ -242,7 +240,7 @@ impl Component for ObservationsModel {
             let mut most_recent_vec: Vec<WaterYear> = Vec::with_capacity(NUMBER_OF_CHARTS_TO_DISPLAY_DEFAULT);
             let mut driest_vec: Vec<WaterYear> = Vec::with_capacity(NUMBER_OF_CHARTS_TO_DISPLAY_DEFAULT);
             let mut observable_range = ObservableRange::new(reservoir_observations.start_date, reservoir_observations.end_date);
-            observable_range.observations = reservoir_observations.observations.clone();
+            observable_range.observations = reservoir_observations.observations;
             let mut vec_observable_range: Vec<ObservableRange> = vec![observable_range];
             vec_observable_range.interpolate_reservoir_observations();
             if let Some(observable_range) = vec_observable_range.first() {
@@ -254,7 +252,7 @@ impl Component for ObservationsModel {
                 most_recent_water_years_arc_mutex.lock().unwrap().insert(reservoir_id.clone(), most_recent_vec);
                 water_years.sort_by_lowest_recorded_years();
                 driest_vec.clone_from_slice(&water_years[0..NUMBER_OF_CHARTS_TO_DISPLAY_DEFAULT]);
-                driest_water_years_arc_mutex.lock().unwrap().insert(reservoir_id.clone(), driest_vec);
+                driest_water_years_arc_mutex.lock().unwrap().insert(reservoir_id, driest_vec);
             };
         });
         let driest_water_years_mutex = Arc::try_unwrap(driest_water_years_arc_mutex).unwrap();
@@ -262,7 +260,6 @@ impl Component for ObservationsModel {
         let most_recent_water_years_mutex = Arc::try_unwrap(most_recent_water_years_arc_mutex).unwrap();
         let most_recent_water_years =  most_recent_water_years_mutex.into_inner().unwrap();
         Self{
-            observations,
             selected_reservoir,
             selected_sort,
             most_recent_water_years,
