@@ -8,7 +8,7 @@ use easy_cast::Cast;
 use std::{cmp::Ordering, convert::From, hash::Hash};
 
 // Survey and Tap are not great names but out of a need to have a name
-// Survey originates from a google search for synonomym of Observation
+// Survey originates from a google search for synonym of Observation
 // Tap is a reference to Tap water and Tap in electrical engineering
 // to sample a signal. There is also this thing that i really want to
 // be a meme for these types of situations:
