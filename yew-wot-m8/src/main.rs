@@ -1,3 +1,4 @@
+#![feature(drain_filter)]
 use cdec::{
     normalized_naive_date::NormalizedNaiveDate,
     observable::{CompressedSurveyBuilder, InterpolateObservableRanges, ObservableRange},
@@ -11,7 +12,7 @@ use js_sys::JsString;
 use log::{info, Level, LevelFilter, Metadata, Record};
 use plotters::prelude::*;
 use std::{
-    collections::HashMap,
+    collections::{HashMap, HashSet},
     ops::Range,
 };
 use wasm_bindgen::JsCast;
@@ -112,7 +113,6 @@ pub enum Msg {
     SelectedSort(SortBy),
 }
 
-
 #[derive(Debug, Clone)]
 struct ObservationsModel {
     // The selected reservoir
@@ -158,17 +158,24 @@ impl<'a> ObservationsModel {
         let ranged_date: RangedDate<NaiveDate> = range_date.into();
         let water_years_data = {
             match self.selected_sort {
-                Msg::SelectedSort(SortBy::DriestYears) => self.driest_water_years.get(&self.selected_reservoir),
-                Msg::SelectedSort(SortBy::MostRecent) => self.most_recent_water_years.get(&self.selected_reservoir),
-                _ => self.most_recent_water_years.get(&self.selected_reservoir)
+                Msg::SelectedSort(SortBy::DriestYears) => {
+                    self.driest_water_years.get(&self.selected_reservoir)
+                }
+                Msg::SelectedSort(SortBy::MostRecent) => {
+                    self.most_recent_water_years.get(&self.selected_reservoir)
+                }
+                _ => self.most_recent_water_years.get(&self.selected_reservoir),
             }
-        }.unwrap();
-        let y_max = water_years_data.get_largest_acrefeet_over_n_years(NUMBER_OF_CHARTS_TO_DISPLAY_DEFAULT)
+        }
         .unwrap();
-    let colors_for_water_years = get_colors(NUMBER_OF_CHARTS_TO_DISPLAY_DEFAULT).unwrap();
-        let plot_and_color = water_years_data
-            .iter()
-            .zip(colors_for_water_years.iter());
+        let selected_reservoir = self.selected_reservoir.clone();
+        let water_years_len = water_years_data.len();
+        info!("Generating SVG for {selected_reservoir}; number of water years {water_years_len}");
+        let y_max = water_years_data
+            .get_largest_acrefeet_over_n_years(NUMBER_OF_CHARTS_TO_DISPLAY_DEFAULT)
+            .unwrap();
+        let colors_for_water_years = get_colors(NUMBER_OF_CHARTS_TO_DISPLAY_DEFAULT).unwrap();
+        // let plot_and_color = water_years_data.iter().zip(colors_for_water_years.iter());
         // set up svg drawing area
         let size = (800u32, 600u32);
         let backend = SVGBackend::with_string(svg_inner_string, size);
@@ -181,40 +188,38 @@ impl<'a> ObservationsModel {
             .build_cartesian_2d(ranged_date, 0f64..y_max)
             .unwrap();
         chart.configure_mesh().x_labels(10_usize).draw()?;
-        for (water_year, rgb_color) in plot_and_color {
-        // date_recording is the original date in normalization
-        let (first, last) = water_year.calendar_year_from_normalized_water_year();
-        let year_string = format!("{}-{}", first.year(), last.format("%y"));
-        let final_legend_title_string = format!("{year_string} {legend_base}");
-        let final_legend_title = final_legend_title_string.as_str();
+        for idx in 0..water_years_len {
+            let rgb_color = &colors_for_water_years[idx];
+            let water_year = &water_years_data[idx];
+            // date_recording is the original date in normalization
+            let (first, last) = water_year.calendar_year_from_normalized_water_year();
+            let year_string = format!("{}-{}", first.year(), last.format("%y"));
+            let final_legend_title_string = format!("{year_string} {legend_base}");
+            let final_legend_title = final_legend_title_string.as_str();
+            chart
+                .draw_series(LineSeries::new(
+                    water_year
+                        .0
+                        .iter()
+                        .map(|survey| {
+                            let observation = survey.get_tap().value_as_f64();
+                            (survey.get_tap().date_observation, observation)
+                        })
+                        .collect::<Vec<_>>(),
+                    rgb_color,
+                ))
+                .unwrap()
+                .label(final_legend_title)
+                .legend(|(x, y)| PathElement::new(vec![(x, y), (x + 20, y)], *rgb_color));
+        }
         chart
-            .draw_series(LineSeries::new(
-                water_year
-                    .0
-                    .iter()
-                    .map(|survey| {
-                        let normalized_date_observation: NormalizedNaiveDate =
-                            survey.get_tap().date_observation.into();
-                        let normalized_naive_date_observation =
-                            normalized_date_observation.into();
-                        let observation = survey.get_tap().value_as_f64();
-                        (normalized_naive_date_observation, observation)
-                    })
-                    .collect::<Vec<_>>(),
-                rgb_color,
-            ))
-            .unwrap()
-            .label(final_legend_title)
-            .legend(|(x, y)| PathElement::new(vec![(x, y), (x + 20, y)], *rgb_color));
-    }
-    chart
-        .configure_series_labels()
-        .background_style(WHITE.mix(0.8))
-        .border_style(BLACK)
-        .draw()
-        .unwrap();
-    backend_drawing_area.present().unwrap();
-    Ok(())
+            .configure_series_labels()
+            .background_style(WHITE.mix(0.8))
+            .border_style(BLACK)
+            .draw()
+            .unwrap();
+        backend_drawing_area.present().unwrap();
+        Ok(())
     }
 }
 
@@ -223,13 +228,24 @@ impl Component for ObservationsModel {
     type Properties = ();
 
     fn create(_ctx: &Context<Self>) -> Self {
-        info!("create reservoir vector");
-        let reservoir_vector = Reservoir::get_reservoir_vector();
-        let mut station_ids_sorted: Vec<String> = reservoir_vector.iter().map(|resy| resy.station_id.clone()).collect::<Vec<_>>();
-        station_ids_sorted.sort();
         info!("un-lzma csv things");
         let observations = ReservoirObservations::init_from_lzma_without_interpolation();
+        let mut reservoirs_observed = observations
+            .keys()
+            .map(|k| k.clone())
+            .collect::<HashSet<_>>();
         info!("un-lzma csv things done!");
+        info!("create reservoir vector");
+        let mut reservoir_vector = Reservoir::get_reservoir_vector();
+        let mut station_ids = reservoir_vector
+            .iter()
+            .map(|resy| resy.station_id.clone())
+            .collect::<HashSet<_>>();
+        let mut station_ids_sorted = station_ids
+            .intersection(&reservoirs_observed)
+            .map(|a| a.clone())
+            .collect::<Vec<_>>();
+        station_ids_sorted.sort();
         let selected_reservoir = String::from("ORO");
         let selected_sort = Msg::SelectedSort(SortBy::MostRecent);
         let mut driest_water_years: HashMap<String, Vec<WaterYear>> = HashMap::new();
@@ -237,16 +253,38 @@ impl Component for ObservationsModel {
         for (reservoir_id, reservoir_observations) in observations {
             let mut most_recent_vec: Vec<WaterYear> = Vec::new();
             let mut driest_vec: Vec<WaterYear> = Vec::new();
-            let mut observable_range = ObservableRange::new(reservoir_observations.start_date, reservoir_observations.end_date);
+            let mut observable_range = ObservableRange::new(
+                reservoir_observations.start_date,
+                reservoir_observations.end_date,
+            );
             observable_range.observations = reservoir_observations.observations;
             let mut vec_observable_range: Vec<ObservableRange> = vec![observable_range];
             vec_observable_range.interpolate_reservoir_observations();
             if let Some(observable_range) = vec_observable_range.first() {
-                let mut water_years = WaterYear::water_years_from_observable_range(observable_range);
-                let idx_max = NUMBER_OF_CHARTS_TO_DISPLAY_DEFAULT.min(water_years.len());
+                let mut water_years =
+                    WaterYear::water_years_from_observable_range(observable_range);
                 // need to sort by most recent, store the top 20
                 // and then sort by driest, store the top 20
+                water_years.normalize_dates();
                 water_years.sort_by_most_recent();
+                let water_years_len = water_years.len();
+                let idx_max = NUMBER_OF_CHARTS_TO_DISPLAY_DEFAULT.min(water_years_len);
+                if idx_max <= 2 {
+                    info!("skipping station: {reservoir_id}; water_years_len: {water_years_len}");
+                    let _ = reservoir_vector
+                        .drain_filter(|r| r.station_id == reservoir_id)
+                        .collect::<Vec<_>>();
+                    let mut r_clone = reservoir_id.clone();
+                    let _ = station_ids_sorted
+                        .drain_filter(|s| {
+                            let r_id_mut = r_clone.as_mut();
+                            let s_str_mut = s.as_mut();
+                            s_str_mut.eq(&r_id_mut)
+                        })
+                        .collect::<Vec<_>>();
+                    continue;
+                }
+                info!("using station: {reservoir_id}; water_years_len: {water_years_len}");
                 let mut other = water_years[0..idx_max].to_vec().clone();
                 most_recent_vec.append(&mut other);
                 most_recent_water_years.insert(reservoir_id.clone(), most_recent_vec);
@@ -256,7 +294,7 @@ impl Component for ObservationsModel {
                 driest_water_years.insert(reservoir_id, driest_vec);
             };
         }
-        Self{
+        Self {
             selected_reservoir,
             selected_sort,
             most_recent_water_years,
@@ -404,7 +442,6 @@ impl Component for ObservationsModel {
             </div>
         }
     }
-
 }
 
 // pub struct Model {
@@ -416,7 +453,7 @@ impl Component for ObservationsModel {
 //     pub reservoir_data: HashMap<String, Vec<WaterYear>>,
 //     pub reservoir_vector: Vec<Reservoir>,
 // }
-// 
+//
 // impl<'a> Model {
 //     fn normalized_selected_reservoir_data(&mut self) {
 //         self.selected_reservoir_data = self
@@ -433,7 +470,7 @@ impl Component for ObservationsModel {
 //                     let year = survey.date_observation().year();
 //                     let start_date = NaiveDate::from_ymd_opt(year, 10, 1).unwrap();
 //                     let end_date = NaiveDate::from_ymd_opt(year + 1, 9, 30).unwrap();
-// 
+//
 //                     // okay this part below is a bit wonky and lazy
 //                     let mut observable_range = ObservableRange::new(start_date, end_date);
 //                     observable_range.observations = surveys.clone();
@@ -443,7 +480,7 @@ impl Component for ObservationsModel {
 //                     let surveys_interpolated = observable_range.observations.clone();
 //                     let water_year_interpolated = WaterYear(surveys_interpolated);
 //                     // okay this part above is a bit wonky and lazy
-// 
+//
 //                     result_water_years.push(water_year_interpolated);
 //                 } else {
 //                     continue;
@@ -452,7 +489,7 @@ impl Component for ObservationsModel {
 //             self.selected_reservoir_data = result_water_years;
 //         }
 //     }
-// 
+//
 //     fn derive_legend_name(&self) -> String {
 //         // let data = self.reservoir_data.get(&self.selected_reservoir).unwrap();
 //         // let station_id = data[0].clone().0[0].tap().station_id.clone();
@@ -473,7 +510,7 @@ impl Component for ObservationsModel {
 //     pub fn generate_svg(&self, svg_inner_string: &'a mut String) -> DrawResult<(), SVGBackend<'a>> {
 //         let legend_base = self.derive_legend_name();
 //         let mut normalized_water_years = self.selected_reservoir_data.clone();
-// 
+//
 //         let date_range_tuple = NormalizedNaiveDate::get_normalized_tuple_date_range();
 //         let range_date = Range {
 //             start: date_range_tuple.0,
@@ -549,11 +586,11 @@ impl Component for ObservationsModel {
 //         Ok(())
 //     }
 // }
-// 
+//
 // impl Component for Model {
 //     type Message = Msg;
 //     type Properties = ();
-// 
+//
 //     fn create(_ctx: &Context<Self>) -> Self {
 //         let reservoirs = Reservoir::get_reservoir_vector();
 //         let reservoir_data = WaterYear::init_reservoirs_from_lzma_without_interpolation();
@@ -568,7 +605,7 @@ impl Component for ObservationsModel {
 //         init_self.normalized_selected_reservoir_data();
 //         init_self
 //     }
-// 
+//
 //     fn update(&mut self, _ctx: &Context<Self>, msg: Self::Message) -> bool {
 //         match msg {
 //             // The user selected a reservoir from the dropdown list
@@ -599,7 +636,7 @@ impl Component for ObservationsModel {
 //         }
 //         true
 //     }
-// 
+//
 //     fn view(&self, ctx: &Context<Self>) -> Html {
 //         let mut svg_inner = String::new();
 //         let _svg_result = Model::generate_svg(self, &mut svg_inner);
@@ -635,7 +672,7 @@ impl Component for ObservationsModel {
 //             .callback(|event: Event| generic_callback(event, RESERVOIR_SELECTION_ID));
 //         let mut reservoir_ids_sorted = self.reservoir_data.keys().cloned().collect::<Vec<_>>();
 //         reservoir_ids_sorted.sort();
-// 
+//
 //         html! {
 //             <div id={DIV_BLOG_NAME}>
 //                 <div id={DIV_RESERVOIR_SELECTION_ID}>
@@ -666,7 +703,7 @@ impl Component for ObservationsModel {
 //                                         <option value={station_id_value}>{option_text}</option>
 //                                     }
 //                                 }
-// 
+//
 //                         })
 //                     }
 //                     </select>

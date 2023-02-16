@@ -4,7 +4,7 @@ use crate::survey::{CompressedStringRecord, VectorCompressedStringRecord};
 use crate::{
     normalized_naive_date::NormalizedNaiveDate, observable::ObservableRange, survey::Survey,
 };
-use chrono::{Datelike, NaiveDate};
+use chrono::{DateTime, Datelike, Local, NaiveDate};
 use easy_cast::Cast;
 use std::cmp::Ordering::{Equal, Greater, Less};
 use std::collections::HashMap;
@@ -30,6 +30,7 @@ pub enum WaterYearErrors {
 }
 
 pub trait NormalizeWaterYears {
+    fn normalize_dates(&mut self);
     fn get_largest_acrefeet_over_n_years(&self, len: usize) -> Result<f64, WaterYearErrors>;
     fn get_complete_normalized_water_years(&self) -> Self;
     fn sort_by_lowest_recorded_years(&mut self);
@@ -37,6 +38,43 @@ pub trait NormalizeWaterYears {
 }
 
 impl NormalizeWaterYears for Vec<WaterYear> {
+    fn normalize_dates(&mut self) {
+        self.retain(|water_year| {
+            // keep the water year if it has at least ~12 months of data
+            water_year.0.len() >= 364
+        });
+        for water_year in self {
+            // get rid of feb_29
+            let _ = water_year.0.drain_filter(|survey| {
+                let obs_date = survey.date_observation();
+                let month = obs_date.month();
+                let day = obs_date.day();
+                matches!((month, day), (2, 29))
+            });
+            // turn date_recording into date_observation of the original date
+            // California’s water year runs from October 1 to September 30 and is the official 12-month timeframe
+            for survey in &mut water_year.0 {
+                let mut tap = survey.tap();
+                tap.date_recording = tap.date_observation;
+                // California’s water year runs from October 1 to September 30 and is the official 12-month timeframe
+                let month = tap.date_observation.month();
+                let day = tap.date_observation.day();
+                let year = {
+                    let dt: DateTime<Local> = Local::now();
+                    let (first_year, second_year) = {
+                        let this = &dt.naive_local().date();
+                        let year = this.year();
+                        (year - 1, year)
+                    };
+                    match month {
+                        10..=12 => first_year,
+                        _ => second_year,
+                    }
+                };
+                tap.date_observation = NaiveDate::from_ymd_opt(year, month, day).unwrap();
+            }
+        }
+    }
     fn get_largest_acrefeet_over_n_years(&self, len: usize) -> Result<f64, WaterYearErrors> {
         let number_of_charts = self.len().min(len);
         if number_of_charts > 0 {
@@ -216,10 +254,11 @@ impl WaterYear {
 
     pub fn calendar_year_from_normalized_water_year(&self) -> (NaiveDate, NaiveDate) {
         // in a normalized water year - the date_recording has the original date_observation
-        let mut surveys = self.0.clone();
-        let surveys_len = surveys.len();
-        let first_date = surveys[0].tap().date_recording;
-        let last_date = surveys[surveys_len - 1].tap().date_recording;
+        // let mut surveys = self.0.clone();
+        let first_survey = self.0.first().unwrap();
+        let last_survey = self.0.last().unwrap();
+        let first_date = first_survey.get_tap().date_recording;
+        let last_date = last_survey.get_tap().date_recording;
         (first_date, last_date)
     }
     pub fn calendar_year_change(&mut self) -> f64 {
