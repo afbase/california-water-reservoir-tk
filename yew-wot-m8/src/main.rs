@@ -230,20 +230,17 @@ impl Component for ObservationsModel {
     fn create(_ctx: &Context<Self>) -> Self {
         info!("un-lzma csv things");
         let observations = ReservoirObservations::init_from_lzma_without_interpolation();
-        let mut reservoirs_observed = observations
-            .keys()
-            .map(|k| k.clone())
-            .collect::<HashSet<_>>();
+        let reservoirs_observed = observations.keys().cloned().collect::<HashSet<_>>();
         info!("un-lzma csv things done!");
         info!("create reservoir vector");
         let mut reservoir_vector = Reservoir::get_reservoir_vector();
-        let mut station_ids = reservoir_vector
+        let station_ids = reservoir_vector
             .iter()
             .map(|resy| resy.station_id.clone())
             .collect::<HashSet<_>>();
         let mut station_ids_sorted = station_ids
             .intersection(&reservoirs_observed)
-            .map(|a| a.clone())
+            .cloned()
             .collect::<Vec<_>>();
         station_ids_sorted.sort();
         let selected_reservoir = String::from("ORO");
