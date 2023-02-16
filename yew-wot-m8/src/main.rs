@@ -191,8 +191,10 @@ impl<'a> ObservationsModel {
         for idx in 0..water_years_len {
             let rgb_color = &colors_for_water_years[idx];
             let water_year = &water_years_data[idx];
+            let survey_count = water_year.0.len();
             // date_recording is the original date in normalization
             let (first, last) = water_year.calendar_year_from_normalized_water_year();
+            info!("{selected_reservoir} has {survey_count} surveys starting from {first} through {last}");
             let year_string = format!("{}-{}", first.year(), last.format("%y"));
             let final_legend_title_string = format!("{year_string} {legend_base}");
             let final_legend_title = final_legend_title_string.as_str();
@@ -230,8 +232,9 @@ impl Component for ObservationsModel {
     fn create(_ctx: &Context<Self>) -> Self {
         info!("un-lzma csv things");
         let observations = ReservoirObservations::init_from_lzma_without_interpolation();
-        let reservoirs_observed = observations.keys().cloned().collect::<HashSet<_>>();
         info!("un-lzma csv things done!");
+        info!("setting the reservoir observed keys");
+        let reservoirs_observed = observations.keys().cloned().collect::<HashSet<_>>();
         info!("create reservoir vector");
         let mut reservoir_vector = Reservoir::get_reservoir_vector();
         let station_ids = reservoir_vector
@@ -243,6 +246,7 @@ impl Component for ObservationsModel {
             .cloned()
             .collect::<Vec<_>>();
         station_ids_sorted.sort();
+        info!("station ids ready to go!!!");
         let selected_reservoir = String::from("ORO");
         let selected_sort = Msg::SelectedSort(SortBy::MostRecent);
         let mut driest_water_years: HashMap<String, Vec<WaterYear>> = HashMap::new();
