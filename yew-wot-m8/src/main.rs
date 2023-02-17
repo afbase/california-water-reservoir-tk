@@ -287,10 +287,12 @@ impl Component for ObservationsModel {
                 }
                 info!("using station: {reservoir_id}; water_years_len: {water_years_len}");
                 let mut other = water_years[0..idx_max].to_vec().clone();
+                other.sort_surveys();
                 most_recent_vec.append(&mut other);
                 most_recent_water_years.insert(reservoir_id.clone(), most_recent_vec);
                 water_years.sort_by_lowest_recorded_years();
                 other = water_years[0..idx_max].to_vec().clone();
+                other.sort_surveys();
                 driest_vec.append(&mut other);
                 driest_water_years.insert(reservoir_id, driest_vec);
             };

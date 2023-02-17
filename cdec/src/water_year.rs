@@ -35,6 +35,7 @@ pub trait NormalizeWaterYears {
     fn get_complete_normalized_water_years(&self) -> Self;
     fn sort_by_lowest_recorded_years(&mut self);
     fn sort_by_most_recent(&mut self);
+    fn sort_surveys(&mut self);
 }
 
 impl NormalizeWaterYears for Vec<WaterYear> {
@@ -153,6 +154,18 @@ impl NormalizeWaterYears for Vec<WaterYear> {
             a_year.partial_cmp(&b_year).unwrap()
         });
         self.reverse();
+    }
+
+    fn sort_surveys(&mut self) {
+        for water_year in self {
+            water_year.0.sort_by(|a, b| {
+                let a_tap = a.get_tap();
+                let b_tap = b.get_tap();
+                let a_date_recording = a_tap.date_recording;
+                let b_date_recording = b_tap.date_recording;
+                a_date_recording.partial_cmp(&b_date_recording).unwrap()
+            });
+        }
     }
 }
 
