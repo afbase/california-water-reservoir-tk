@@ -1,3 +1,5 @@
+mod query;
+
 use cdec::{
     observable::{
         CompressedSurveyBuilder, InterpolateObservableRanges, MonthDatum, ObservableRange,
@@ -68,6 +70,23 @@ fn date_error(date_type: String, err: ParseError) {
 
 #[derive(Subcommand)]
 enum Commands {
+    Survey {
+        // if there is already existing data to append to
+        #[arg(long, value_name = "COMPRESSED_TAR")]
+        existing_data_input: Option<PathBuf>,
+        // output of total reservoir capacity
+        #[arg(long, value_name = "SUMMATION_FILE")]
+        summation_output: Option<PathBuf>,
+        // output of each reservoir's capacity
+        #[arg(long, value_name = "RESERVOIR_FILE")]
+        reservoir_output: Option<PathBuf>,
+        // date of earliest data to be collected
+        #[arg(long, value_name = "YYYY-MM-DD")]
+        start_date: Option<String>,
+        // date of latest data to be collected
+        #[arg(long, value_name = "YYYY-MM-DD")]
+        end_date: Option<String>,
+    }
     /// does testing things
     Query {
         /// Sets a output file
@@ -199,7 +218,7 @@ async fn run_csv(start_date: &NaiveDate, end_date: &NaiveDate) -> String {
                 .write_byte_record(reservoir_record.0.as_byte_record())
                 .is_err()
             {
-                panic!("Error: writiing record failed");
+                panic!("Error: writing record failed");
             }
         }
     }
@@ -219,57 +238,20 @@ async fn main() {
             end_date,
             summation,
         }) => {
-            let file_path = match output {
-                None => {
-                    let file_path = PathBuf::from_str(DEFAULT_OUTPUT_PATH);
-                    file_path.unwrap()
-                }
-                Some(file_path) => file_path,
+            let query = Query {
+                output,
+            start_date,
+            end_date,
+            summation
             };
-            let start_date_final = match start_date {
-                None => {
-                    //Oldest Reservoir Record is
-                    //LGT,Lagunitas,Lagunitas Lake,Lagunitas Creek,341,1925
-                    NaiveDate::from_ymd_opt(1925, 1, 1).unwrap()
-                }
-                Some(start_date_string) => {
-                    match NaiveDate::parse_from_str(start_date_string.as_str(), "%Y-%m-%d") {
-                        Ok(d) => d,
-                        Err(err) => {
-                            date_error("Start".to_string(), err);
-                            panic!();
-                        }
-                    }
-                }
+            query.run();
+        }, 
+        Some(Commands::Survey { existing_data_input, summation_output, reservoir_output, start_date, end_date }) => {
+            let survey = Survey {
+                existing_data_input, summation_output, reservoir_output, start_date, end_date
             };
-
-            let end_date_final = match end_date {
-                None => {
-                    // Get Today's Date
-                    let now = Local::now();
-                    now.date_naive()
-                }
-                Some(end_date_string) => {
-                    match NaiveDate::parse_from_str(end_date_string.as_str(), "%Y-%m-%d") {
-                        Ok(d) => d,
-                        Err(err) => {
-                            date_error("Start".to_string(), err);
-                            panic!();
-                        }
-                    }
-                }
-            };
-            let csv_out = if summation {
-                run_csv_v2(&start_date_final, &end_date_final).await
-            } else {
-                run_csv(&start_date_final, &end_date_final).await
-            };
-            let mut fs = std::fs::File::create(file_path.as_path()).unwrap();
-            if fs.write_all(csv_out.as_bytes()).is_err() {
-                panic!("writing csv file failed");
-            }
-            info!("Observations Written to CSV");
-        }
+            survey.run();
+        }, 
         None => panic!("must specify a subcommand!"),
     }
 }
