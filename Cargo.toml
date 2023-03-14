@@ -1,6 +1,16 @@
 [workspace]
 
-members = ["ecco", "cdec", "cli", "yew-avin-a-laf", "yew-nani", "yew-wot-m8", "yew-wu"]
+members = [
+    "cdec", 
+    "cli",
+    "cmd", 
+    "ecco",
+    "my_log",
+    "utils", 
+    "yew-avin-a-laf", 
+    "yew-nani", 
+    "yew-wot-m8", 
+    "yew-wu"]
 
 
 [profile.release]

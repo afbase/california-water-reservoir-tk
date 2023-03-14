@@ -1,14 +1,19 @@
-// mod errors;
-pub mod run;
-pub mod log;
-pub mod error;
-use run::Run;
-
+use chrono::{NaiveDate, Local};
+use my_log::MY_LOGGER;
+use log::{info, LevelFilter};
+use utils::{TryFromError, Run};
+use crate::Commands;
+use crate::run::run::{run_csv_v2, run_csv};
+use std::str::FromStr;
 use std::{
+    io::Write,
     path::PathBuf,
 };
+use utils::error::date_error;
+const DEFAULT_OUTPUT_PATH: &str = "output.tar.xz";
 
-struct Query {
+
+pub struct Query {
     output: Option<PathBuf>,
     start_date: Option<String>,
     end_date: Option<String>,
@@ -83,10 +88,14 @@ impl Run for Query {
                 }
             }
         };
+        let rt = tokio::runtime::Builder::new_current_thread()
+        .enable_all()
+        .build()
+        .unwrap();
         let csv_out = if self.summation {
-            run_csv_v2(&start_date_final, &end_date_final).await
+            rt.block_on(run_csv_v2(&start_date_final, &end_date_final))
         } else {
-            run_csv(&start_date_final, &end_date_final).await
+            rt.block_on(run_csv(&start_date_final, &end_date_final))
         };
         let mut fs = std::fs::File::create(file_path.as_path()).unwrap();
         if fs.write_all(csv_out.as_bytes()).is_err() {

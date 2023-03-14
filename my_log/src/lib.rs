@@ -1,6 +1,7 @@
-pub static MY_LOGGER: MyLogger = MyLogger;
-
+use log::{ Level, Metadata, Record};
+use chrono::{DateTime, Utc};
 pub struct MyLogger;
+pub static MY_LOGGER: MyLogger = MyLogger;
 
 impl log::Log for MyLogger {
     fn enabled(&self, metadata: &Metadata) -> bool {
