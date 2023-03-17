@@ -1,5 +1,6 @@
 
 use cmd::{
+    Commands,
     query::{Query, QueryError},
     survey::{Survey}
 };
@@ -15,6 +16,8 @@ use clap::{Parser, Subcommand};
 use csv::{StringRecord, Writer};
 use easy_cast::Cast;
 use futures::future::join_all;
+use log::LevelFilter;
+use my_log::MY_LOGGER;
 use reqwest::Client;
 use std::{
     collections::HashSet,

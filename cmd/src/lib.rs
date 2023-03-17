@@ -4,7 +4,7 @@ pub mod run;
 use clap::Subcommand;
 use std::path::PathBuf;
 #[derive(Subcommand)]
-enum Commands {
+pub enum Commands {
     Survey {
         // if there is already existing data to append to
         #[arg(long, value_name = "COMPRESSED_TAR")]
