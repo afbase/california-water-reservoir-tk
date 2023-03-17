@@ -36,6 +36,7 @@ impl log::Log for MyLogger {
             gloo_log!(str_log);
         }
     }
+
     fn flush(&self) {}
 }
 
