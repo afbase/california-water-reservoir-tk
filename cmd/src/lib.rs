@@ -1,6 +1,6 @@
 pub mod query;
-pub mod survey;
 pub mod run;
+pub mod survey;
 use clap::Subcommand;
 use std::path::PathBuf;
 #[derive(Subcommand)]

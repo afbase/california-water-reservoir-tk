@@ -7,14 +7,8 @@ edition = "2021"
 
 [dependencies]
 cmd = {path = "../cmd"}
-cdec = { path = "../cdec" }
-chrono = { version = "0.4.22", features = ["serde"] }
 clap = { version = "4.0.18", features = ["derive"] }
-csv = "1.1.6"
-easy-cast = "0.5.1"
-futures = "0.3.25"
 log = "0.4.17"
 my_log = {path = "../my_log"}
-reqwest = "0.11.12"
 tokio = { version = "1", features = ["full", "tracing"] }
 utils = {path = "../utils"}

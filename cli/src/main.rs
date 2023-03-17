@@ -1,13 +1,8 @@
-
-use cmd::{
-    Commands,
-    query::Query,
-    survey::Survey,
-};
 use clap::Parser;
+use cmd::{query::Query, survey::Survey, Commands};
 use log::LevelFilter;
 use my_log::MY_LOGGER;
-use utils::Run;
+use utils::run::Run;
 
 #[derive(Parser)]
 #[command(name = "cdec-tk", author, version, about = "Query CA CDEC Water Reservoir API", long_about = None)]
@@ -38,18 +33,28 @@ async fn main() {
         }) => {
             let query = Query {
                 output,
-            start_date,
-            end_date,
-            summation
+                start_date,
+                end_date,
+                summation,
             };
             query.run();
-        }, 
-        Some(Commands::Survey { existing_data_input, summation_output, reservoir_output, start_date, end_date }) => {
+        }
+        Some(Commands::Survey {
+            existing_data_input,
+            summation_output,
+            reservoir_output,
+            start_date,
+            end_date,
+        }) => {
             let survey = Survey {
-                existing_data_input, summation_output, reservoir_output, start_date, end_date
+                existing_data_input,
+                summation_output,
+                reservoir_output,
+                start_date,
+                end_date,
             };
             survey.run();
-        }, 
+        }
         None => panic!("must specify a subcommand!"),
     }
 }

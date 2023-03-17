@@ -1,5 +1,5 @@
-use log::{ Level, Metadata, Record};
 use chrono::{DateTime, Utc};
+use log::{Level, Metadata, Record};
 pub struct MyLogger;
 pub static MY_LOGGER: MyLogger = MyLogger;
 
