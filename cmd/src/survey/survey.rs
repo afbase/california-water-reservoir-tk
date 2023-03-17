@@ -26,7 +26,7 @@ impl Run for Survey {
         log::set_logger(&MY_LOGGER).unwrap();
         log::set_max_level(LevelFilter::Info);
         // dates
-        let start_date_final = match self.start_date {
+        let _start_date_final = match self.start_date {
             None => {
                 //Oldest Reservoir Record is
                 //LGT,Lagunitas,Lagunitas Lake,Lagunitas Creek,341,1925
@@ -43,7 +43,7 @@ impl Run for Survey {
             }
         };
 
-        let end_date_final = match self.end_date {
+        let _end_date_final = match self.end_date {
             None => {
                 // Get Today's Date
                 let now = Local::now();
@@ -60,21 +60,21 @@ impl Run for Survey {
             }
         };
         // get files
-        let existing_data_input_path = match self.existing_data_input {
+        let _existing_data_input_path = match self.existing_data_input {
             None => {
                 let file_path = PathBuf::from_str(DEFAULT_OUTPUT_PATH);
                 file_path.unwrap()
             }
             Some(file_path) => file_path,
         };
-        let summation_output_path = match self.summation_output {
+        let _summation_output_path = match self.summation_output {
             None => {
                 let file_path = PathBuf::from_str(DEFAULT_OUTPUT_PATH);
                 file_path.unwrap()
             }
             Some(file_path) => file_path,
         };
-        let reservoir_output = match self.reservoir_output {
+        let _reservoir_output = match self.reservoir_output {
             None => {
                 let file_path = PathBuf::from_str(DEFAULT_OUTPUT_PATH);
                 file_path.unwrap()
