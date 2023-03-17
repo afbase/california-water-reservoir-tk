@@ -8,18 +8,18 @@ use log::LevelFilter;
 const DEFAULT_OUTPUT_PATH: &str = "output.tar.xz";
 
 pub struct Survey 
-    {
-        // if there is already existing data to append to
-        existing_data_input: Option<PathBuf>,
-        // output of total reservoir capacity
-        summation_output: Option<PathBuf>,
-        // output of each reservoir's capacity
-        reservoir_output: Option<PathBuf>,
-        // date of earliest data to be collected
-        start_date: Option<String>,
-        // date of latest data to be collected
-        end_date: Option<String>,
-    }
+{
+    // if there is already existing data to append to
+    pub existing_data_input: Option<PathBuf>,
+    // output of total reservoir capacity
+    pub summation_output: Option<PathBuf>,
+    // output of each reservoir's capacity
+    pub reservoir_output: Option<PathBuf>,
+    // date of earliest data to be collected
+    pub start_date: Option<String>,
+    // date of latest data to be collected
+    pub end_date: Option<String>,
+}
 
 impl Run for Survey {
     fn run(self) {

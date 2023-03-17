@@ -14,10 +14,10 @@ const DEFAULT_OUTPUT_PATH: &str = "output.tar.xz";
 
 
 pub struct Query {
-    output: Option<PathBuf>,
-    start_date: Option<String>,
-    end_date: Option<String>,
-    summation: bool,
+    pub output: Option<PathBuf>,
+    pub start_date: Option<String>,
+    pub end_date: Option<String>,
+    pub summation: bool,
 }
 
 

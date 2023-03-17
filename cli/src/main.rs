@@ -1,36 +1,13 @@
 
 use cmd::{
     Commands,
-    query::{Query, QueryError},
-    survey::{Survey}
+    query::Query,
+    survey::Survey,
 };
-use cdec::{
-    observable::{
-        CompressedSurveyBuilder, InterpolateObservableRanges, MonthDatum, ObservableRange,
-    },
-    reservoir::Reservoir,
-    survey::CompressedStringRecord,
-};
-use chrono::{format::ParseError, DateTime, Local, NaiveDate, Utc};
-use clap::{Parser, Subcommand};
-use csv::{StringRecord, Writer};
-use easy_cast::Cast;
-use futures::future::join_all;
+use clap::Parser;
 use log::LevelFilter;
 use my_log::MY_LOGGER;
-use reqwest::Client;
-use std::{
-    collections::HashSet,
-    collections::{BTreeMap, HashMap},
-    io::Write,
-    path::PathBuf,
-    process,
-    str::FromStr,
-};
-use utils::error::date_error;
-
-
-const DEFAULT_OUTPUT_PATH: &str = "output.tar.xz";
+use utils::Run;
 
 #[derive(Parser)]
 #[command(name = "cdec-tk", author, version, about = "Query CA CDEC Water Reservoir API", long_about = None)]
@@ -46,10 +23,6 @@ struct Cli {
     command: Option<Commands>,
 }
 
-
-
-
-
 #[tokio::main]
 async fn main() {
     log::set_logger(&MY_LOGGER).unwrap();
@@ -63,7 +36,7 @@ async fn main() {
             end_date,
             summation,
         }) => {
-            let query = query::Query {
+            let query = Query {
                 output,
             start_date,
             end_date,
