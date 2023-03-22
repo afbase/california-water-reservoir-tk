@@ -11,6 +11,7 @@ chrono = "0.4.23"
 clap = { version = "4.0.18", features = ["derive"] }
 csv = "1.1.6"
 easy-cast = "0.5.1"
+ecco = { path="../ecco" }
 futures = "0.3.25"
 log = "0.4.17"
 my_log = {path = "../my_log"}

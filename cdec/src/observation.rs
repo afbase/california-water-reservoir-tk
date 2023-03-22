@@ -61,8 +61,8 @@ impl Observation {
             .collect::<Vec<_>>()
     }
 
-    pub fn get_all_records() -> Vec<CompressedStringRecord> {
-        let bytes_of_csv_string = decompress_tar_file_to_csv_string(OBSERVATIONS_OBJECT);
+    pub fn get_all_records_from_bytes(bytes: &[u8]) -> Vec<CompressedStringRecord> {
+        let bytes_of_csv_string = decompress_tar_file_to_csv_string(bytes);
         csv::ReaderBuilder::new()
             .has_headers(false)
             .from_reader(bytes_of_csv_string.as_slice())
@@ -72,6 +72,10 @@ impl Observation {
                 CompressedStringRecord(a)
             })
             .collect::<Vec<CompressedStringRecord>>()
+    }
+
+    pub fn get_all_records() -> Vec<CompressedStringRecord> {
+        Self::get_all_records_from_bytes(OBSERVATIONS_OBJECT)
     }
 
     pub async fn get_all_reservoirs_data_by_dates(

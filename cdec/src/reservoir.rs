@@ -5,8 +5,13 @@ use crate::{
 };
 use chrono::NaiveDate;
 use csv::ReaderBuilder;
-use reqwest::Client;
-use std::{collections::HashSet, include_str};
+use reqwest::{Client, StatusCode};
+use std::{
+    collections::HashSet,
+    include_str,
+    time::Duration,
+    thread::sleep,
+};
 
 static CSV_OBJECT: &str = include_str!("../../fixtures/capacity.csv");
 const YEAR_FORMAT: &str = "%Y-%m-%d";
@@ -82,12 +87,32 @@ impl Reservoir {
         end_date: &NaiveDate,
         duration_type: &str,
     ) -> Option<ObservableRange> {
+        let max_tries = 3;
+        let mut sleep_millis: u64 = 1;
         let start_date_str = start_date.format(YEAR_FORMAT);
         let end_date_str = end_date.format(YEAR_FORMAT);
-        let url = format!("http://cdec.water.ca.gov/dynamicapp/req/CSVDataServlet?Stations={}&SensorNums=15&dur_code={}&Start={}&End={}", self.station_id.as_str(), duration_type, start_date_str, end_date_str);
-        let response = client.get(url).send().await.unwrap();
-        let response_body = response.text().await.unwrap();
-        response_body.response_to_surveys()
+        for _ in 0..max_tries {
+            let url = format!("http://cdec.water.ca.gov/dynamicapp/req/CSVDataServlet?Stations={}&SensorNums=15&dur_code={}&Start={}&End={}", self.station_id.as_str(), duration_type, start_date_str, end_date_str);
+            // try three times and exponential backoff
+            let response = client.get(url).send().await.unwrap();
+            if response.status() != StatusCode::OK {
+                // sleep
+                sleep_millis <<= 1;
+                let ten_millis = Duration::from_millis(sleep_millis * 1000);
+                sleep(ten_millis);
+                continue;
+            }
+            let response_body = response.text().await.unwrap();
+            if response_body.len() <= 2 {
+                // sleep
+                sleep_millis <<= 1;
+                let ten_millis = Duration::from_millis(sleep_millis * 1000);
+                sleep(ten_millis);
+                continue;
+            }
+            return response_body.response_to_surveys();
+        }
+        None
     }
     pub async fn get_monthly_surveys(
         &self,
