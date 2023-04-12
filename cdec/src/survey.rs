@@ -2,13 +2,13 @@ use crate::{
     observable::{MonthDatum, Observable},
     observation::{DataRecording, Duration, Observation},
 };
-use chrono::{NaiveDate};
+use chrono::NaiveDate;
 use csv::StringRecord;
 use easy_cast::Cast;
 use std::{cmp::Ordering, convert::From, hash::Hash};
 
 // Survey and Tap are not great names but out of a need to have a name
-// Survey originates from a google search for synonomym of Observation
+// Survey originates from a google search for synonym of Observation
 // Tap is a reference to Tap water and Tap in electrical engineering
 // to sample a signal. There is also this thing that i really want to
 // be a meme for these types of situations:
@@ -256,7 +256,7 @@ impl std::convert::TryFrom<Survey> for StringRecord {
 }
 
 impl Tap {
-    fn value_as_f64(self) -> f64 {
+    pub fn value_as_f64(&self) -> f64 {
         match self.value {
             DataRecording::Recording(a) => {
                 let k: f64 = a.cast();
@@ -321,6 +321,38 @@ impl Interpolate for (Survey, Survey) {
 }
 
 impl Survey {
+    pub fn tap(&mut self) -> &mut Tap {
+        match self {
+            Survey::Monthly(ref mut tap) => tap,
+            Survey::Daily(ref mut tap) => tap,
+        }
+    }
+    pub fn set_date_observation(&mut self, new_date: NaiveDate) {
+        match self {
+            Survey::Monthly(tap) => {
+                tap.date_observation = new_date;
+            }
+            Survey::Daily(tap) => {
+                tap.date_observation = new_date;
+            }
+        };
+    }
+    pub fn set_date_recording(&mut self, new_date: NaiveDate) {
+        match self {
+            Survey::Monthly(tap) => {
+                tap.date_recording = new_date;
+            }
+            Survey::Daily(tap) => {
+                tap.date_recording = new_date;
+            }
+        };
+    }
+    pub fn date_observation(&self) -> NaiveDate {
+        match self {
+            Survey::Monthly(tap) => tap.date_observation,
+            Survey::Daily(tap) => tap.date_observation,
+        }
+    }
     pub fn as_month_datum(&self) -> MonthDatum {
         let tap = self.get_tap();
         let date = tap.date_observation;
@@ -448,28 +480,28 @@ mod test {
         let value = DataRecording::Recording(921);
         let survey_0 = Survey::Daily(Tap {
             station_id: station_id.clone(),
-            date_observation: date_observation.clone(),
-            date_recording: date_recording.clone(),
-            value: value.clone(),
+            date_observation,
+            date_recording,
+            value,
         });
         let survey_1 = Survey::Monthly(Tap {
             station_id: station_id.clone(),
-            date_observation: date_observation.clone(),
-            date_recording: date_recording.clone(),
-            value: value.clone(),
+            date_observation,
+            date_recording,
+            value,
         });
         let observation_0 = Observation {
             station_id: station_id.clone(),
-            date_observation: date_observation.clone(),
-            date_recording: date_recording.clone(),
-            value: value.clone(),
+            date_observation,
+            date_recording,
+            value,
             duration: Duration::Daily,
         };
         let observation_1 = Observation {
-            station_id: station_id.clone(),
-            date_observation: date_observation.clone(),
-            date_recording: date_recording.clone(),
-            value: value.clone(),
+            station_id,
+            date_observation,
+            date_recording,
+            value,
             duration: Duration::Monthly,
         };
         let actual_0: Observation = survey_0.into();
@@ -486,28 +518,28 @@ mod test {
         let value = DataRecording::Recording(921);
         let survey_0 = Survey::Daily(Tap {
             station_id: station_id.clone(),
-            date_observation: date_observation.clone(),
-            date_recording: date_recording.clone(),
-            value: value.clone(),
+            date_observation,
+            date_recording,
+            value,
         });
         let survey_1 = Survey::Monthly(Tap {
             station_id: station_id.clone(),
-            date_observation: date_observation.clone(),
-            date_recording: date_recording.clone(),
-            value: value.clone(),
+            date_observation,
+            date_recording,
+            value,
         });
         let observation_0 = Observation {
             station_id: station_id.clone(),
-            date_observation: date_observation.clone(),
-            date_recording: date_recording.clone(),
-            value: value.clone(),
+            date_observation,
+            date_recording,
+            value,
             duration: Duration::Daily,
         };
         let observation_1 = Observation {
-            station_id: station_id.clone(),
-            date_observation: date_observation.clone(),
-            date_recording: date_recording.clone(),
-            value: value.clone(),
+            station_id,
+            date_observation,
+            date_recording,
+            value,
             duration: Duration::Monthly,
         };
         let actual_0: Survey = observation_0.into();
@@ -629,5 +661,27 @@ mod test {
         });
         let actual_surveys = (start, end).interpolate_pair();
         assert_eq!(actual_surveys, None);
+    }
+
+    #[test]
+    fn test_set_date_observation() {
+        let station_id = String::new();
+        let date_0 = NaiveDate::from_ymd_opt(2022, 11, 12).unwrap();
+        let date_1 = NaiveDate::from_ymd_opt(2022, 11, 17).unwrap();
+        let value_0 = DataRecording::Recording(7);
+        let mut actual = Survey::Daily(Tap {
+            station_id: station_id.clone(),
+            date_observation: date_0,
+            date_recording: date_0,
+            value: value_0,
+        });
+        actual.set_date_observation(date_1);
+        let expected = Survey::Daily(Tap {
+            station_id,
+            date_observation: date_1,
+            date_recording: date_0,
+            value: value_0,
+        });
+        assert_eq!(actual, expected);
     }
 }

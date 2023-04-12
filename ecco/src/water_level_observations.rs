@@ -52,7 +52,6 @@ impl WaterLevelObservations {
                 let res_copy = res.clone();
                 (station, res_copy)
             })
-            .into_iter()
             .collect();
         let mut california_water_level_observations: BTreeMap<NaiveDate, u32> = BTreeMap::new();
         let mut observable_ranges_by_reservoir: BTreeMap<String, Vec<Survey>> = BTreeMap::new();

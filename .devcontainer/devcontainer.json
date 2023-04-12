@@ -1,11 +1,12 @@
 {
     "name": "project-dev",
-    "dockerComposeFile": ["docker-compose.yml"],
+    "image": "mcr.microsoft.com/devcontainers/rust:latest",
+    // "dockerComposeFile": ["docker-compose.yml"],
     "service": "vscode",
-    "runServices": ["vscode"],
-    "shutdownAction": "stopCompose",
-    "postCreateCommand": "~/.windows.sh",
-    "workspaceFolder": "/workspace",
+    // "runServices": ["vscode"],
+    // "shutdownAction": "stopCompose",
+    // "postCreateCommand": "~/.windows.sh",
+    // "workspaceFolder": "/workspace",
     // "overrideCommand": "",
     "extensions": [
         "rust-lang.rust-analyzer",

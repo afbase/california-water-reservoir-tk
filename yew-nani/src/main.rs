@@ -2,31 +2,71 @@ use cdec::{
     reservoir::Reservoir,
     water_year::{WaterYear, WaterYearStatistics},
 };
+use chrono::{DateTime, Utc};
 use ecco::reservoir_observations::{GetWaterYears, ReservoirObservations};
 use gloo_console::log as gloo_log;
 use js_sys::JsString;
+use log::{info, Level, LevelFilter, Metadata, Record};
 use std::collections::HashMap;
 use wasm_bindgen::JsCast;
 use web_sys::HtmlSelectElement;
 use yew::prelude::*;
-const DIV_BLOG_NAME: &str = "california-table";
+const DIV_BLOG_NAME: &str = "yew-nani";
 const RESERVOIR_SELECTION_ID: &str = "reservoir-selections";
-struct Model {
-    // The selected reservoir
-    selected_reservoir: String,
-    // The data for the selected reservoir
-    reservoir_data: HashMap<String, Vec<WaterYear>>,
-    reservoir_vector: Vec<Reservoir>,
+
+static MY_LOGGER: MyLogger = MyLogger;
+
+struct MyLogger;
+
+impl log::Log for MyLogger {
+    fn enabled(&self, metadata: &Metadata) -> bool {
+        metadata.level() <= Level::Info
+    }
+
+    fn log(&self, record: &Record) {
+        let now: DateTime<Utc> = Utc::now();
+        if self.enabled(record.metadata()) {
+            let str_log: JsString = format!(
+                "[{}] {} - {}",
+                now.to_rfc3339(),
+                record.level(),
+                record.args()
+            )
+            .into();
+            gloo_log!(str_log);
+        }
+    }
+
+    fn flush(&self) {}
 }
 
-enum Msg {
+pub struct CalendarYearModel {
+    // The selected reservoir
+    pub selected_reservoir: String,
+    // The data for the selected reservoir
+    pub reservoir_data: HashMap<String, Vec<WaterYear>>,
+    pub reservoir_vector: Vec<Reservoir>,
+}
+
+impl Default for CalendarYearModel {
+    fn default() -> Self {
+        let reservoirs = Reservoir::get_reservoir_vector();
+        let observations_hash_map: HashMap<String, ReservoirObservations> =
+            ReservoirObservations::init_from_lzma();
+        let water_years_from_observable_range =
+            observations_hash_map.get_water_years_from_reservoir_observations();
+        let selected_reservoir = String::from("SHA");
+        Self {
+            selected_reservoir,
+            reservoir_data: water_years_from_observable_range,
+            reservoir_vector: reservoirs,
+        }
+    }
+}
+#[derive(Debug)]
+pub enum Msg {
     // The user selected a reservoir from the dropdown list
     SelectReservoir(String),
-}
-
-fn string_log(log_string: String) {
-    let log_js_string: JsString = log_string.into();
-    gloo_log!(log_js_string);
 }
 
 // TODO fix this so it is not about dates but reservoir ids
@@ -36,7 +76,7 @@ fn generic_callback(_event: Event, dom_id_str: &str) -> Msg {
         .map_or_else(
             || {
                 let log_string = "window document object not found.".to_string();
-                string_log(log_string);
+                info!("{}", log_string);
                 String::from("none")
             },
             |document| match document.get_element_by_id(dom_id_str) {
@@ -46,7 +86,7 @@ fn generic_callback(_event: Event, dom_id_str: &str) -> Msg {
                 }
                 None => {
                     let log_string = format!("{} {}", dom_id_str, "dom object not found.");
-                    string_log(log_string);
+                    info!("{}", log_string);
                     String::from("none")
                 }
             },
@@ -54,7 +94,7 @@ fn generic_callback(_event: Event, dom_id_str: &str) -> Msg {
     Msg::SelectReservoir(updated_reservoir)
 }
 
-impl Component for Model {
+impl Component for CalendarYearModel {
     type Message = Msg;
     type Properties = ();
 
@@ -97,12 +137,7 @@ impl Component for Model {
                 .map(|water_year| water_year.into())
                 .collect::<Vec<WaterYearStatistics>>();
             water_statistics.sort();
-            let mut reservoir_ids_sorted = self
-                .reservoir_data
-                .keys()
-                .into_iter()
-                .cloned()
-                .collect::<Vec<_>>();
+            let mut reservoir_ids_sorted = self.reservoir_data.keys().cloned().collect::<Vec<_>>();
             reservoir_ids_sorted.sort();
 
             html! {
@@ -216,13 +251,15 @@ impl Component for Model {
 }
 
 fn main() {
+    log::set_logger(&MY_LOGGER).unwrap();
+    log::set_max_level(LevelFilter::Info);
     web_sys::window()
         .and_then(|window| window.document())
         .map_or_else(
             || {
                 let log_str = "failed to load wasm module successfully part 1";
                 let log_string = String::from(log_str);
-                string_log(log_string);
+                info!("{}", log_string);
                 panic!("{}", log_str);
             },
             |document| match document.get_element_by_id(DIV_BLOG_NAME) {
@@ -239,7 +276,7 @@ fn main() {
             || {
                 let log_str = "failed to load wasm module successfully part 2";
                 let log_string = String::from(log_str);
-                string_log(log_string);
+                info!("{}", log_string);
                 panic!("{}", log_str);
             },
             |document| match document.get_element_by_id(DIV_BLOG_NAME) {
@@ -247,11 +284,11 @@ fn main() {
                 None => {
                     let log_str = "failed to load wasm module successfully part 3";
                     let log_string = String::from(log_str);
-                    string_log(log_string);
+                    info!("{}", log_string);
                     panic!("{}", log_str);
                 }
             },
         );
-    let renderer = yew::Renderer::<Model>::with_root(div_element);
+    let renderer = yew::Renderer::<CalendarYearModel>::with_root(div_element);
     renderer.render();
 }

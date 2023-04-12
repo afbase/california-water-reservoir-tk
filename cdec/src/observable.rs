@@ -1,9 +1,14 @@
 use crate::{
     observation::DataRecording,
+    reservoir::Reservoir,
+    survey::CompressedStringRecord,
     survey::{Interpolate, Survey, Tap},
 };
 use chrono::{Datelike, Duration, NaiveDate};
-use std::collections::HashSet;
+use csv::{StringRecord, Writer};
+use easy_cast::Cast;
+use log::info;
+use std::collections::{BTreeMap, HashMap, HashSet};
 use std::hash::Hash;
 
 // to group survey and observable types
@@ -48,6 +53,114 @@ pub struct ObservableRange {
     pub month_datum: HashSet<MonthDatum>,
 }
 
+pub trait ObservableRangeRunner {
+    fn run_csv(&self) -> String;
+    fn run_csv_v2(&self) -> String;
+}
+
+impl ObservableRangeRunner for Vec<ObservableRange> {
+    fn run_csv(&self) -> String {
+        info!("ran all surveys!");
+        let mut observations_downloaded = self.clone();
+        let option_of_compressed_string_records = observations_downloaded
+            .iter_mut()
+            .map(|surveys| {
+                surveys.observations.sort();
+                let earliest_date = {
+                    if let Some(survey_first) = surveys.observations.first() {
+                        let tap = survey_first.get_tap();
+                        tap.date_observation
+                    } else {
+                        return None;
+                    }
+                };
+                let last_survey = surveys.observations.last().unwrap();
+                let last_tap = last_survey.get_tap();
+                let most_recent_date = last_tap.date_observation;
+                let month_datum: HashSet<MonthDatum> = HashSet::new();
+                let mut observable_range = ObservableRange {
+                    observations: surveys.observations.clone(),
+                    start_date: earliest_date,
+                    end_date: most_recent_date,
+                    month_datum,
+                };
+                observable_range.retain();
+                let records: Vec<CompressedStringRecord> = observable_range
+                    .observations
+                    .into_iter()
+                    .map(|survey| {
+                        let record: CompressedStringRecord = survey.into();
+                        record
+                    })
+                    .collect::<Vec<CompressedStringRecord>>();
+                Some(records)
+            })
+            .collect::<Vec<_>>();
+        //compressedstringrecords from hear on out
+        let mut writer = Writer::from_writer(vec![]);
+        let flattened_records = option_of_compressed_string_records.into_iter().flatten();
+        for reservoir_records in flattened_records {
+            for reservoir_record in reservoir_records {
+                if writer
+                    .write_byte_record(reservoir_record.0.as_byte_record())
+                    .is_err()
+                {
+                    panic!("Error: writing record failed");
+                }
+            }
+        }
+        String::from_utf8(writer.into_inner().unwrap()).unwrap()
+    }
+    fn run_csv_v2(&self) -> String {
+        let reservoirs: HashMap<String, Reservoir> = Reservoir::get_reservoir_vector()
+            .iter()
+            .map(|res| {
+                let station = res.station_id.clone();
+                let res_copy = res.clone();
+                (station, res_copy)
+            })
+            .collect();
+        info!("Surveyed Reseroirs: {}", self.len());
+        info!("Observations Downloaded");
+        let mut observations_downloaded = self.clone();
+        observations_downloaded.interpolate_reservoir_observations();
+        info!("Interpolated Reseroirs: {}", self.len());
+        info!("Observations Interpolated and Sorted");
+        let mut california_water_level_observations: BTreeMap<NaiveDate, f64> = BTreeMap::new();
+        for observable_range in observations_downloaded {
+            for survey in observable_range.observations {
+                let tap = survey.get_tap();
+                let date_observation = tap.date_observation;
+                let station_id = tap.station_id.clone();
+                let recording = survey.get_value();
+                let reservoir = reservoirs.get(&station_id).unwrap();
+                let reservoir_capacity: f64 = reservoir.capacity.cast();
+                let observed_value = recording.min(reservoir_capacity);
+                california_water_level_observations
+                    .entry(date_observation)
+                    .and_modify(|e| *e += observed_value)
+                    .or_insert(observed_value);
+            }
+        }
+        info!("Observations Accumulated");
+        let mut writer = Writer::from_writer(vec![]);
+        for (date, observation) in california_water_level_observations {
+            let date_string = date.format("%Y%m%d").to_string();
+            let date_str = date_string.as_str();
+            let observation_string = observation.to_string();
+            let observation_str = observation_string.as_str();
+            let string_record = StringRecord::from(vec![date_str, observation_str]);
+            if writer
+                .write_byte_record(string_record.as_byte_record())
+                .is_err()
+            {
+                panic!("Error: writing record failed");
+            }
+        }
+        String::from_utf8(writer.into_inner().unwrap()).unwrap()
+    }
+}
+
 impl From<Vec<Survey>> for ObservableRange {
     fn from(value: Vec<Survey>) -> Self {
         let mut working_vector = value.clone();
@@ -64,19 +177,19 @@ impl From<Vec<Survey>> for ObservableRange {
                     let month = tap.date_observation.month();
                     let year = tap.date_observation.year() as u32;
                     let _ = hash_set.insert(MonthDatum::new(year, month));
-                },
+                }
                 Survey::Monthly(tap) => {
                     let month = tap.date_observation.month();
                     let year = tap.date_observation.year() as u32;
                     let _ = hash_set.insert(MonthDatum::new(year, month));
-                },
+                }
             }
         }
-        ObservableRange { 
+        ObservableRange {
             observations: value,
             start_date: earliest_date,
             end_date: most_recent_date,
-            month_datum: hash_set 
+            month_datum: hash_set,
         }
     }
 }
@@ -385,8 +498,8 @@ mod test {
             a_8,
             a_9,
         ];
-        observations.push(a_0.clone());
-        observations.push(a_5.clone());
+        observations.push(a_0);
+        observations.push(a_5);
         let observable_range_actual = ObservableRange {
             observations,
             start_date: NaiveDate::from_ymd_opt(2022, 12, 1).unwrap(),

@@ -61,8 +61,8 @@ impl Observation {
             .collect::<Vec<_>>()
     }
 
-    pub fn get_all_records() -> Vec<CompressedStringRecord> {
-        let bytes_of_csv_string = decompress_tar_file_to_csv_string(OBSERVATIONS_OBJECT);
+    pub fn get_all_records_from_bytes(bytes: &[u8]) -> Vec<CompressedStringRecord> {
+        let bytes_of_csv_string = decompress_tar_file_to_csv_string(bytes);
         csv::ReaderBuilder::new()
             .has_headers(false)
             .from_reader(bytes_of_csv_string.as_slice())
@@ -72,6 +72,10 @@ impl Observation {
                 CompressedStringRecord(a)
             })
             .collect::<Vec<CompressedStringRecord>>()
+    }
+
+    pub fn get_all_records() -> Vec<CompressedStringRecord> {
+        Self::get_all_records_from_bytes(OBSERVATIONS_OBJECT)
     }
 
     pub async fn get_all_reservoirs_data_by_dates(
@@ -314,8 +318,8 @@ VIL,D,15,STORAGE,20220228 0000,20220228 0000,9597, ,AF
     #[cfg(not(target_family = "wasm"))]
     #[tokio::test]
     async fn test_get_all_reservoirs_data_by_dates() {
-        let start_date = NaiveDate::from_ymd_opt(2022, 02, 15).unwrap();
-        let end_date = NaiveDate::from_ymd_opt(2022, 02, 28).unwrap();
+        let start_date = NaiveDate::from_ymd_opt(2022, 2, 15).unwrap();
+        let end_date = NaiveDate::from_ymd_opt(2022, 2, 28).unwrap();
         let obs = Observation::get_all_reservoirs_data_by_dates(&start_date, &end_date)
             .await
             .unwrap();
@@ -330,8 +334,8 @@ VIL,D,15,STORAGE,20220228 0000,20220228 0000,9597, ,AF
         // VIL, Vail, Vail Reservoir, Temecula Creek, 51000,
         // https://cdec.water.ca.gov/dynamicapp/req/CSVDataServlet?Stations=VIL&SensorNums=15&dur_code=D&Start=2022-02-15&End=2022-02-28
         let reservoir_id = "VIL";
-        let start_date = NaiveDate::from_ymd_opt(2022, 02, 15).unwrap();
-        let end_date = NaiveDate::from_ymd_opt(2022, 02, 28).unwrap();
+        let start_date = NaiveDate::from_ymd_opt(2022, 2, 15).unwrap();
+        let end_date = NaiveDate::from_ymd_opt(2022, 2, 28).unwrap();
         let client = Client::new();
         let observations =
             Observation::http_request_body(&client, reservoir_id, &start_date, &end_date, "D")
@@ -349,8 +353,8 @@ VIL,D,15,STORAGE,20220228 0000,20220228 0000,9597, ,AF
         // VIL, Vail, Vail Reservoir, Temecula Creek, 51000,
         // https://cdec.water.ca.gov/dynamicapp/req/CSVDataServlet?Stations=VIL&SensorNums=15&dur_code=D&Start=2022-02-15&End=2022-02-28
         let reservoir_id = "VIL";
-        let start_date = NaiveDate::from_ymd_opt(2022, 02, 15).unwrap();
-        let end_date = NaiveDate::from_ymd_opt(2022, 02, 28).unwrap();
+        let start_date = NaiveDate::from_ymd_opt(2022, 2, 15).unwrap();
+        let end_date = NaiveDate::from_ymd_opt(2022, 2, 28).unwrap();
         let client = Client::new();
         let observations =
             Observation::get_observations(&client, reservoir_id, &start_date, &end_date).await;
