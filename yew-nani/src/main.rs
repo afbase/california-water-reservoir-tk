@@ -11,7 +11,7 @@ use std::collections::HashMap;
 use wasm_bindgen::JsCast;
 use web_sys::HtmlSelectElement;
 use yew::prelude::*;
-const DIV_BLOG_NAME: &str = "california-table";
+const DIV_BLOG_NAME: &str = "yew-nani";
 const RESERVOIR_SELECTION_ID: &str = "reservoir-selections";
 
 static MY_LOGGER: MyLogger = MyLogger;

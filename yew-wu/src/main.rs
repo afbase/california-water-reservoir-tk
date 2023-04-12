@@ -15,7 +15,7 @@ const START_DATE_NAME: &str = "start-date";
 const DIV_END_DATE_NAME: &str = "div-end-date";
 const DIV_START_DATE_NAME: &str = "div-start-date";
 const _ELEMENT_ID: &str = "svg-chart";
-const DIV_BLOG_NAME: &str = "california-chart";
+const DIV_BLOG_NAME: &str = "yew-wu";
 const START_DATE_STRING: &str = "Start Date: ";
 const END_DATE_STRING: &str = "End Date: ";
 

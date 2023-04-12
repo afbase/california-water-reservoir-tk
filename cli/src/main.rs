@@ -1,6 +1,6 @@
 use clap::Parser;
 use cmd::{query::Query, survey::Survey, Commands};
-use log::LevelFilter;
+use log::{info, LevelFilter};
 use my_log::MY_LOGGER;
 use utils::run::Run;
 
@@ -26,18 +26,19 @@ async fn main() {
 
     match args.command {
         Some(Commands::Query {
-            output,
+            summation_output,
+            reservoir_output,
             start_date,
             end_date,
-            summation,
         }) => {
             let query = Query {
-                output,
+                summation_output,
+                reservoir_output,
                 start_date,
                 end_date,
-                summation,
             };
-            query.run();
+            info!("hello world");
+            query.run().await;
         }
         Some(Commands::Survey {
             existing_data_input,
@@ -53,7 +54,7 @@ async fn main() {
                 start_date,
                 end_date,
             };
-            survey.run();
+            survey.run().await;
         }
         None => panic!("must specify a subcommand!"),
     }

@@ -5,13 +5,9 @@ use crate::{
 };
 use chrono::NaiveDate;
 use csv::ReaderBuilder;
+use log::info;
 use reqwest::{Client, StatusCode};
-use std::{
-    collections::HashSet,
-    include_str,
-    time::Duration,
-    thread::sleep,
-};
+use std::{collections::HashSet, include_str, thread::sleep, time::Duration};
 
 static CSV_OBJECT: &str = include_str!("../../fixtures/capacity.csv");
 const YEAR_FORMAT: &str = "%Y-%m-%d";
@@ -99,6 +95,10 @@ impl Reservoir {
                 // sleep
                 sleep_millis <<= 1;
                 let ten_millis = Duration::from_millis(sleep_millis * 1000);
+                info!(
+                    "Sleeping for {} seconds for {} bad response",
+                    sleep_millis, self.dam
+                );
                 sleep(ten_millis);
                 continue;
             }
@@ -107,6 +107,10 @@ impl Reservoir {
                 // sleep
                 sleep_millis <<= 1;
                 let ten_millis = Duration::from_millis(sleep_millis * 1000);
+                info!(
+                    "Sleeping for {} seconds for {} for empty string",
+                    sleep_millis, self.dam
+                );
                 sleep(ten_millis);
                 continue;
             }

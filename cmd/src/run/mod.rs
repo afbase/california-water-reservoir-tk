@@ -91,7 +91,9 @@ pub async fn run_csv_v2(start_date: &NaiveDate, end_date: &NaiveDate) -> String 
 }
 
 pub async fn run_csv(start_date: &NaiveDate, end_date: &NaiveDate) -> String {
+    info!("run_csv");
     let mut all_reservoir_observations = get_surveys_of_reservoirs(start_date, end_date).await;
+    info!("ran all surveys!");
     let option_of_compressed_string_records = all_reservoir_observations
         .iter_mut()
         .map(|surveys| {

@@ -1,14 +1,7 @@
 use chrono::{Local, NaiveDate};
 use log::LevelFilter;
-use my_log::MY_LOGGER;
-use std::{
-    path::PathBuf, 
-    str::FromStr,
-};
-use utils::{
-    error::date_error,
-    run::Run,
-};
+use std::{path::PathBuf, str::FromStr};
+use utils::{error::date_error, run::Run};
 
 const DEFAULT_OUTPUT_PATH: &str = "output.tar.xz";
 
@@ -26,8 +19,8 @@ pub struct Survey {
 }
 
 impl Run for Survey {
-    fn run(self) {
-        log::set_logger(&MY_LOGGER).unwrap();
+    async fn run(self) {
+        // log::set_logger(&MY_LOGGER).unwrap();
         log::set_max_level(LevelFilter::Info);
         // dates
         let _start_date_final = match self.start_date {
@@ -128,6 +121,6 @@ impl Run for Survey {
         //     hash_map.insert(station_id, reservoir_observations);
         // }
         // hash_map
-        // Need to 
+        // Need to
     }
 }

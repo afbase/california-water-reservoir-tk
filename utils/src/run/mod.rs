@@ -1,3 +1,3 @@
 pub trait Run {
-    fn run(self);
+    async fn run(self);
 }
