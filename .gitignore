@@ -11,7 +11,7 @@ Cargo.lock
 # clinton things
 .vscode/
 fixtures/output.*
-fixtures/cumulative.tar.*
-fixtures/reservoirs.tar.*
+fixtures/cumulative.tar.*.old
+fixtures/reservoirs.tar.*.old
 /yew-*/dist
 /supply-chain/
