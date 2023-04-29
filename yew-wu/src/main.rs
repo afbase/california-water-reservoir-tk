@@ -159,6 +159,12 @@ impl Component for ObservationsModel {
     type Properties = ();
     fn create(_ctx: &Context<Self>) -> Self {
         let w = WaterLevelObservations::init_from_lzma_v2();
+        let log_string = format!(
+            "oldest date: {}\nnewest date: {}",
+            w.min_date.format(DATE_FORMAT),
+            w.max_date.format(DATE_FORMAT)
+        );
+        info!("{}", log_string);
         Self {
             observations: w.observations,
             start_date: w.start_date,
