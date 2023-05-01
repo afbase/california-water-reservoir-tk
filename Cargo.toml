@@ -7,9 +7,9 @@ members = [
     "ecco",
     "my_log",
     "utils", 
-    "yew-avin-a-laf", 
+    "yew-avin_a_laf", 
     "yew-nani", 
-    "yew-wot-m8", 
+    "yew-wot_m8", 
     "yew-wu"]
 
 
