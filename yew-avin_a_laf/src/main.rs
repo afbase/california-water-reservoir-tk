@@ -408,7 +408,7 @@ impl Component for ObservationsModel {
                             .create_element_ns(Some("http://www.w3.org/2000/svg"), "svg")
                             .unwrap();
                         svg.set_attribute("id", "svg-chart").unwrap();
-                        svg.set_attribute("width", "800").unwrap();
+                        svg.set_attribute("width", "850").unwrap();
                         svg.set_attribute("height", "600").unwrap();
                         svg.set_inner_html(svg_inner.as_str());
                         yew::virtual_dom::VNode::VRef(svg.into())
