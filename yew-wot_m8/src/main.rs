@@ -20,7 +20,7 @@ use web_sys::HtmlSelectElement;
 use yew::prelude::*;
 
 const DIV_SORT_BY_SELECTION_ID: &str = "div-select-sort-by";
-pub const DIV_BLOG_NAME: &str = "yew-wot-m8";
+pub const DIV_BLOG_NAME: &str = "yew-wot_m8";
 pub const DIV_RESERVOIR_SELECTION_ID: &str = "div-reservoir-selections"; //
 const _ELEMENT_ID: &str = "svg-chart";
 const MOST_RECENT: &str = "Most Recent";
