@@ -4,7 +4,7 @@ use cdec::{
     reservoir::Reservoir,
     survey::Survey,
 };
-use chrono::{DateTime, NaiveDate, Utc};
+use chrono::{NaiveDate};
 use ecco::reservoir_observations::{ReservoirObservations, ReservoirObservationsLike};
 use log::{info, LevelFilter};
 use my_log::MY_LOGGER;
