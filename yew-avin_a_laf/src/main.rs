@@ -445,7 +445,7 @@ fn main() {
         .and_then(|window| window.document())
         .map_or_else(
             || {
-                let log_str = "failed to load wasm module successfully";
+                let log_str = "failed to load wasm module successfully part 1";
                 let log_string = String::from(log_str);
                 info!("{}", log_string);
                 panic!("{}", log_str);
@@ -456,32 +456,13 @@ fn main() {
                     renderer.render();
                 }
                 None => {
-                    let log_str = "failed to load wasm module successfully part 4";
-                    let log_string = String::from(log_str);
-                    info!("{}", log_string);
+                    let log_str = format!(
+                        "Unable to find div {}. failed to load wasm module successfully part 2",
+                        DIV_BLOG_NAME
+                    );
+                    info!("{}", log_str);
                     panic!("{}", log_str);
                 }
             },
         );
-    // let div_element = web_sys::window()
-    //     .and_then(|window| window.document())
-    //     .map_or_else(
-    //         || {
-    //             let log_str = "failed to load wasm module successfully part 2";
-    //             let log_string = String::from(log_str);
-    //             info!("{}", log_string);
-    //             panic!("{}", log_str);
-    //         },
-    //         |document| match document.get_element_by_id(DIV_BLOG_NAME) {
-    //             Some(div_element) => div_element,
-    //             None => {
-    //                 let log_str = "failed to load wasm module successfully part 3";
-    //                 let log_string = String::from(log_str);
-    //                 info!("{}", log_string);
-    //                 panic!("{}", log_str);
-    //             }
-    //         },
-    //     );
-    // let renderer = yew::Renderer::<ObservationsModel>::with_root(div_element);
-    // renderer.render();
 }
