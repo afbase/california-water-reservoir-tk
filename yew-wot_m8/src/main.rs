@@ -5,7 +5,7 @@ use cdec::{
     reservoir::Reservoir,
     water_year::{NormalizeWaterYears, WaterYear},
 };
-use chrono::{DateTime, Datelike, NaiveDate, Utc};
+use chrono::{Datelike, NaiveDate};
 use ecco::{calendar_year_model::get_colors, reservoir_observations::ReservoirObservations};
 use log::{info, LevelFilter};
 use my_log::MY_LOGGER;
