@@ -1,4 +1,4 @@
-use chrono::{NaiveDate};
+use chrono::NaiveDate;
 use easy_cast::Cast;
 use ecco::water_level_observations::WaterLevelObservations;
 use log::{info, LevelFilter};
@@ -17,7 +17,6 @@ const _ELEMENT_ID: &str = "svg-chart";
 const DIV_BLOG_NAME: &str = "yew-wu";
 const START_DATE_STRING: &str = "Start Date: ";
 const END_DATE_STRING: &str = "End Date: ";
-
 
 #[derive(Debug, Clone)]
 struct ObservationsModel {

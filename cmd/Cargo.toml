@@ -7,11 +7,11 @@ edition = "2021"
 
 [dependencies]
 cdec = {path= "../cdec"}
-chrono = "0.4.23"
-clap = { version = "4.0.18", features = ["derive"] }
-csv = "1.1.6"
-easy-cast = "0.5.1"
-futures = "0.3.25"
+chrono = "0.4.24"
+clap = { version = "4.2.5", features = ["derive"] }
+csv = "1.2.1"
+easy-cast = "0.5.2"
+futures = "0.3.28"
 log = "0.4.17"
-reqwest = "0.11.12"
+reqwest = "0.11.17"
 utils = {path="../utils"}

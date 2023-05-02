@@ -4,7 +4,7 @@ use cdec::{
     reservoir::Reservoir,
     survey::Survey,
 };
-use chrono::{NaiveDate};
+use chrono::NaiveDate;
 use ecco::reservoir_observations::{ReservoirObservations, ReservoirObservationsLike};
 use log::{info, LevelFilter};
 use my_log::MY_LOGGER;
@@ -25,8 +25,6 @@ const END_DATE_STRING: &str = "End Date: ";
 const DIV_RESERVOIR_SELECTION_ID: &str = "div-reservoir-selections";
 const SELECT_RESERVOIR_TEXT: &str = "Select Reservoir: ";
 const RESERVOIR_SELECTION_ID: &str = "reservoir-selections";
-
-
 
 #[derive(Debug, Clone)]
 struct ObservationsModel {
