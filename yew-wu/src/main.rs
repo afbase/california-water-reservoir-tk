@@ -1,9 +1,8 @@
-use chrono::{DateTime, NaiveDate, Utc};
+use chrono::NaiveDate;
 use easy_cast::Cast;
 use ecco::water_level_observations::WaterLevelObservations;
-use gloo_console::log as gloo_log;
-use js_sys::JsString;
-use log::{info, Level, LevelFilter, Metadata, Record};
+use log::{info, LevelFilter};
+use my_log::MY_LOGGER;
 use plotters::prelude::*;
 use std::{collections::BTreeMap, ops::Range};
 use wasm_bindgen::JsCast;
@@ -18,31 +17,6 @@ const _ELEMENT_ID: &str = "svg-chart";
 const DIV_BLOG_NAME: &str = "yew-wu";
 const START_DATE_STRING: &str = "Start Date: ";
 const END_DATE_STRING: &str = "End Date: ";
-
-static MY_LOGGER: MyLogger = MyLogger;
-
-struct MyLogger;
-
-impl log::Log for MyLogger {
-    fn enabled(&self, metadata: &Metadata) -> bool {
-        metadata.level() <= Level::Info
-    }
-
-    fn log(&self, record: &Record) {
-        let now: DateTime<Utc> = Utc::now();
-        if self.enabled(record.metadata()) {
-            let str_log: JsString = format!(
-                "[{}] {} - {}",
-                now.to_rfc3339(),
-                record.level(),
-                record.args()
-            )
-            .into();
-            gloo_log!(str_log);
-        }
-    }
-    fn flush(&self) {}
-}
 
 #[derive(Debug, Clone)]
 struct ObservationsModel {
@@ -287,38 +261,24 @@ fn main() {
         .and_then(|window| window.document())
         .map_or_else(
             || {
-                let log_str = "failed to load wasm module successfully";
+                let log_str = "failed to load wasm module successfully part 1";
                 let log_string = String::from(log_str);
                 info!("{}", log_string);
                 panic!("{}", log_str);
             },
             |document| match document.get_element_by_id(DIV_BLOG_NAME) {
-                Some(_div_element) => {}
-                None => {
-                    let div_element = document.create_element("div").unwrap();
-                    div_element.set_attribute("id", DIV_BLOG_NAME).unwrap();
+                Some(div_element) => {
+                    let renderer = yew::Renderer::<ObservationsModel>::with_root(div_element);
+                    renderer.render();
                 }
-            },
-        );
-    let div_element = web_sys::window()
-        .and_then(|window| window.document())
-        .map_or_else(
-            || {
-                let log_str = "failed to load wasm module successfully part 2";
-                let log_string = String::from(log_str);
-                info!("{}", log_string);
-                panic!("{}", log_str);
-            },
-            |document| match document.get_element_by_id(DIV_BLOG_NAME) {
-                Some(div_element) => div_element,
                 None => {
-                    let log_str = "failed to load wasm module successfully part 2";
-                    let log_string = String::from(log_str);
-                    info!("{}", log_string);
+                    let log_str = format!(
+                        "Unable to find div {}. failed to load wasm module successfully part 2",
+                        DIV_BLOG_NAME
+                    );
+                    info!("{}", log_str);
                     panic!("{}", log_str);
                 }
             },
         );
-    let renderer = yew::Renderer::<ObservationsModel>::with_root(div_element);
-    renderer.render();
 }

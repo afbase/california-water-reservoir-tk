@@ -1,12 +1,12 @@
 [package]
 name = "ecco"
-version = "1.0.3"
+version.workspace = true
 edition = "2021"
 
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
 [dependencies]
 cdec = { path = "../cdec" }
-chrono = { version = "0.4.22", features = ["serde"] }
+chrono = { version = "0.4.24", features = ["serde"] }
 itertools = "0.10.5"
 plotters = "0.3.4"
