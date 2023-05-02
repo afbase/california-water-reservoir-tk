@@ -4,41 +4,14 @@ use cdec::{
 };
 use chrono::{DateTime, Utc};
 use ecco::reservoir_observations::{GetWaterYears, ReservoirObservations};
-use gloo_console::log as gloo_log;
-use js_sys::JsString;
-use log::{info, Level, LevelFilter, Metadata, Record};
+use log::{info, LevelFilter};
+use my_log::MY_LOGGER;
 use std::collections::HashMap;
 use wasm_bindgen::JsCast;
 use web_sys::HtmlSelectElement;
 use yew::prelude::*;
 const DIV_BLOG_NAME: &str = "yew-nani";
 const RESERVOIR_SELECTION_ID: &str = "reservoir-selections";
-
-static MY_LOGGER: MyLogger = MyLogger;
-
-struct MyLogger;
-
-impl log::Log for MyLogger {
-    fn enabled(&self, metadata: &Metadata) -> bool {
-        metadata.level() <= Level::Info
-    }
-
-    fn log(&self, record: &Record) {
-        let now: DateTime<Utc> = Utc::now();
-        if self.enabled(record.metadata()) {
-            let str_log: JsString = format!(
-                "[{}] {} - {}",
-                now.to_rfc3339(),
-                record.level(),
-                record.args()
-            )
-            .into();
-            gloo_log!(str_log);
-        }
-    }
-
-    fn flush(&self) {}
-}
 
 pub struct CalendarYearModel {
     // The selected reservoir

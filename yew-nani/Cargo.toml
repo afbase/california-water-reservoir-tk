@@ -7,9 +7,9 @@ edition = "2021"
 cdec = { path = "../cdec" }
 ecco = { path = "../ecco" }
 chrono = { version = "0.4.22", features = ["serde"] }
-gloo-console = { version = "0.2.1" }
 js-sys = "0.3.60"
 log = "0.4.17"
+my_log = { path = "../my_log" }
 wasm-bindgen = "0.2.83"
 yew = { version = "0.20.0", features = ["csr"] }
 
