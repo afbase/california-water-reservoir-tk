@@ -1,4 +1,4 @@
-use chrono::{DateTime, NaiveDate, Utc};
+use chrono::{NaiveDate};
 use easy_cast::Cast;
 use ecco::water_level_observations::WaterLevelObservations;
 use log::{info, LevelFilter};
