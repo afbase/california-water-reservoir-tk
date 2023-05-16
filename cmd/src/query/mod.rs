@@ -1,6 +1,7 @@
 use crate::run::get_surveys_of_reservoirs;
 use crate::Commands;
 use cdec::observable::ObservableRangeRunner;
+use cdec::observation::DataRecording;
 use chrono::{Local, NaiveDate};
 use log::info;
 use std::{io::Write, path::PathBuf};
@@ -77,7 +78,7 @@ impl Run for Query {
         };
         info!("start date: {:?}", start_date_final);
         let cdec_data = get_surveys_of_reservoirs(&start_date_final, &end_date_final).await;
-
+        
         match self.summation_output {
             None => {}
             Some(file_path) => {
