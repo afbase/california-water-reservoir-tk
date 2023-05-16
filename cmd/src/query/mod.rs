@@ -1,7 +1,7 @@
 use crate::run::get_surveys_of_reservoirs;
 use crate::Commands;
 use cdec::observable::ObservableRangeRunner;
-use cdec::observation::DataRecording;
+
 use chrono::{Local, NaiveDate};
 use log::info;
 use std::{io::Write, path::PathBuf};

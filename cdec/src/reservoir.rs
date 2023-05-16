@@ -46,7 +46,7 @@ impl StringRecordsToSurveys for String {
                         let _yep = m.insert(month_date);
                         // Need to scale Lake Powell and Mead to 27% of recorded data
                         // https://www.ppic.org/wp-content/uploads/californias-water-the-colorado-river-november-2018.pdf
-                        if tap.station_id == String::from(LAKE_MEAD) || tap.station_id == String::from(LAKE_POWELL) {
+                        if tap.station_id == *LAKE_MEAD || tap.station_id == *LAKE_POWELL {
                             tap.value = DataRecording::Recording((0.27 * tap.value_as_f64()) as u32);
                         }
                         Some(survey)

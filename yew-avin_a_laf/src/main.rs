@@ -457,8 +457,7 @@ fn main() {
                 }
                 None => {
                     let log_str = format!(
-                        "Unable to find div {}. failed to load wasm module successfully part 2",
-                        DIV_BLOG_NAME
+                        "Unable to find div {DIV_BLOG_NAME}. failed to load wasm module successfully part 2"
                     );
                     info!("{}", log_str);
                     panic!("{}", log_str);
