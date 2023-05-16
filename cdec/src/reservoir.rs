@@ -11,8 +11,6 @@ use std::{collections::HashSet, include_str, thread::sleep, time::Duration};
 
 static CSV_OBJECT: &str = include_str!("../../fixtures/capacity.csv");
 const YEAR_FORMAT: &str = "%Y-%m-%d";
-const LAKE_MEAD: &str = "MEA";
-const LAKE_POWELL: &str = "PWL";
 
 #[derive(Debug, PartialEq, Clone)]
 pub struct Reservoir {
@@ -37,18 +35,12 @@ impl StringRecordsToSurveys for String {
             .records()
             .filter_map(|x| {
                 let string_record = x.expect("failed record parse");
-                let mut survey: Survey = string_record.clone().try_into().unwrap();
-                let survey2: Survey = string_record.try_into().unwrap();
-                let mut tap = survey.tap();
+                let survey: Survey = string_record.try_into().unwrap();
+                let tap = survey.get_tap();
                 match tap.value {
                     DataRecording::Recording(_) => {
-                        let month_date = survey2.as_month_datum();
+                        let month_date = survey.as_month_datum();
                         let _yep = m.insert(month_date);
-                        // Need to scale Lake Powell and Mead to 27% of recorded data
-                        // https://www.ppic.org/wp-content/uploads/californias-water-the-colorado-river-november-2018.pdf
-                        if tap.station_id == *LAKE_MEAD || tap.station_id == *LAKE_POWELL {
-                            tap.value = DataRecording::Recording((0.27 * tap.value_as_f64()) as u32);
-                        }
                         Some(survey)
                     }
                     _ => None,

@@ -11,6 +11,8 @@ use log::info;
 use std::collections::{BTreeMap, HashMap, HashSet};
 use std::hash::Hash;
 
+const LAKE_MEAD: &str = "MEA";
+const LAKE_POWELL: &str = "PWL";
 // to group survey and observable types
 pub trait Observable: Clone {
     fn into_survey(self) -> Survey;
@@ -132,10 +134,18 @@ impl ObservableRangeRunner for Vec<ObservableRange> {
                 let tap = survey.get_tap();
                 let date_observation = tap.date_observation;
                 let station_id = tap.station_id.clone();
-                let recording = survey.get_value();
+                let mut recording = survey.get_value();
                 let reservoir = reservoirs.get(&station_id).unwrap();
                 let reservoir_capacity: f64 = reservoir.capacity.cast();
-                let observed_value = recording.min(reservoir_capacity);
+                let observed_value = {
+                    // Need to scale Lake Powell and Mead to 27% of recorded data
+                    // https://www.ppic.org/wp-content/uploads/californias-water-the-colorado-river-november-2018.pdf
+                    if station_id == *LAKE_MEAD || station_id == *LAKE_POWELL {
+                        info!("Scaled Reservoir {} to 27% of recording", station_id);
+                        recording = 0.27 * recording;
+                    }
+                    recording.min(reservoir_capacity)
+                };
                 california_water_level_observations
                     .entry(date_observation)
                     .and_modify(|e| *e += observed_value)
