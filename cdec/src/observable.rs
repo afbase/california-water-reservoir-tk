@@ -134,15 +134,16 @@ impl ObservableRangeRunner for Vec<ObservableRange> {
                 let tap = survey.get_tap();
                 let date_observation = tap.date_observation;
                 let station_id = tap.station_id.clone();
+                let station_id_str = station_id.as_str();
                 let mut recording = survey.get_value();
                 let reservoir = reservoirs.get(&station_id).unwrap();
                 let reservoir_capacity: f64 = reservoir.capacity.cast();
                 let observed_value = {
                     // Need to scale Lake Powell and Mead to 27% of recorded data
                     // https://www.ppic.org/wp-content/uploads/californias-water-the-colorado-river-november-2018.pdf
-                    if station_id == *LAKE_MEAD || station_id == *LAKE_POWELL {
-                        info!("Scaled Reservoir {} to 27% of recording", station_id);
-                        recording = 0.27 * recording;
+                    if station_id_str == LAKE_MEAD || station_id_str == LAKE_POWELL {
+                        recording *= 0.27;
+                        recording = recording.round();
                     }
                     recording.min(reservoir_capacity)
                 };
