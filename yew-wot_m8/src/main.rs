@@ -151,7 +151,7 @@ impl<'a> ObservationsModel {
         for idx in 0..water_years_len {
             let rgb_color = &colors_for_water_years[idx];
             let water_year = &water_years_data[idx];
-            let survey_count = water_year.0.len();
+            // let survey_count = water_year.0.len();
             // date_recording is the original date in normalization
             let (first, last) = water_year.calendar_year_from_normalized_water_year();
             // info!("{selected_reservoir} has {survey_count} surveys starting from {first} through {last}");
