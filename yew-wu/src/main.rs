@@ -13,7 +13,7 @@ const END_DATE_NAME: &str = "end-date-yew-wu";
 const START_DATE_NAME: &str = "start-date-yew-wu";
 const DIV_END_DATE_NAME: &str = "div-end-date-yew-wu";
 const DIV_START_DATE_NAME: &str = "div-start-date-yew-wu";
-const _ELEMENT_ID: &str = "svg-chart-yew-wu";
+const ELEMENT_ID: &str = "svg-chart-yew-wu";
 const DIV_BLOG_NAME: &str = "yew-wu";
 const START_DATE_STRING: &str = "Start Date: ";
 const END_DATE_STRING: &str = "End Date: ";
@@ -91,7 +91,7 @@ impl<'a> ObservationsModel {
             .collect();
         let y_max: f64 = ((*values.iter().max().unwrap() + 500000) as i64).cast();
         // set up svg drawing area
-        let size = (800u32, 600u32);
+        let size = (850u32, 600u32);
         let backend = SVGBackend::with_string(svg_inner_string, size);
         let backend_drawing_area = backend.into_drawing_area();
         backend_drawing_area.fill(&WHITE).unwrap();
@@ -222,7 +222,7 @@ impl Component for ObservationsModel {
                 || {
                     html! { <p id="error">{ "Failed to resolve `document`." }</p> }
                 },
-                |document| match document.get_element_by_id("svg-chart") {
+                |document| match document.get_element_by_id(ELEMENT_ID) {
                     Some(svg) => {
                         svg.set_inner_html(svg_inner.as_str());
                         yew::virtual_dom::VNode::VRef(svg.into())
@@ -232,7 +232,7 @@ impl Component for ObservationsModel {
                         let svg = document
                             .create_element_ns(Some("http://www.w3.org/2000/svg"), "svg")
                             .unwrap();
-                        svg.set_attribute("id", "svg-chart").unwrap();
+                        svg.set_attribute("id", ELEMENT_ID).unwrap();
                         svg.set_attribute("width", "850").unwrap();
                         svg.set_attribute("height", "600").unwrap();
                         svg.set_inner_html(svg_inner.as_str());
@@ -241,7 +241,7 @@ impl Component for ObservationsModel {
                 },
             );
         html! {
-            <div id="chart">
+            <div id={DIV_BLOG_NAME}>
                 <div id={DIV_START_DATE_NAME}>
                     {START_DATE_STRING} <input min={self.min_date.format(DATE_FORMAT).to_string()} max={self.max_date.format(DATE_FORMAT).to_string()} onchange={start_date_change_callback} type="date" id={START_DATE_NAME} value={start_date.format(DATE_FORMAT).to_string()}/>
                 </div>

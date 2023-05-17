@@ -18,7 +18,7 @@ const END_DATE_NAME: &str = "end-date-yew-avin_a_laf";
 const START_DATE_NAME: &str = "start-date-yew-avin_a_laf";
 const DIV_END_DATE_NAME: &str = "div-end-date-yew-avin_a_laf";
 const DIV_START_DATE_NAME: &str = "div-start-date-yew-avin_a_laf";
-const _ELEMENT_ID: &str = "svg-chart";
+const ELEMENT_ID: &str = "svg-chart-yew-avin_a_laf";
 const DIV_BLOG_NAME: &str = "yew-avin_a_laf";
 const START_DATE_STRING: &str = "Start Date: ";
 const END_DATE_STRING: &str = "End Date: ";
@@ -169,7 +169,7 @@ impl<'a> ObservationsModel {
             tmp
         };
         // set up svg drawing area
-        let size = (800u32, 600u32);
+        let size = (850u32, 600u32);
         let backend = SVGBackend::with_string(svg_inner_string, size);
         let backend_drawing_area = backend.into_drawing_area();
         backend_drawing_area.fill(&WHITE).unwrap();
@@ -371,7 +371,7 @@ impl Component for ObservationsModel {
                 || {
                     html! { <p id="error">{ "Failed to resolve `document`." }</p> }
                 },
-                |document| match document.get_element_by_id("svg-chart") {
+                |document| match document.get_element_by_id(ELEMENT_ID) {
                     Some(svg) => {
                         svg.set_inner_html(svg_inner.as_str());
                         yew::virtual_dom::VNode::VRef(svg.into())
@@ -381,7 +381,7 @@ impl Component for ObservationsModel {
                         let svg = document
                             .create_element_ns(Some("http://www.w3.org/2000/svg"), "svg")
                             .unwrap();
-                        svg.set_attribute("id", "svg-chart").unwrap();
+                        svg.set_attribute("id", ELEMENT_ID).unwrap();
                         svg.set_attribute("width", "850").unwrap();
                         svg.set_attribute("height", "600").unwrap();
                         svg.set_inner_html(svg_inner.as_str());

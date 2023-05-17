@@ -21,7 +21,7 @@ use yew::prelude::*;
 const DIV_SORT_BY_SELECTION_ID: &str = "div-select-sort-by-yew-wot_m8";
 pub const DIV_BLOG_NAME: &str = "yew-wot_m8";
 pub const DIV_RESERVOIR_SELECTION_ID: &str = "div-reservoir-selections-yew-wot_m8"; //
-const _ELEMENT_ID: &str = "svg-chart";
+const ELEMENT_ID: &str = "svg-chart-yew-wot_m8";
 const MOST_RECENT: &str = "Most Recent";
 const DRIEST: &str = "Driest";
 const DRIEST_OPTION_TEXT: &str = "Sort By Driest";
@@ -137,7 +137,7 @@ impl<'a> ObservationsModel {
         let colors_for_water_years = get_colors(NUMBER_OF_CHARTS_TO_DISPLAY_DEFAULT).unwrap();
         // let plot_and_color = water_years_data.iter().zip(colors_for_water_years.iter());
         // set up svg drawing area
-        let size = (800u32, 600u32);
+        let size = (850u32, 600u32);
         let backend = SVGBackend::with_string(svg_inner_string, size);
         let backend_drawing_area = backend.into_drawing_area();
         backend_drawing_area.fill(&WHITE).unwrap();
@@ -297,7 +297,7 @@ impl Component for ObservationsModel {
                 || {
                     html! { <p id="error">{ "Failed to resolve `document`." }</p> }
                 },
-                |document| match document.get_element_by_id("svg-chart") {
+                |document| match document.get_element_by_id(ELEMENT_ID) {
                     Some(svg) => {
                         svg.set_inner_html(svg_inner.as_str());
                         yew::virtual_dom::VNode::VRef(svg.into())
@@ -307,7 +307,7 @@ impl Component for ObservationsModel {
                         let svg = document
                             .create_element_ns(Some("http://www.w3.org/2000/svg"), "svg")
                             .unwrap();
-                        svg.set_attribute("id", "svg-chart").unwrap();
+                        svg.set_attribute("id", ELEMENT_ID).unwrap();
                         svg.set_attribute("width", "850").unwrap();
                         svg.set_attribute("height", "600").unwrap();
                         svg.set_inner_html(svg_inner.as_str());
