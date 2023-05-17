@@ -18,15 +18,15 @@ use wasm_bindgen::JsCast;
 use web_sys::HtmlSelectElement;
 use yew::prelude::*;
 
-const DIV_SORT_BY_SELECTION_ID: &str = "div-select-sort-by";
+const DIV_SORT_BY_SELECTION_ID: &str = "div-select-sort-by-yew-wot_m8";
 pub const DIV_BLOG_NAME: &str = "yew-wot_m8";
-pub const DIV_RESERVOIR_SELECTION_ID: &str = "div-reservoir-selections"; //
+pub const DIV_RESERVOIR_SELECTION_ID: &str = "div-reservoir-selections-yew-wot_m8"; //
 const _ELEMENT_ID: &str = "svg-chart";
 const MOST_RECENT: &str = "Most Recent";
 const DRIEST: &str = "Driest";
 const DRIEST_OPTION_TEXT: &str = "Sort By Driest";
 const MOST_RECENT_OPTION_TEXT: &str = "Sort By Most Recent";
-const SORT_BY_SELECTION_ID: &str = "select-sort-by";
+const SORT_BY_SELECTION_ID: &str = "select-sort-by-yew-wot_m8";
 const SELECT_RESERVOIR_TEXT: &str = "Select Reservoir: "; //
 const SORT_BY_TEXT: &str = "Sort by: ";
 pub const RESERVOIR_SELECTION_ID: &str = "reservoir-selections";
@@ -154,7 +154,7 @@ impl<'a> ObservationsModel {
             let survey_count = water_year.0.len();
             // date_recording is the original date in normalization
             let (first, last) = water_year.calendar_year_from_normalized_water_year();
-            info!("{selected_reservoir} has {survey_count} surveys starting from {first} through {last}");
+            // info!("{selected_reservoir} has {survey_count} surveys starting from {first} through {last}");
             let year_string = format!("{}-{}", first.year(), last.format("%y"));
             let final_legend_title_string = format!("{year_string} {legend_base}");
             let final_legend_title = final_legend_title_string.as_str();

@@ -11,7 +11,8 @@ use wasm_bindgen::JsCast;
 use web_sys::HtmlSelectElement;
 use yew::prelude::*;
 const DIV_BLOG_NAME: &str = "yew-nani";
-const RESERVOIR_SELECTION_ID: &str = "reservoir-selections";
+const TABLE_ID: &str = "table-yew-nani";
+const RESERVOIR_SELECTION_ID: &str = "reservoir-selections-yew-nani";
 
 pub struct CalendarYearModel {
     // The selected reservoir
@@ -114,7 +115,7 @@ impl Component for CalendarYearModel {
             reservoir_ids_sorted.sort();
 
             html! {
-                <div>
+                <div id={DIV_BLOG_NAME}>
                     // Dropdown list for selecting a reservoir
                     <select id={RESERVOIR_SELECTION_ID} onchange={reservoir_selection_callback}>
                     { for
@@ -146,7 +147,7 @@ impl Component for CalendarYearModel {
                     }
                     </select>
                     // Table showing the data for the selected reservoir
-                    <table class="table table-striped">
+                    <table id={TABLE_ID} class="table table-striped">
                         <thead>
                             <tr>
                                 <th>{"Water Calendar Year"}</th>

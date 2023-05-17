@@ -14,17 +14,17 @@ use wasm_bindgen::JsCast;
 use yew::prelude::*;
 
 const DATE_FORMAT: &str = "%Y-%m-%d";
-const END_DATE_NAME: &str = "end-date";
-const START_DATE_NAME: &str = "start-date";
-const DIV_END_DATE_NAME: &str = "div-end-date";
-const DIV_START_DATE_NAME: &str = "div-start-date";
+const END_DATE_NAME: &str = "end-date-yew-avin_a_laf";
+const START_DATE_NAME: &str = "start-date-yew-avin_a_laf";
+const DIV_END_DATE_NAME: &str = "div-end-date-yew-avin_a_laf";
+const DIV_START_DATE_NAME: &str = "div-start-date-yew-avin_a_laf";
 const _ELEMENT_ID: &str = "svg-chart";
 const DIV_BLOG_NAME: &str = "yew-avin_a_laf";
 const START_DATE_STRING: &str = "Start Date: ";
 const END_DATE_STRING: &str = "End Date: ";
-const DIV_RESERVOIR_SELECTION_ID: &str = "div-reservoir-selections";
+const DIV_RESERVOIR_SELECTION_ID: &str = "div-reservoir-selections-yew-avin_a_laf";
 const SELECT_RESERVOIR_TEXT: &str = "Select Reservoir: ";
-const RESERVOIR_SELECTION_ID: &str = "reservoir-selections";
+const RESERVOIR_SELECTION_ID: &str = "reservoir-selections-yew-avin_a_laf";
 
 #[derive(Debug, Clone)]
 struct ObservationsModel {
