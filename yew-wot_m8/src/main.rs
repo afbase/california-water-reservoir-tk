@@ -207,7 +207,14 @@ impl Component for ObservationsModel {
             .collect::<Vec<_>>();
         station_ids_sorted.sort();
         info!("station ids ready to go!!!");
-        let selected_reservoir = String::from("ORO");
+        let selected_reservoir = {
+            let result = String::from("ORO");
+            if station_ids_sorted.contains(&result) {
+                result
+            } else {
+                station_ids_sorted.first().unwrap().clone()
+            }
+        };
         let selected_sort = Msg::SelectedSort(SortBy::MostRecent);
         let mut driest_water_years: HashMap<String, Vec<WaterYear>> = HashMap::new();
         let mut most_recent_water_years: HashMap<String, Vec<WaterYear>> = HashMap::new();

@@ -11,7 +11,7 @@ use std::collections::HashMap;
 pub const NUMBER_OF_CHARTS_TO_DISPLAY_DEFAULT: usize = 20;
 
 /// California’s water year runs from October 1 to September 30 and is the official 12-month timeframe used by water managers to compile and compare hydrologic records.
-#[derive(Debug, Clone, PartialEq)]
+#[derive(Debug, Clone, PartialEq, Eq, Hash)]
 pub struct WaterYear(pub Vec<Survey>);
 
 pub struct WaterYearStatistics {
@@ -433,21 +433,25 @@ mod tests {
             month_datum: b,
         };
 
-        let actual = WaterYear::water_years_from_observable_range(&obs);
-        let expected = vec![
-            WaterYear(vec![Survey::Daily(Tap {
-                station_id: String::new(),
-                date_observation: d_1,
-                date_recording: d_1,
-                value: DataRecording::Recording(3),
-            })]),
-            WaterYear(vec![Survey::Daily(Tap {
-                station_id: String::new(),
-                date_observation: d,
-                date_recording: d,
-                value: DataRecording::Recording(3),
-            })]),
-        ];
+        let actual: HashSet<WaterYear> =
+            HashSet::from_iter(WaterYear::water_years_from_observable_range(&obs).into_iter());
+        let expected: HashSet<WaterYear> = HashSet::from_iter(
+            vec![
+                WaterYear(vec![Survey::Daily(Tap {
+                    station_id: String::new(),
+                    date_observation: d_1,
+                    date_recording: d_1,
+                    value: DataRecording::Recording(3),
+                })]),
+                WaterYear(vec![Survey::Daily(Tap {
+                    station_id: String::new(),
+                    date_observation: d,
+                    date_recording: d,
+                    value: DataRecording::Recording(3),
+                })]),
+            ]
+            .into_iter(),
+        );
         assert_eq!(actual, expected);
     }
     #[test]

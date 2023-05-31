@@ -211,7 +211,15 @@ impl Component for ObservationsModel {
         info!("un-lzma csv things");
         let observations = ReservoirObservations::init_from_lzma_without_interpolation();
         info!("un-lzma csv things done!");
-        let selected_reservoir = String::from("ORO");
+        let selected_reservoir = {
+            let result = String::from("ORO");
+            let observed_reservoirs = observations.keys().cloned().collect::<Vec<_>>();
+            if observed_reservoirs.contains(&result) {
+                result
+            } else {
+                observed_reservoirs.first().unwrap().clone()
+            }
+        };
         if let Some(selected_reservoir_observations) = observations.get(&selected_reservoir) {
             let (start_date, end_date) = (
                 selected_reservoir_observations.start_date,
