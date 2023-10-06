@@ -7,6 +7,6 @@ edition = "2021"
 
 [dependencies]
 cdec = { path = "../cdec" }
-chrono = { version = "0.4.26", features = ["serde"] }
-itertools = "0.10.5"
-plotters = "0.3.4"
+chrono = { version = "=0.4.26", features = ["serde"] }
+itertools = "=0.10.5"
+plotters = "=0.3.4"
