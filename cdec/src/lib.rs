@@ -1,4 +1,4 @@
-#![feature(slice_group_by, drain_filter, array_chunks, is_sorted)]
+#![feature(slice_group_by, array_chunks, extract_if, is_sorted)]
 // #![feature(array_chunks)]
 // #![fea]
 pub mod compression;

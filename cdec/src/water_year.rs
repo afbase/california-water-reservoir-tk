@@ -46,7 +46,7 @@ impl NormalizeWaterYears for Vec<WaterYear> {
         });
         for water_year in self {
             // get rid of feb_29
-            let _ = water_year.0.drain_filter(|survey| {
+            let _ = water_year.0.extract_if(|survey| {
                 let obs_date = survey.date_observation();
                 let month = obs_date.month();
                 let day = obs_date.day();
@@ -55,7 +55,7 @@ impl NormalizeWaterYears for Vec<WaterYear> {
             // turn date_recording into date_observation of the original date
             // California’s water year runs from October 1 to September 30 and is the official 12-month timeframe
             for survey in &mut water_year.0 {
-                let mut tap = survey.tap();
+                let tap = survey.tap();
                 tap.date_recording = tap.date_observation;
                 // California’s water year runs from October 1 to September 30 and is the official 12-month timeframe
                 let month = tap.date_observation.month();
@@ -192,7 +192,7 @@ impl NormalizeCalendarYear for WaterYear {
         }
         for survey in &mut self.0 {
             // turn date_recording into date_observation of the original date
-            let mut tap = survey.tap();
+            let tap = survey.tap();
             tap.date_recording = tap.date_observation;
             // California’s water year runs from October 1 to September 30 and is the official 12-month timeframe
             let month = tap.date_observation.month();
@@ -211,7 +211,7 @@ impl NormalizeCalendarYear for WaterYear {
             tap.date_observation = normalized_naive_date;
         }
         // get rid of feb_29
-        let _ = self.0.drain_filter(|survey| {
+        let _ = self.0.extract_if(|survey| {
             let obs_date = survey.date_observation();
             let month = obs_date.month();
             let day = obs_date.day();
@@ -229,7 +229,7 @@ impl WaterYear {
         for reservoir in reservoirs {
             let station_id = reservoir.station_id;
             let mut surveys = observations
-                .drain_filter(|survey| {
+                .extract_if(|survey| {
                     let tap = survey.get_tap();
                     let tap_station_id = tap.station_id.clone();
                     tap_station_id == station_id
@@ -250,7 +250,7 @@ impl WaterYear {
                 let start_of_year = NaiveDate::from_ymd_opt(year, 10, 1).unwrap();
                 let end_of_year = NaiveDate::from_ymd_opt(year + 1, 9, 30).unwrap();
                 let water_year_of_surveys = surveys
-                    .drain_filter(|survey| {
+                    .extract_if(|survey| {
                         let tap = survey.get_tap();
                         let obs_date = tap.date_observation;
                         start_of_year <= obs_date && obs_date <= end_of_year

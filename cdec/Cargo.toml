@@ -6,18 +6,18 @@ edition = "2021"
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
 [dependencies]
-chrono = "=0.4.26"
-csv = "=1.2.1"
-easy-cast = "=0.5.2"
-futures = "=0.3.28"
-log = "=0.4.18"
-lzma-rs = "=0.3.0"
-plotters = {version="=0.3.4", features=["chrono"]}
-reqwest = "=0.11.18"
-tar = "=0.4.38"
+chrono = "0.4.31"
+csv = "1.3.0"
+easy-cast = "0.5.2"
+futures = "0.3.28"
+log = "0.4.20"
+lzma-rs = "0.3.0"
+plotters = {version="0.3.5", features=["chrono"]}
+reqwest = "0.11.22"
+tar = "0.4.40"
 
 [dev-dependencies]
-sha3 = "=0.10.8"
-hex-literal = "=0.4.1"
+sha3 = "0.10.8"
+hex-literal = "0.4.1"
 [target.'cfg(not(target_arch = "wasm32"))'.dev-dependencies]
-tokio = {version="=1.28.2", features=["macros"]}
+tokio = {version="1.32.0", features=["macros"]}

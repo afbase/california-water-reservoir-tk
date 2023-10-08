@@ -1,4 +1,4 @@
-#![feature(drain_filter)]
+#![feature(extract_if)]
 use cdec::{
     normalized_naive_date::NormalizedNaiveDate,
     observable::{CompressedSurveyBuilder, InterpolateObservableRanges, ObservableRange},
@@ -240,11 +240,11 @@ impl Component for ObservationsModel {
                 if idx_max <= 2 {
                     info!("skipping station: {reservoir_id}; water_years_len: {water_years_len}");
                     let _ = reservoir_vector
-                        .drain_filter(|r| r.station_id == reservoir_id)
+                        .extract_if(|r| r.station_id == reservoir_id)
                         .collect::<Vec<_>>();
                     let mut r_clone = reservoir_id.clone();
                     let _ = station_ids_sorted
-                        .drain_filter(|s| {
+                        .extract_if(|s| {
                             let r_id_mut = r_clone.as_mut();
                             let s_str_mut = s.as_mut();
                             s_str_mut.eq(&r_id_mut)

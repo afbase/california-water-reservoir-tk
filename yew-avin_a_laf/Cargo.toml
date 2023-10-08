@@ -7,17 +7,17 @@ edition = "2021"
 
 [dependencies]
 cdec = { path = "../cdec" }
-chrono = { version = "=0.4.26", features = ["serde"] }
+chrono = { version = "0.4.31", features = ["serde"] }
 ecco = { path = "../ecco" }
-log = "=0.4.18"
+log = "0.4.20"
 my_log = { path = "../my_log" }
-plotters = "=0.3.4"
-wasm-bindgen = "=0.2.86"
-yew = { version = "=0.20.0", features = ["csr"] }
+plotters = "0.3.5"
+wasm-bindgen = "0.2.87"
+yew = { version = "0.21.0", features = ["csr"]}
 
 
 [dependencies.web-sys]
-version = "=0.3.63"
+version = "0.3.64"
 features = [
   'Document',
   'Element',
@@ -30,11 +30,11 @@ features = [
 
 [dev-dependencies]
 cdec = { path = "../cdec" }
-chrono = { version = "=0.4.26", features = ["serde"] }
-easy-cast = "=0.5.2"
+chrono = { version = "0.4.31", features = ["serde"] }
+easy-cast = "0.5.2"
 ecco = { path = "../ecco" }
-gloo-console = { version = "=0.2.3" }
-js-sys = "=0.3.63"
-plotters = "=0.3.4"
-wasm-bindgen = "=0.2.86"
-yew = { version = "0.20.0", features = ["csr"] }
+gloo-console = { version = "0.3.0" }
+js-sys = "0.3.64"
+plotters = "0.3.5"
+wasm-bindgen = "0.2.87"
+yew = { version = "0.21.0", features = ["csr"]}

@@ -1,4 +1,4 @@
-#![feature(drain_filter)]
+#![feature(extract_if)]
 use cdec::{
     observable::{CompressedSurveyBuilder, InterpolateObservableRanges, ObservableRange},
     reservoir::Reservoir,
@@ -123,7 +123,7 @@ impl<'a> ObservationsModel {
         if let Some(observable_range) = vec_observable_range.first_mut() {
             self.selected_reservoir_data = observable_range
                 .observations
-                .drain_filter(|survey| {
+                .extract_if(|survey| {
                     let date_observation = survey.get_tap().date_observation;
                     self.start_date <= date_observation && date_observation <= self.end_date
                 })

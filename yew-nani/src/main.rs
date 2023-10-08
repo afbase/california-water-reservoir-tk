@@ -2,7 +2,7 @@ use cdec::{
     reservoir::Reservoir,
     water_year::{WaterYear, WaterYearStatistics},
 };
-
+use chrono::NaiveDate;
 use ecco::reservoir_observations::{GetWaterYears, ReservoirObservations};
 use log::{info, LevelFilter};
 use my_log::MY_LOGGER;
@@ -20,6 +20,10 @@ pub struct CalendarYearModel {
     // The data for the selected reservoir
     pub reservoir_data: HashMap<String, Vec<WaterYear>>,
     pub reservoir_vector: Vec<Reservoir>,
+}
+
+fn date_as_string(d: &NaiveDate) -> String {
+    d.format("%Y-%m-%d").to_string()
 }
 
 impl Default for CalendarYearModel {
@@ -171,9 +175,9 @@ impl Component for CalendarYearModel {
                                         html! {
                                             <tr class="table-danger">
                                                 <th scope="row">{calendar_year_str}</th>
-                                                <td>{&data.date_lowest}</td>
+                                                <td>{date_as_string(&data.date_lowest)}</td>
                                                 <td>{&data.lowest_value}</td>
-                                                <td>{&data.date_highest}</td>
+                                                <td>{date_as_string(&data.date_highest)}</td>
                                                 <td>{&data.highest_value}</td>
                                             </tr>
                                         }
@@ -182,9 +186,9 @@ impl Component for CalendarYearModel {
                                         html! {
                                             <tr class="table-danger">
                                                 <th scope="row">{calendar_year_str}</th>
-                                                <td>{&data.date_lowest}</td>
+                                                <td>{date_as_string(&data.date_lowest)}</td>
                                                 <td>{&data.lowest_value}</td>
-                                                <td>{&data.date_highest}</td>
+                                                <td>{date_as_string(&data.date_highest)}</td>
                                                 <td>{&data.highest_value}</td>
                                             </tr>
                                         }
@@ -193,9 +197,9 @@ impl Component for CalendarYearModel {
                                         html! {
                                             <tr class="table-warning">
                                                 <th scope="row">{calendar_year_str}</th>
-                                                <td>{&data.date_lowest}</td>
+                                                <td>{date_as_string(&data.date_lowest)}</td>
                                                 <td>{&data.lowest_value}</td>
-                                                <td>{&data.date_highest}</td>
+                                                <td>{date_as_string(&data.date_highest)}</td>
                                                 <td>{&data.highest_value}</td>
                                             </tr>
                                         }
@@ -204,9 +208,9 @@ impl Component for CalendarYearModel {
                                         html! {
                                             <tr>
                                                 <th scope="row">{calendar_year_str}</th>
-                                                <td>{&data.date_lowest}</td>
+                                                <td>{date_as_string(&data.date_lowest)}</td>
                                                 <td>{&data.lowest_value}</td>
-                                                <td>{&data.date_highest}</td>
+                                                <td>{date_as_string(&data.date_highest)}</td>
                                                 <td>{&data.highest_value}</td>
                                             </tr>
                                         }
