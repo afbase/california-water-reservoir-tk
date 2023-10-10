@@ -442,7 +442,7 @@ mod tests {
         };
 
         let actual: HashSet<WaterYear> =
-            HashSet::from_iter(WaterYear::water_years_from_observable_range(&obs).into_iter());
+            HashSet::from_iter(WaterYear::water_years_from_observable_range(&obs));
         let expected: HashSet<WaterYear> = HashSet::from_iter(
             vec![
                 WaterYear(vec![Survey::Daily(Tap {
@@ -457,8 +457,7 @@ mod tests {
                     date_recording: d,
                     value: DataRecording::Recording(3),
                 })]),
-            ]
-            .into_iter(),
+            ],
         );
         assert_eq!(actual, expected);
     }
