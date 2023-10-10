@@ -46,12 +46,15 @@ impl NormalizeWaterYears for Vec<WaterYear> {
         });
         for water_year in self {
             // get rid of feb_29
-            let _ = water_year.0.extract_if(|survey| {
-                let obs_date = survey.date_observation();
-                let month = obs_date.month();
-                let day = obs_date.day();
-                matches!((month, day), (2, 29))
-            }).collect::<Vec<_>>();
+            let _ = water_year
+                .0
+                .extract_if(|survey| {
+                    let obs_date = survey.date_observation();
+                    let month = obs_date.month();
+                    let day = obs_date.day();
+                    matches!((month, day), (2, 29))
+                })
+                .collect::<Vec<_>>();
             // turn date_recording into date_observation of the original date
             // California’s water year runs from October 1 to September 30 and is the official 12-month timeframe
             for survey in &mut water_year.0 {
@@ -75,7 +78,7 @@ impl NormalizeWaterYears for Vec<WaterYear> {
                 match NaiveDate::from_ymd_opt(year, month, day) {
                     Some(d) => {
                         tap.date_observation = d;
-                    },
+                    }
                     None => {
                         panic!("Normalize Date Failed: {year}/{month}/{day}");
                     }
@@ -443,22 +446,20 @@ mod tests {
 
         let actual: HashSet<WaterYear> =
             HashSet::from_iter(WaterYear::water_years_from_observable_range(&obs));
-        let expected: HashSet<WaterYear> = HashSet::from_iter(
-            vec![
-                WaterYear(vec![Survey::Daily(Tap {
-                    station_id: String::new(),
-                    date_observation: d_1,
-                    date_recording: d_1,
-                    value: DataRecording::Recording(3),
-                })]),
-                WaterYear(vec![Survey::Daily(Tap {
-                    station_id: String::new(),
-                    date_observation: d,
-                    date_recording: d,
-                    value: DataRecording::Recording(3),
-                })]),
-            ],
-        );
+        let expected: HashSet<WaterYear> = HashSet::from_iter(vec![
+            WaterYear(vec![Survey::Daily(Tap {
+                station_id: String::new(),
+                date_observation: d_1,
+                date_recording: d_1,
+                value: DataRecording::Recording(3),
+            })]),
+            WaterYear(vec![Survey::Daily(Tap {
+                station_id: String::new(),
+                date_observation: d,
+                date_recording: d,
+                value: DataRecording::Recording(3),
+            })]),
+        ]);
         assert_eq!(actual, expected);
     }
     #[test]
