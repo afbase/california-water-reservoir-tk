@@ -72,6 +72,14 @@ impl NormalizeWaterYears for Vec<WaterYear> {
                         _ => second_year,
                     }
                 };
+                match NaiveDate::from_ymd_opt(year, month, day) {
+                    Some(d) => {
+                        tap.date_observation = d;
+                    },
+                    None => {
+                        panic!("Normalize Date Failed: {year}/{month}/{day}");
+                    }
+                }
                 tap.date_observation = NaiveDate::from_ymd_opt(year, month, day).unwrap();
             }
         }
