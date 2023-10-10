@@ -51,7 +51,7 @@ impl NormalizeWaterYears for Vec<WaterYear> {
                 let month = obs_date.month();
                 let day = obs_date.day();
                 matches!((month, day), (2, 29))
-            });
+            }).collect::<Vec<_>>();
             // turn date_recording into date_observation of the original date
             // California’s water year runs from October 1 to September 30 and is the official 12-month timeframe
             for survey in &mut water_year.0 {
