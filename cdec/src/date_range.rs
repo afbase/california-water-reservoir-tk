@@ -1,4 +1,4 @@
-use chrono::{Duration, NaiveDate, TimeDelta};
+use chrono::{NaiveDate, TimeDelta};
 use std::iter::Iterator;
 use std::mem::replace;
 

@@ -4,7 +4,7 @@ use crate::{
     survey::CompressedStringRecord,
     survey::{Interpolate, Survey, Tap},
 };
-use chrono::{Datelike, Duration, NaiveDate, TimeDelta};
+use chrono::{Datelike, NaiveDate, TimeDelta};
 use csv::{StringRecord, Writer};
 use easy_cast::Cast;
 use log::info;
@@ -525,7 +525,7 @@ mod test {
         };
         let mut actual = vec![observable_range_actual];
         actual.interpolate_reservoir_observations();
-        let expected = vec![observable_range_expected];
+        let expected = [observable_range_expected];
         assert_eq!(actual[0], expected[0]);
     }
 }
