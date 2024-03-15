@@ -5,6 +5,7 @@ use crate::{
 use chrono::NaiveDate;
 use csv::StringRecord;
 use easy_cast::Cast;
+use serde::{Deserialize, Serialize};
 use std::{cmp::Ordering, convert::From, hash::Hash};
 
 // Survey and Tap are not great names but out of a need to have a name
@@ -14,7 +15,7 @@ use std::{cmp::Ordering, convert::From, hash::Hash};
 // be a meme for these types of situations:
 // https://www.youtube.com/watch?v=xaILTs-_1z4
 
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct Tap {
     pub station_id: String,
     pub date_observation: NaiveDate,
@@ -22,7 +23,7 @@ pub struct Tap {
     pub value: DataRecording,
 }
 
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, Serialize, Deserialize)]
 pub enum Survey {
     Daily(Tap),
     Monthly(Tap),
@@ -307,7 +308,7 @@ impl Interpolate for (Survey, Survey) {
             let y_i = (slope * (fdx - x_0) + y_0).round();
             let value = y_i as u32;
             let recording = DataRecording::Recording(value);
-            let date = start_obs.date_observation + chrono::Duration::days(idx);
+            let date = start_obs.date_observation + chrono::Duration::try_days(idx).unwrap();
             let survey = Survey::Daily(Tap {
                 station_id: start_obs.clone().station_id,
                 date_observation: date,

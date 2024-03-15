@@ -7,7 +7,9 @@ use chrono::naive::NaiveDate;
 use core::result::Result;
 use csv::{ReaderBuilder, StringRecord};
 use futures::future::join_all;
+use itertools::Itertools;
 use reqwest::Client;
+use serde::{Deserialize, Serialize};
 use std::{
     cmp::Ordering,
     collections::{BTreeMap, HashMap},
@@ -30,7 +32,7 @@ pub enum Duration {
     Daily,
     Monthly,
 }
-#[derive(Debug, PartialEq, Clone, Copy, Hash)]
+#[derive(Debug, PartialEq, Clone, Copy, Hash, Serialize, Deserialize)]
 pub enum DataRecording {
     Brt,
     Art,
@@ -208,19 +210,26 @@ impl Observation {
             .collect::<Vec<StringRecord>>();
         Ok(records)
     }
-    pub fn vector_to_hashmap(
-        vec_observations: Vec<Observation>,
-    ) -> HashMap<String, Vec<Observation>> {
-        let mut result: HashMap<String, Vec<Observation>> = HashMap::new();
-        let groups = vec_observations
-            .as_slice()
-            .group_by(|a, b| a.station_id == b.station_id);
-        for reservoir_observations in groups {
-            let reservoir_id = &reservoir_observations[0].station_id;
-            result.insert(reservoir_id.clone(), Vec::from(reservoir_observations));
+    pub fn vector_to_hashmap(vec_observations: Vec<Observation>) -> HashMap<String, Vec<Observation>> {
+        let mut result = HashMap::new();
+        for (station_id, group) in &vec_observations.iter().group_by(|obs| &obs.station_id) {
+            result.insert(station_id.clone(), group.cloned().collect());
         }
         result
     }
+    // pub fn vector_to_hashmap(
+    //     vec_observations: Vec<Observation>,
+    // ) -> HashMap<String, Vec<Observation>> {
+    //     let mut result: HashMap<String, Vec<Observation>> = HashMap::new();
+    //     let groups = vec_observations
+    //         .as_slice()
+    //         .group_by(|a, b| a.station_id == b.station_id);
+    //     for reservoir_observations in groups {
+    //         let reservoir_id = &reservoir_observations[0].station_id;
+    //         result.insert(reservoir_id.clone(), Vec::from(reservoir_observations));
+    //     }
+    //     result
+    // }
 }
 
 impl TryFrom<StringRecord> for Observation {

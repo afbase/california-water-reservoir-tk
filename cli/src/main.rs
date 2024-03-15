@@ -1,5 +1,5 @@
 use clap::Parser;
-use cmd::{query::Query, survey::Survey, Commands};
+use cmd::{peruse::Peruse, query::Query, survey::Survey, Commands};
 use log::{info, LevelFilter};
 use my_log::MY_LOGGER;
 use utils::run::Run;
@@ -55,6 +55,24 @@ async fn main() {
                 end_date,
             };
             survey.run().await;
+        }
+        Some(Commands::Peruse {
+            summation_output,
+            reservoir_output,
+            water_years_output,
+            min_max_output,
+            start_date,
+            end_date,
+        }) => {
+            let peruse = Peruse {
+                summation_output,
+                reservoir_output,
+                water_years_output,
+                min_max_output,
+                start_date,
+                end_date,
+            };
+            peruse.run().await;
         }
         None => panic!("must specify a subcommand!"),
     }

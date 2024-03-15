@@ -6,9 +6,9 @@ edition = "2021"
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
 [dependencies]
-cmd = {path = "../cmd"}
-clap = { version = "4.4.6", features = ["derive"] }
-log = "0.4.20"
-my_log = {path = "../my_log"}
-tokio = { version = "1.33.0", features = ["full", "tracing"] }
-utils = {path = "../utils"}
+cmd = { path = "../cmd" }
+clap = { version = "4.5.2", features = ["derive"] }
+log = "0.4.21"
+my_log = { path = "../my_log" }
+tokio = { version = "1.36.0", features = ["full", "tracing"] }
+utils = { path = "../utils" }

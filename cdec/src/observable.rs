@@ -4,7 +4,7 @@ use crate::{
     survey::CompressedStringRecord,
     survey::{Interpolate, Survey, Tap},
 };
-use chrono::{Datelike, Duration, NaiveDate};
+use chrono::{Datelike, Duration, NaiveDate, TimeDelta};
 use csv::{StringRecord, Writer};
 use easy_cast::Cast;
 use log::info;
@@ -295,7 +295,7 @@ impl CompressedSurveyBuilder for ObservableRange {
         if most_recent_date < self.end_date {
             let days = (self.end_date - most_recent_date).num_days();
             for num_of_days in 1..days {
-                tmp_date = most_recent_date + Duration::days(num_of_days);
+                tmp_date = most_recent_date + TimeDelta::try_days(num_of_days).unwrap();
                 tmp_survey = Survey::Daily(Tap {
                     station_id: most_recent.station_id.clone(),
                     date_observation: tmp_date,
@@ -397,7 +397,7 @@ impl InterpolateObservableRanges for Vec<ObservableRange> {
                 let most_recent_date = most_recent_tap.date_observation;
                 for i in 0..delta {
                     let num_of_days = i + 1;
-                    tmp_date = most_recent_date + Duration::days(num_of_days as i64);
+                    tmp_date = most_recent_date + TimeDelta::try_days(num_of_days as i64).unwrap();
                     tmp_survey = Survey::Daily(Tap {
                         station_id: most_recent_tap.station_id.clone(),
                         date_observation: tmp_date,

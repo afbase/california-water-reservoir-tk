@@ -2,6 +2,7 @@ use std::process;
 
 use chrono::format::ParseError;
 pub enum TryFromError {
+    PeruseError,
     QueryError,
     SurveyError,
     NoneError,

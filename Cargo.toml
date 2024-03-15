@@ -5,14 +5,19 @@ members = [
     "cmd", 
     "ecco",
     "my_log",
-    "utils", 
+    "utils",
+    "vectorize",
     "yew-avin_a_laf", 
-    "yew-nani", 
+    "yew-nani",
     "yew-wot_m8", 
     "yew-wu"]
+resolver = "2"
 
 [workspace.package]
-version = "1.0.16"
+version = "1.1.0"
+
+[patch.crates-io]
+pathfinder_simd = { git = "https://github.com/servo/pathfinder.git", rev = "e86d032" }
 
 [profile.release]
 debug = true

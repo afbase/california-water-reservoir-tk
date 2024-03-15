@@ -6,6 +6,7 @@ use crate::{
 };
 use chrono::{DateTime, Datelike, Local, NaiveDate};
 use easy_cast::Cast;
+use serde::{Deserialize, Serialize};
 use std::cmp::Ordering::{Equal, Greater, Less};
 use std::collections::HashMap;
 pub const NUMBER_OF_CHARTS_TO_DISPLAY_DEFAULT: usize = 20;
@@ -14,6 +15,7 @@ pub const NUMBER_OF_CHARTS_TO_DISPLAY_DEFAULT: usize = 20;
 #[derive(Debug, Clone, PartialEq, Eq, Hash)]
 pub struct WaterYear(pub Vec<Survey>);
 
+#[derive(Debug, Serialize, Deserialize)]
 pub struct WaterYearStatistics {
     pub year: i32,
     pub date_lowest: NaiveDate,
@@ -291,31 +293,62 @@ impl WaterYear {
         let last_day = self.0.last().unwrap();
         (last_day.get_value() - first_day.get_value()).round()
     }
-    pub fn water_years_from_observable_range(water_observations: &ObservableRange) -> Vec<Self> {
+    // pub fn water_years_from_observable_range(water_observations: &ObservableRange) -> Vec<Self> {
+    //     let min_year = water_observations.start_date.year() - 1;
+    //     let max_year = water_observations.end_date.year();
+    //     let mut hm: HashMap<i32, WaterYear> = HashMap::new();
+    //     for year in min_year..=max_year {
+    //         let start_of_year = NaiveDate::from_ymd_opt(year, 10, 1).unwrap();
+    //         let end_of_year = NaiveDate::from_ymd_opt(year + 1, 9, 30).unwrap();
+    //         let water_calendar_year_of_observations = water_observations
+    //             .observations
+    //             .iter()
+    //             .filter_map(|survey| {
+    //                 let tap = survey.get_tap();
+    //                 let obs_date = tap.date_observation;
+    //                 if start_of_year <= obs_date && obs_date <= end_of_year {
+    //                     Some(survey.clone())
+    //                 } else {
+    //                     None
+    //                 }
+    //             })
+    //             .collect::<Vec<_>>();
+    //         if !water_calendar_year_of_observations.is_empty() {
+    //             hm.insert(year, WaterYear(water_calendar_year_of_observations));
+    //         }
+    //     }
+    //     hm.into_values().collect::<Vec<_>>()
+    // }
+
+    // src/water_year.rs
+    pub fn water_years_from_observable_range(
+        water_observations: &ObservableRange,
+    ) -> Vec<WaterYear> {
         let min_year = water_observations.start_date.year() - 1;
         let max_year = water_observations.end_date.year();
-        let mut hm: HashMap<i32, WaterYear> = HashMap::new();
+        let mut water_years = Vec::new();
+
         for year in min_year..=max_year {
             let start_of_year = NaiveDate::from_ymd_opt(year, 10, 1).unwrap();
             let end_of_year = NaiveDate::from_ymd_opt(year + 1, 9, 30).unwrap();
-            let water_calendar_year_of_observations = water_observations
+
+            let water_calendar_year_of_observations: Vec<_> = water_observations
                 .observations
                 .iter()
-                .filter_map(|survey| {
+                .filter(|survey| {
                     let tap = survey.get_tap();
                     let obs_date = tap.date_observation;
-                    if start_of_year <= obs_date && obs_date <= end_of_year {
-                        Some(survey.clone())
-                    } else {
-                        None
-                    }
+                    start_of_year <= obs_date && obs_date <= end_of_year
                 })
-                .collect::<Vec<_>>();
+                .cloned()
+                .collect();
+
             if !water_calendar_year_of_observations.is_empty() {
-                hm.insert(year, WaterYear(water_calendar_year_of_observations));
+                water_years.push(WaterYear(water_calendar_year_of_observations));
             }
         }
-        hm.into_values().collect::<Vec<_>>()
+
+        water_years
     }
 }
 
