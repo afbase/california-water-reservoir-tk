@@ -46,17 +46,25 @@ impl NormalizeWaterYears for Vec<WaterYear> {
             // keep the water year if it has at least ~12 months of data
             water_year.0.len() >= 364
         });
-        for water_year in self {
+        for water_year in self.iter_mut() {
             // get rid of feb_29
-            let _ = water_year
-                .0
-                .extract_if(|survey| {
-                    let obs_date = survey.date_observation();
-                    let month = obs_date.month();
-                    let day = obs_date.day();
-                    matches!((month, day), (2, 29))
-                })
-                .collect::<Vec<_>>();
+            water_year.0.retain(|survey| {
+                let obs_date = survey.date_observation();
+                let month = obs_date.month();
+                let day = obs_date.day();
+                !matches!((month, day), (2, 29))
+            });
+        // for water_year in self {
+        //     // get rid of feb_29
+        //     let _ = water_year
+        //         .0
+        //         .extract_if(|survey| {
+        //             let obs_date = survey.date_observation();
+        //             let month = obs_date.month();
+        //             let day = obs_date.day();
+        //             matches!((month, day), (2, 29))
+        //         })
+        //         .collect::<Vec<_>>();
             // turn date_recording into date_observation of the original date
             // California’s water year runs from October 1 to September 30 and is the official 12-month timeframe
             for survey in &mut water_year.0 {
