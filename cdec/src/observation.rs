@@ -210,7 +210,9 @@ impl Observation {
             .collect::<Vec<StringRecord>>();
         Ok(records)
     }
-    pub fn vector_to_hashmap(vec_observations: Vec<Observation>) -> HashMap<String, Vec<Observation>> {
+    pub fn vector_to_hashmap(
+        vec_observations: Vec<Observation>,
+    ) -> HashMap<String, Vec<Observation>> {
         let mut result = HashMap::new();
         for (station_id, group) in &vec_observations.iter().group_by(|obs| &obs.station_id) {
             result.insert(station_id.clone(), group.cloned().collect());

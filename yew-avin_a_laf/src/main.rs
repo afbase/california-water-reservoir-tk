@@ -117,7 +117,9 @@ impl<'a> ObservationsModel {
     fn interpolate_data_for_selected_reservoir(&mut self) {
         // interpolate all data and then select the data with the date range
         let mut observable_range = ObservableRange::new(self.min_date, self.max_date);
-        observable_range.observations.clone_from(&self.selected_reservoir_data);
+        observable_range
+            .observations
+            .clone_from(&self.selected_reservoir_data);
         let mut vec_observable_range: Vec<ObservableRange> = vec![observable_range];
         vec_observable_range.interpolate_reservoir_observations();
         if let Some(observable_range) = vec_observable_range.first_mut() {

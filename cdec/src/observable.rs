@@ -361,7 +361,6 @@ pub trait InterpolateObservableRanges {
 }
 
 impl InterpolateObservableRanges for Vec<ObservableRange> {
-    
     fn interpolate_reservoir_observations(&mut self) {
         // at this point, the observable ranges are retained, sorted, and the dates are well bounded
         for reservoir_observable_range in self {
