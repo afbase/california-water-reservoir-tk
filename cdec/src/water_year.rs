@@ -622,9 +622,9 @@ mod tests {
         // while  the actual is
         // Daily(Tap { station_id: "", date_observation: 2023-10-01, date_recording: 1924-10-01, value: Recording(3) })
         let it = actual_water_years.iter().zip(expected_water_years.iter());
-        for (_i, (actual_water_year, expected_water_year)) in it.enumerate() {
+        for (actual_water_year, expected_water_year) in it {
             let surveys_it = actual_water_year.0.iter().zip(expected_water_year.0.iter());
-            for (_j, (actual_survey, expected_survey)) in surveys_it.enumerate() {
+            for (actual_survey, expected_survey) in surveys_it {
                 assert_eq!(
                     actual_survey.get_tap().station_id,
                     expected_survey.get_tap().station_id
