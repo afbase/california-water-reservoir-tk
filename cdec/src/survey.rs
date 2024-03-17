@@ -6,7 +6,7 @@ use chrono::NaiveDate;
 use csv::StringRecord;
 use easy_cast::Cast;
 use serde::{Deserialize, Serialize};
-use std::{cmp::Ordering, convert::From, hash::Hash};
+use std::{cmp::Ordering, hash::Hash};
 
 // Survey and Tap are not great names but out of a need to have a name
 // Survey originates from a google search for synonym of Observation
