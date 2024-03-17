@@ -346,7 +346,13 @@ impl WaterYear {
                 .filter(|survey| {
                     let tap = survey.get_tap();
                     let obs_date = tap.date_observation;
-                    start_of_year <= obs_date && obs_date <= end_of_year
+                    // cannot have Feb 29
+                    let month = obs_date.month();
+                    let day = obs_date.day();
+                    let not_feb_29 = (2, 29) != (month, day);
+
+                    // evaluate this boolean logic
+                    start_of_year <= obs_date && obs_date <= end_of_year && not_feb_29
                 })
                 .cloned()
                 .collect();
@@ -607,6 +613,7 @@ mod tests {
         let expected_observable_range: ObservableRange = surveys.into();
         let mut expected_water_years =
             WaterYear::water_years_from_observable_range(&expected_observable_range);
+        // 2024 was a leap year and breaks the test
         for water_year in &mut expected_water_years {
             water_year.normalize_calendar_years();
         }
@@ -615,9 +622,9 @@ mod tests {
         // while  the actual is
         // Daily(Tap { station_id: "", date_observation: 2023-10-01, date_recording: 1924-10-01, value: Recording(3) })
         let it = actual_water_years.iter().zip(expected_water_years.iter());
-        for (i, (actual_water_year, expected_water_year)) in it.enumerate() {
+        for (_i, (actual_water_year, expected_water_year)) in it.enumerate() {
             let surveys_it = actual_water_year.0.iter().zip(expected_water_year.0.iter());
-            for (j, (actual_survey, expected_survey)) in surveys_it.enumerate() {
+            for (_j, (actual_survey, expected_survey)) in surveys_it.enumerate() {
                 assert_eq!(
                     actual_survey.get_tap().station_id,
                     expected_survey.get_tap().station_id
