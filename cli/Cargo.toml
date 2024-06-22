@@ -7,8 +7,8 @@ edition = "2021"
 
 [dependencies]
 cmd = { path = "../cmd" }
-clap = { version = "4.5.2", features = ["derive"] }
+clap = { version = "4.5.7", features = ["derive"] }
 log = "0.4.21"
 my_log = { path = "../my_log" }
-tokio = { version = "1.36.0", features = ["full", "tracing"] }
+tokio = { version = "1.38.0", features = ["full", "tracing"] }
 utils = { path = "../utils" }

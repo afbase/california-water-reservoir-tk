@@ -6,21 +6,21 @@ edition = "2021"
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
 [dependencies]
-chrono = { version = "0.4.35", features=["serde"] }
+chrono = { version = "0.4.38", features=["serde"] }
 csv = "1.3.0"
 easy-cast = "0.5.2"
 futures = "0.3.30"
 itertools = "0.12.1"
 log = "0.4.21"
 lzma-rs = "0.3.0"
-plotters = {version="0.3.5", features=["chrono"]}
-reqwest = "0.11.26"
-serde = { version = "1.0.197", features = ["derive"] }
-tar = "0.4.40"
+plotters = {version="0.3.6", features=["chrono"]}
+reqwest = "0.12.5"
+serde = { version = "1.0.203", features = ["derive"] }
+tar = "0.4.41"
 vectorize = { path = "../vectorize" }
 
 [dev-dependencies]
 sha3 = "0.10.8"
 hex-literal = "0.4.1"
 [target.'cfg(not(target_arch = "wasm32"))'.dev-dependencies]
-tokio = {version="1.36.0", features=["macros"]}
+tokio = {version="1.38.0", features=["macros"]}

@@ -5,7 +5,7 @@ edition = "2021"
 
 [dependencies]
 cdec = { path = "../cdec" }
-chrono = "0.4.35"
+chrono = "0.4.38"
 ecco = { path = "../ecco" }
 log = "0.4.21"
 my_log = { path = "../my_log" }
