@@ -205,11 +205,7 @@ impl Reservoir {
             "n/a" => 0i32,
             "na" => 0i32,
             s => {
-                if let Ok(c) = s.parse::<i32>() {
-                    c
-                } else {
-                    0i32
-                }
+                s.parse::<i32>().unwrap_or_default()
             }
         }
     }
