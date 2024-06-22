@@ -10,13 +10,13 @@ jobs:
         run: curl https://rustwasm.github.io/wasm-pack/installer/init.sh -sSf | sh
       - uses: actions-rs/toolchain@v1
         with:
-          toolchain: nightly-2024-03-14-x86_64-unknown-linux-gnu
+          toolchain: nightly-2024-06-21-x86_64-unknown-linux-gnu
       - uses: actions-rs/cargo@v1
         with:
-          toolchain: nightly-2024-03-14-x86_64-unknown-linux-gnu
+          toolchain: nightly-2024-06-21-x86_64-unknown-linux-gnu
           command: build
           args: --release --package cli
       - uses: actions-rs/cargo@v1
         with:
-          toolchain: nightly-2024-03-14-x86_64-unknown-linux-gnu
+          toolchain: nightly-2024-06-21-x86_64-unknown-linux-gnu
           command: test
