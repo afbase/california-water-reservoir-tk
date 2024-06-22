@@ -5,18 +5,18 @@ jobs:
     name: Rust project
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v2
+      - uses: actions/checkout@v4
       - name: Install
         run: curl https://rustwasm.github.io/wasm-pack/installer/init.sh -sSf | sh
       - uses: actions-rs/toolchain@v1
         with:
-          toolchain: nightly-2023-10-07-x86_64-unknown-linux-gnu
+          toolchain: nightly-2024-03-14-x86_64-unknown-linux-gnu
       - uses: actions-rs/cargo@v1
         with:
-          toolchain: nightly-2023-10-07-x86_64-unknown-linux-gnu
+          toolchain: nightly-2024-03-14-x86_64-unknown-linux-gnu
           command: build
           args: --release --package cli
       - uses: actions-rs/cargo@v1
         with:
-          toolchain: nightly-2023-10-07-x86_64-unknown-linux-gnu
+          toolchain: nightly-2024-03-14-x86_64-unknown-linux-gnu
           command: test
