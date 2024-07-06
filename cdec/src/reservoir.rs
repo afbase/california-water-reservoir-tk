@@ -5,7 +5,7 @@ use crate::{
 };
 use chrono::NaiveDate;
 use csv::ReaderBuilder;
-use log::info;
+use log::{warn, info};
 use reqwest::{Client, StatusCode};
 use std::{collections::HashSet, include_str, thread::sleep, time::Duration};
 
@@ -84,38 +84,63 @@ impl Reservoir {
         duration_type: &str,
     ) -> Option<ObservableRange> {
         let max_tries = 3;
-        let mut sleep_millis: u64 = 1;
+        let mut sleep_millis: u64 = 1000; // Start with 1 second
         let start_date_str = start_date.format(YEAR_FORMAT);
         let end_date_str = end_date.format(YEAR_FORMAT);
-        for _ in 0..max_tries {
-            let url = format!("http://cdec.water.ca.gov/dynamicapp/req/CSVDataServlet?Stations={}&SensorNums=15&dur_code={}&Start={}&End={}", self.station_id.as_str(), duration_type, start_date_str, end_date_str);
-            // try three times and exponential backoff
-            let response = client.get(url).send().await.unwrap();
-            if response.status() != StatusCode::OK {
-                // sleep
-                sleep_millis <<= 1;
-                let ten_millis = Duration::from_millis(sleep_millis * 1000);
+    
+        for attempt in 1..=max_tries {
+            let url = format!(
+                "http://cdec.water.ca.gov/dynamicapp/req/CSVDataServlet?Stations={}&SensorNums=15&dur_code={}&Start={}&End={}",
+                self.station_id.as_str(), duration_type, start_date_str, end_date_str
+            );
+    
+            match client.get(&url).send().await {
+                Ok(response) => {
+                    if response.status() != StatusCode::OK {
+                        warn!(
+                            "Attempt {}/{}: Bad response status for {}: {}",
+                            attempt, max_tries, self.dam, response.status()
+                        );
+                    } else {
+                        match response.text().await {
+                            Ok(response_body) => {
+                                if response_body.len() <= 2 {
+                                    warn!(
+                                        "Attempt {}/{}: Empty response for {}",
+                                        attempt, max_tries, self.dam
+                                    );
+                                } else {
+                                    return response_body.response_to_surveys();
+                                }
+                            }
+                            Err(e) => {
+                                warn!(
+                                    "Attempt {}/{}: Failed to read response body for {}: {}",
+                                    attempt, max_tries, self.dam, e
+                                );
+                            }
+                        }
+                    }
+                }
+                Err(e) => {
+                    warn!(
+                        "Attempt {}/{}: Request failed for {}: {}",
+                        attempt, max_tries, self.dam, e
+                    );
+                }
+            }
+    
+            if attempt < max_tries {
                 info!(
-                    "Sleeping for {} seconds for {} bad response",
+                    "Sleeping for {} milliseconds before retry for {}",
                     sleep_millis, self.dam
                 );
-                sleep(ten_millis);
-                continue;
+                sleep(Duration::from_millis(sleep_millis));
+                sleep_millis *= 2; // Exponential backoff
             }
-            let response_body = response.text().await.unwrap();
-            if response_body.len() <= 2 {
-                // sleep
-                sleep_millis <<= 1;
-                let ten_millis = Duration::from_millis(sleep_millis * 1000);
-                info!(
-                    "Sleeping for {} seconds for {} for empty string",
-                    sleep_millis, self.dam
-                );
-                sleep(ten_millis);
-                continue;
-            }
-            return response_body.response_to_surveys();
         }
+    
+        warn!("All attempts failed for {}", self.dam);
         None
     }
     pub async fn get_monthly_surveys(
@@ -136,7 +161,6 @@ impl Reservoir {
         self.get_survey_general(client, start_date, end_date, "D")
             .await
     }
-
     pub async fn get_surveys_v2(
         &self,
         client: &Client,
