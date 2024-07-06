@@ -8,5 +8,5 @@ edition = "2021"
 [dependencies]
 cdec = { path = "../cdec" }
 chrono = { version = "0.4.38", features = ["serde"] }
-itertools = "0.11.0"
+itertools = "0.13.0"
 plotters = "0.3.6"
