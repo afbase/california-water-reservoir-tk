@@ -5,7 +5,7 @@ use crate::{
 };
 use chrono::NaiveDate;
 use csv::ReaderBuilder;
-use log::{warn, info};
+use log::{info, warn};
 use reqwest::{Client, StatusCode};
 use std::{collections::HashSet, include_str, thread::sleep, time::Duration};
 
@@ -87,19 +87,22 @@ impl Reservoir {
         let mut sleep_millis: u64 = 1000; // Start with 1 second
         let start_date_str = start_date.format(YEAR_FORMAT);
         let end_date_str = end_date.format(YEAR_FORMAT);
-    
+
         for attempt in 1..=max_tries {
             let url = format!(
                 "http://cdec.water.ca.gov/dynamicapp/req/CSVDataServlet?Stations={}&SensorNums=15&dur_code={}&Start={}&End={}",
                 self.station_id.as_str(), duration_type, start_date_str, end_date_str
             );
-    
+
             match client.get(&url).send().await {
                 Ok(response) => {
                     if response.status() != StatusCode::OK {
                         warn!(
                             "Attempt {}/{}: Bad response status for {}: {}",
-                            attempt, max_tries, self.dam, response.status()
+                            attempt,
+                            max_tries,
+                            self.dam,
+                            response.status()
                         );
                     } else {
                         match response.text().await {
@@ -129,7 +132,7 @@ impl Reservoir {
                     );
                 }
             }
-    
+
             if attempt < max_tries {
                 info!(
                     "Sleeping for {} milliseconds before retry for {}",
@@ -139,7 +142,7 @@ impl Reservoir {
                 sleep_millis *= 2; // Exponential backoff
             }
         }
-    
+
         warn!("All attempts failed for {}", self.dam);
         None
     }
@@ -228,9 +231,7 @@ impl Reservoir {
             "" => 0i32,
             "n/a" => 0i32,
             "na" => 0i32,
-            s => {
-                s.parse::<i32>().unwrap_or_default()
-            }
+            s => s.parse::<i32>().unwrap_or_default(),
         }
     }
 
