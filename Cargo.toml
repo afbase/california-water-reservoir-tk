@@ -10,7 +10,8 @@ members = [
     "yew-avin_a_laf", 
     "yew-nani",
     "yew-wot_m8", 
-    "yew-wu"]
+    "yew-wu",
+    "yew-wu-v2",]
 resolver = "2"
 
 [workspace.package]

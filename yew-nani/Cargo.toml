@@ -9,12 +9,12 @@ chrono = "0.4.38"
 ecco = { path = "../ecco" }
 log = "0.4.22"
 my_log = { path = "../my_log" }
-wasm-bindgen = "0.2.92"
+wasm-bindgen = "0.2.96"
 yew = { version = "0.21.0", features = ["csr"]}
 
 
 [dependencies.web-sys]
-version = "0.3.69"
+version = "0.3.73"
 features = [
   'Document',
   'HtmlSelectElement',

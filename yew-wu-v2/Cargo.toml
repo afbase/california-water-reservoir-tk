@@ -1,10 +1,10 @@
 [package]
-name = "yew-wu"
+name = "yew-wu-v2"
 version.workspace = true
 edition = "2021"
 
 [[bin]]
-name="uwu-v2"
+name="uwu"
 path="src/main.rs"
 
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
