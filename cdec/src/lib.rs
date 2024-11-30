@@ -1,6 +1,4 @@
-#![feature(array_chunks, extract_if, is_sorted)]
-// #![feature(array_chunks)]
-// #![fea]
+#![feature(array_chunks, extract_if)]
 pub mod compression;
 pub mod date_range;
 pub mod normalized_naive_date;

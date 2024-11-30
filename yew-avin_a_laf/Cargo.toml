@@ -12,12 +12,12 @@ ecco = { path = "../ecco" }
 log = "0.4.22"
 my_log = { path = "../my_log" }
 plotters = "0.3.7"
-wasm-bindgen = "0.2.96"
+wasm-bindgen = "0.2.97"
 yew = { version = "0.21.0", features = ["csr"]}
 
 
 [dependencies.web-sys]
-version = "0.3.73"
+version = "0.3.74"
 features = [
   'Document',
   'Element',
@@ -34,7 +34,7 @@ chrono = { version = "0.4.38", features = ["serde"] }
 easy-cast = "0.5.2"
 ecco = { path = "../ecco" }
 gloo-console = { version = "0.3.0" }
-js-sys = "0.3.73"
+js-sys = "0.3.74"
 plotters = "0.3.7"
-wasm-bindgen = "0.2.96"
+wasm-bindgen = "0.2.97"
 yew = { version = "0.21.0", features = ["csr"]}

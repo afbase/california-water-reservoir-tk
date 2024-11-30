@@ -1,6 +1,6 @@
 use crate::run::get_surveys_of_reservoirs_v2;
 use crate::Commands;
-use cdec::observable::ObservableRange;
+//use cdec::observable::ObservableRange;
 use cdec::observable::ObservableRangeRunner;
 use cdec::reservoir::{CSV_OBJECT, CSV_OBJECT_NO_POWELL_NO_MEAD};
 
@@ -20,7 +20,7 @@ pub struct Query {
     // date of latest data to be collected
     pub end_date: Option<String>,
     // flag to only include California Reservoirs,
-    pub california_only: Option<bool>,
+    pub california_only: bool,
 }
 
 impl TryFrom<Commands> for Query {
@@ -83,19 +83,18 @@ impl Run for Query {
             }
         };
         info!("start date: {:?}", start_date_final);
-        // let cdec_data = get_surveys_of_reservoirs(&start_date_final, &end_date_final).await;
-        let mut cdec_data = Vec::<ObservableRange>::new();
-        if let Some(_) = self.california_only {
-            cdec_data = get_surveys_of_reservoirs_v2(
-                &start_date_final,
-                &end_date_final,
-                CSV_OBJECT_NO_POWELL_NO_MEAD,
-            )
-            .await;
-        } else {
-            cdec_data =
-                get_surveys_of_reservoirs_v2(&start_date_final, &end_date_final, CSV_OBJECT).await;
-        }
+        let cdec_data = {
+            if self.california_only {
+                get_surveys_of_reservoirs_v2(
+                    &start_date_final,
+                    &end_date_final,
+                    CSV_OBJECT_NO_POWELL_NO_MEAD,
+                )
+                .await
+            } else {
+                get_surveys_of_reservoirs_v2(&start_date_final, &end_date_final, CSV_OBJECT).await
+            }
+        };
 
         match self.summation_output {
             None => {}

@@ -425,7 +425,7 @@ fn sort_by_values_ascending(surveys: &mut [Survey]) {
 
 impl PartialOrd for WaterYearStatistics {
     fn partial_cmp(&self, other: &Self) -> Option<std::cmp::Ordering> {
-        self.lowest_value.partial_cmp(&other.lowest_value)
+        Some(self.cmp(other))
     }
 }
 

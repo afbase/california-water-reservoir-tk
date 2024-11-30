@@ -39,7 +39,7 @@ pub enum Commands {
         #[arg(long, value_name = "YYYY-MM-DD")]
         end_date: Option<String>,
         #[arg(long)]
-        california_only: Option<bool>,
+        california_only: bool,
     },
     Peruse {
         // output of total reservoir capacity

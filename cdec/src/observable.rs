@@ -323,11 +323,7 @@ impl PartialEq for MonthDatum {
 
 impl PartialOrd for MonthDatum {
     fn partial_cmp(&self, other: &Self) -> Option<std::cmp::Ordering> {
-        match self.0.partial_cmp(&other.0) {
-            Some(core::cmp::Ordering::Equal) => {}
-            ord => return ord,
-        }
-        self.1.partial_cmp(&other.1)
+        Some(self.cmp(other))
     }
 }
 
