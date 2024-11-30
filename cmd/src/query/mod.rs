@@ -1,6 +1,8 @@
-use crate::run::get_surveys_of_reservoirs;
+use crate::run::get_surveys_of_reservoirs_v2;
 use crate::Commands;
+use cdec::observable::ObservableRange;
 use cdec::observable::ObservableRangeRunner;
+use cdec::reservoir::{CSV_OBJECT, CSV_OBJECT_NO_POWELL_NO_MEAD};
 
 use chrono::{Local, NaiveDate};
 use log::info;
@@ -17,6 +19,8 @@ pub struct Query {
     pub start_date: Option<String>,
     // date of latest data to be collected
     pub end_date: Option<String>,
+    // flag to only include California Reservoirs,
+    pub california_only: Option<bool>,
 }
 
 impl TryFrom<Commands> for Query {
@@ -29,11 +33,13 @@ impl TryFrom<Commands> for Query {
                 reservoir_output,
                 start_date,
                 end_date,
+                california_only,
             } => Ok(Query {
                 summation_output,
                 reservoir_output,
                 start_date,
                 end_date,
+                california_only,
             }),
             _ => Err(TryFromError::QueryError),
         }
@@ -77,13 +83,26 @@ impl Run for Query {
             }
         };
         info!("start date: {:?}", start_date_final);
-        let cdec_data = get_surveys_of_reservoirs(&start_date_final, &end_date_final).await;
+        // let cdec_data = get_surveys_of_reservoirs(&start_date_final, &end_date_final).await;
+        let mut cdec_data = Vec::<ObservableRange>::new();
+        if let Some(_) = self.california_only {
+            cdec_data = get_surveys_of_reservoirs_v2(
+                &start_date_final,
+                &end_date_final,
+                CSV_OBJECT_NO_POWELL_NO_MEAD,
+            )
+            .await;
+        } else {
+            cdec_data =
+                get_surveys_of_reservoirs_v2(&start_date_final, &end_date_final, CSV_OBJECT).await;
+        }
 
         match self.summation_output {
             None => {}
             Some(file_path) => {
                 info!("running summation now");
                 let csv_out = cdec_data.run_csv_v2();
+                info!("attempting to create file: {:?}", file_path);
                 let mut fs = std::fs::File::create(file_path.as_path()).unwrap();
                 if fs.write_all(csv_out.as_bytes()).is_err() {
                     panic!("writing csv file failed");
@@ -97,6 +116,7 @@ impl Run for Query {
                 info!("running summation now");
                 let csv_out = cdec_data.run_csv();
                 let mut fs = std::fs::File::create(file_path.as_path()).unwrap();
+
                 if fs.write_all(csv_out.as_bytes()).is_err() {
                     panic!("writing csv file failed");
                 }

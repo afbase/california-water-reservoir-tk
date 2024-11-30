@@ -37,6 +37,28 @@ pub async fn get_surveys_of_reservoirs(
     surveys.into_iter().flatten().collect::<Vec<_>>()
 }
 
+pub async fn get_surveys_of_reservoirs_v2(
+    start_date: &NaiveDate,
+    end_date: &NaiveDate,
+    reservoir_list: &str,
+) -> Vec<ObservableRange> {
+    // 1. get observations from date range
+    let reservoirs = Reservoir::get_reservoir_vector_v2(reservoir_list);
+    let client = Client::new();
+    let surveys = join_all(reservoirs.into_iter().map(|reservoir| {
+        let client_ref = &client;
+        let start_date_ref = start_date;
+        let end_date_ref = end_date;
+        async move {
+            reservoir
+                .get_surveys_v2(client_ref, start_date_ref, end_date_ref)
+                .await
+        }
+    }))
+    .await;
+    surveys.into_iter().flatten().collect::<Vec<_>>()
+}
+
 pub async fn run_csv_v2(start_date: &NaiveDate, end_date: &NaiveDate) -> String {
     let reservoirs: HashMap<String, Reservoir> = Reservoir::get_reservoir_vector()
         .iter()

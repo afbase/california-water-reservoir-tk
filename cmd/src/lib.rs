@@ -38,6 +38,8 @@ pub enum Commands {
         // date of latest data to be collected
         #[arg(long, value_name = "YYYY-MM-DD")]
         end_date: Option<String>,
+        #[arg(long)]
+        california_only: Option<bool>,
     },
     Peruse {
         // output of total reservoir capacity
