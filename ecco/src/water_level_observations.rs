@@ -23,6 +23,28 @@ pub struct WaterLevelObservations {
 
 impl WaterLevelObservations {
     /// this assumes everything has been tallied up already into total reservoir per day
+    pub fn init_from_lzma_v3() -> Self {
+        let records: Vec<CumulativeSummedStringRecord> = Observation::get_all_records_v3();
+        let records_to_tuples = records.records_to_tuples();
+        let mut btree = BTreeMap::new();
+        for tuple in records_to_tuples {
+            btree.insert(tuple.0, tuple.1);
+        }
+        let observations = btree.clone();
+        let mut tmp_btree = btree.clone();
+        let first = btree.first_entry().unwrap();
+        let last = tmp_btree.last_entry().unwrap();
+        let first_date = first.key();
+        let last_date = last.key();
+        WaterLevelObservations {
+            observations,
+            start_date: *first_date,
+            end_date: *last_date,
+            min_date: *first_date,
+            max_date: *last_date,
+        }
+    }
+    /// this assumes everything has been tallied up already into total reservoir per day
     pub fn init_from_lzma_v2() -> Self {
         let records: Vec<CumulativeSummedStringRecord> = Observation::get_all_records_v2();
         let records_to_tuples = records.records_to_tuples();
