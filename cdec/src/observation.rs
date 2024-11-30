@@ -1,5 +1,8 @@
 use crate::{
-    compression::{decompress_tar_file_to_csv_string, CUMULATIVE_OBJECT, OBSERVATIONS_OBJECT},
+    compression::{
+        decompress_tar_file_to_csv_string, CUMULATIVE_OBJECT, CUMULATIVE_OBJECT_V2,
+        OBSERVATIONS_OBJECT,
+    },
     reservoir::Reservoir,
     survey::{CompressedStringRecord, CumulativeSummedStringRecord},
 };
@@ -52,6 +55,19 @@ pub struct Observation {
 impl Observation {
     pub fn get_all_records_v2() -> Vec<CumulativeSummedStringRecord> {
         let bytes_of_csv_string = decompress_tar_file_to_csv_string(CUMULATIVE_OBJECT);
+        csv::ReaderBuilder::new()
+            .has_headers(false)
+            .from_reader(bytes_of_csv_string.as_slice())
+            .records()
+            .map(|x| {
+                let a = x.expect("failed record parse");
+                CumulativeSummedStringRecord(a)
+            })
+            .collect::<Vec<_>>()
+    }
+
+    pub fn get_all_records_v3() -> Vec<CumulativeSummedStringRecord> {
+        let bytes_of_csv_string = decompress_tar_file_to_csv_string(CUMULATIVE_OBJECT_V2);
         csv::ReaderBuilder::new()
             .has_headers(false)
             .from_reader(bytes_of_csv_string.as_slice())

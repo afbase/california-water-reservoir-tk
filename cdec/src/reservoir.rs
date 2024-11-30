@@ -9,7 +9,9 @@ use log::{info, warn};
 use reqwest::{Client, StatusCode};
 use std::{collections::HashSet, include_str, thread::sleep, time::Duration};
 
-static CSV_OBJECT: &str = include_str!("../../fixtures/capacity.csv");
+pub static CSV_OBJECT: &str = include_str!("../../fixtures/capacity.csv");
+pub static CSV_OBJECT_NO_POWELL_NO_MEAD: &str =
+    include_str!("../../fixtures/capacity-no-powell-no-mead.csv");
 const YEAR_FORMAT: &str = "%Y-%m-%d";
 
 #[derive(Debug, PartialEq, Clone)]
@@ -216,7 +218,15 @@ impl Reservoir {
     }
     // collects reservoir information from https://raw.githubusercontent.com/afbase/california-water/main/obj/capacity.csv
     pub fn get_reservoir_vector() -> Vec<Reservoir> {
-        if let Ok(r) = Reservoir::parse_reservoir_csv() {
+        if let Ok(r) = Reservoir::parse_reservoir_csv(CSV_OBJECT) {
+            r
+        } else {
+            panic!("failed to parse csv file")
+        }
+    }
+    // gives option to select reservoir from a list of choices
+    pub fn get_reservoir_vector_v2(reservoir: &str) -> Vec<Reservoir> {
+        if let Ok(r) = Reservoir::parse_reservoir_csv(reservoir) {
             r
         } else {
             panic!("failed to parse csv file")
@@ -235,12 +245,12 @@ impl Reservoir {
         }
     }
 
-    fn parse_reservoir_csv() -> Result<Vec<Reservoir>, std::io::Error> {
+    fn parse_reservoir_csv(csv_object: &str) -> Result<Vec<Reservoir>, std::io::Error> {
         let mut reservoir_list: Vec<Reservoir> = Vec::new();
         let mut rdr = ReaderBuilder::new()
             .delimiter(b',')
             .has_headers(true)
-            .from_reader(CSV_OBJECT.as_bytes());
+            .from_reader(csv_object.as_bytes());
         for row in rdr.records() {
             let rho = row?;
             let capacity = Reservoir::parse_int(rho.get(4).unwrap_or_else(get_default_capacity));

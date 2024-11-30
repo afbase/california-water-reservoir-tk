@@ -2,6 +2,7 @@ use lzma_rs::xz_decompress;
 use std::io::{BufReader, Read};
 use tar::Archive;
 pub static CUMULATIVE_OBJECT: &[u8] = include_bytes!("../../fixtures/cumulative.tar.lzma");
+pub static CUMULATIVE_OBJECT_V2: &[u8] = include_bytes!("../../fixtures/cumulative_v2.tar.lzma");
 pub static OBSERVATIONS_OBJECT: &[u8] = include_bytes!("../../fixtures/reservoirs.tar.lzma");
 
 pub fn decompress_tar_file_to_csv_string(input: &[u8]) -> Vec<u8> {
