@@ -30,12 +30,14 @@ async fn main() {
             reservoir_output,
             start_date,
             end_date,
+            california_only,
         }) => {
             let query = Query {
                 summation_output,
                 reservoir_output,
                 start_date,
                 end_date,
+                california_only,
             };
             info!("hello world");
             query.run().await;
