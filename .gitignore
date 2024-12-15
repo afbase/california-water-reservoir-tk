@@ -15,3 +15,10 @@ fixtures/cumulative.tar.*.old
 fixtures/reservoirs.tar.*.old
 /yew-*/dist
 /supply-chain/
+
+
+# make things nice
+Cargo.toml.bak
+cargo.sh
+cargo_backup_20241214_215703/
+cargo_backup_20241214_220118/

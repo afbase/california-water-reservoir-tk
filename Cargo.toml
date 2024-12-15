@@ -28,3 +28,22 @@ overflow-checks = false     # Disable integer overflow checks.
 incremental = true
 panic = "unwind"
 strip = "none"
+
+[workspace.dependencies]
+chrono = { version = "0.4.39", features = ["serde"] }
+clap = { version = "4.5.23", features = ["derive"] }
+csv = "1.3.1"
+easy-cast = "0.5.3"
+futures = "0.3.31"
+itertools = "0.13.0"
+log = "0.4.22"
+lzma-rs = "0.3.0"
+plotters = {version="0.3.7", features=["chrono"]}
+reqwest = "0.12.9"
+serde = { version = "1.0.216", features = ["derive"] }
+serde_cbor = "0.11.2"
+tar = "0.4.43"
+tokio = { version = "1.42.0", features = ["full", "tracing"] }
+wasm-bindgen = "0.2.99"
+yew = { version = "0.21.0", features = ["csr"]}
+pathfinder_simd = { git = "https://github.com/servo/pathfinder.git", rev = "e86d032" }
