@@ -7,15 +7,15 @@ edition = "2021"
 
 [dependencies]
 log = "0.4.22"
-chrono = "0.4.38"
+chrono = "0.4.39"
 
 
 [target.'cfg(target_family="wasm")'.dependencies]
 gloo-console = { version = "0.3.0" }
-js-sys = "0.3.74"
+js-sys = "0.3.76"
 
 [target.'cfg(target_family="wasm")'.dependencies.web-sys]
-version = "0.3.74"
+version = "0.3.76"
 features = [
   'console'
 ]
