@@ -125,7 +125,7 @@ impl<'a> ObservationsModel {
         if let Some(observable_range) = vec_observable_range.first_mut() {
             self.selected_reservoir_data = observable_range
                 .observations
-                .extract_if(|survey| {
+                .extract_if(.., |survey| {
                     let date_observation = survey.get_tap().date_observation;
                     self.start_date <= date_observation && date_observation <= self.end_date
                 })

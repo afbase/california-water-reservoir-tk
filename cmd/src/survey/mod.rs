@@ -90,7 +90,7 @@ impl Run for Survey {
         // for reservoir in reservoirs {
         //     let station_id = reservoir.station_id;
         //     let mut surveys = observations
-        //         .extract_if(|survey| {
+        //         .extract_if(.., |survey| {
         //             let tap = survey.get_tap();
         //             let tap_station_id = tap.station_id.clone();
         //             tap_station_id == station_id
