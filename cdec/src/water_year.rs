@@ -58,7 +58,7 @@ impl NormalizeWaterYears for Vec<WaterYear> {
             //     // get rid of feb_29
             //     let _ = water_year
             //         .0
-            //         .extract_if(|survey| {
+            //         .extract_if(.., |survey| {
             //             let obs_date = survey.date_observation();
             //             let month = obs_date.month();
             //             let day = obs_date.day();
