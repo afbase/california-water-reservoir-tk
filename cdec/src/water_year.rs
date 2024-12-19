@@ -232,7 +232,7 @@ impl NormalizeCalendarYear for WaterYear {
             tap.date_observation = normalized_naive_date;
         }
         // get rid of feb_29
-        let _ = self.0.extract_if(|survey| {
+        let _ = self.0.extract_if(.., |survey| {
             let obs_date = survey.date_observation();
             let month = obs_date.month();
             let day = obs_date.day();
@@ -250,7 +250,7 @@ impl WaterYear {
         for reservoir in reservoirs {
             let station_id = reservoir.station_id;
             let mut surveys = observations
-                .extract_if(|survey| {
+                .extract_if(.., |survey| {
                     let tap = survey.get_tap();
                     let tap_station_id = tap.station_id.clone();
                     tap_station_id == station_id
@@ -271,7 +271,7 @@ impl WaterYear {
                 let start_of_year = NaiveDate::from_ymd_opt(year, 10, 1).unwrap();
                 let end_of_year = NaiveDate::from_ymd_opt(year + 1, 9, 30).unwrap();
                 let water_year_of_surveys = surveys
-                    .extract_if(|survey| {
+                    .extract_if(.., |survey| {
                         let tap = survey.get_tap();
                         let obs_date = tap.date_observation;
                         start_of_year <= obs_date && obs_date <= end_of_year
