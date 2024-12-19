@@ -1,4 +1,3 @@
-#![feature(extract_if)]
 use cdec::{
     normalized_naive_date::NormalizedNaiveDate,
     observable::{CompressedSurveyBuilder, InterpolateObservableRanges, ObservableRange},
@@ -231,25 +230,24 @@ impl Component for ObservationsModel {
             if let Some(observable_range) = vec_observable_range.first() {
                 let mut water_years =
                     WaterYear::water_years_from_observable_range(observable_range);
-                // need to sort by most recent, store the top 20
-                // and then sort by driest, store the top 20
                 water_years.normalize_dates();
                 water_years.sort_by_most_recent();
                 let water_years_len = water_years.len();
                 let idx_max = NUMBER_OF_CHARTS_TO_DISPLAY_DEFAULT.min(water_years_len);
                 if idx_max <= 2 {
                     info!("skipping station: {reservoir_id}; water_years_len: {water_years_len}");
-                    let _ = reservoir_vector
-                        .extract_if(|r| r.station_id == reservoir_id)
-                        .collect::<Vec<_>>();
-                    let mut r_clone = reservoir_id.clone();
-                    let _ = station_ids_sorted
-                        .extract_if(|s| {
-                            let r_id_mut = r_clone.as_mut();
-                            let s_str_mut = s.as_mut();
-                            s_str_mut.eq(&r_id_mut)
-                        })
-                        .collect::<Vec<_>>();
+                    // Replace reservoir_vector extract_if with partition
+                    let (remaining_reservoirs, _removed): (Vec<_>, Vec<_>) = reservoir_vector
+                        .into_iter()
+                        .partition(|r| r.station_id != reservoir_id);
+                    reservoir_vector = remaining_reservoirs;
+    
+                    // Replace station_ids_sorted extract_if with partition
+                    let (remaining_stations, _removed): (Vec<_>, Vec<_>) = station_ids_sorted
+                        .into_iter()
+                        .partition(|s| s != &reservoir_id);
+                    station_ids_sorted = remaining_stations;
+                    
                     continue;
                 }
                 info!("using station: {reservoir_id}; water_years_len: {water_years_len}");

@@ -1,5 +1,3 @@
-#![feature(extract_if)]
-
 pub mod peruse;
 pub mod query;
 pub mod run;

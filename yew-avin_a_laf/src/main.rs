@@ -1,4 +1,3 @@
-#![feature(extract_if)]
 use cdec::{
     observable::{CompressedSurveyBuilder, InterpolateObservableRanges, ObservableRange},
     reservoir::Reservoir,
@@ -123,13 +122,16 @@ impl<'a> ObservationsModel {
         let mut vec_observable_range: Vec<ObservableRange> = vec![observable_range];
         vec_observable_range.interpolate_reservoir_observations();
         if let Some(observable_range) = vec_observable_range.first_mut() {
-            self.selected_reservoir_data = observable_range
+            let (matching_data, _): (Vec<_>, Vec<_>) = observable_range
                 .observations
-                .extract_if(|survey| {
+                .clone()
+                .into_iter()
+                .partition(|survey| {
                     let date_observation = survey.get_tap().date_observation;
                     self.start_date <= date_observation && date_observation <= self.end_date
-                })
-                .collect::<Vec<_>>();
+                });
+            self.selected_reservoir_data = matching_data;
+            // observable_range.observations = remaining;
         };
     }
 

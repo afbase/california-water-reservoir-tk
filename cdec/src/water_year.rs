@@ -54,17 +54,6 @@ impl NormalizeWaterYears for Vec<WaterYear> {
                 let day = obs_date.day();
                 !matches!((month, day), (2, 29))
             });
-            // for water_year in self {
-            //     // get rid of feb_29
-            //     let _ = water_year
-            //         .0
-            //         .extract_if(|survey| {
-            //             let obs_date = survey.date_observation();
-            //             let month = obs_date.month();
-            //             let day = obs_date.day();
-            //             matches!((month, day), (2, 29))
-            //         })
-            //         .collect::<Vec<_>>();
             // turn date_recording into date_observation of the original date
             // California’s water year runs from October 1 to September 30 and is the official 12-month timeframe
             for survey in &mut water_year.0 {
@@ -232,11 +221,11 @@ impl NormalizeCalendarYear for WaterYear {
             tap.date_observation = normalized_naive_date;
         }
         // get rid of feb_29
-        let _ = self.0.extract_if(|survey| {
+        let _ = self.0.retain(|survey| {
             let obs_date = survey.date_observation();
             let month = obs_date.month();
             let day = obs_date.day();
-            matches!((month, day), (2, 29))
+            !matches!((month, day), (2, 29)) // Note the ! to invert the condition
         });
     }
 }
@@ -249,14 +238,14 @@ impl WaterYear {
         let reservoirs = Reservoir::get_reservoir_vector();
         for reservoir in reservoirs {
             let station_id = reservoir.station_id;
-            let mut surveys = observations
-                .extract_if(|survey| {
+            let (mut surveys, remaining): (Vec<_>, Vec<_>) =
+                observations.into_iter().partition(|survey| {
                     let tap = survey.get_tap();
                     let tap_station_id = tap.station_id.clone();
                     tap_station_id == station_id
-                })
-                .collect::<Vec<_>>();
+                });
             surveys.sort();
+            observations = remaining;
             if surveys.is_empty() {
                 continue;
             }
@@ -270,13 +259,13 @@ impl WaterYear {
             for year in min_year..=max_year {
                 let start_of_year = NaiveDate::from_ymd_opt(year, 10, 1).unwrap();
                 let end_of_year = NaiveDate::from_ymd_opt(year + 1, 9, 30).unwrap();
-                let water_year_of_surveys = surveys
-                    .extract_if(|survey| {
+                let (water_year_of_surveys, remaining): (Vec<_>, Vec<_>) =
+                    surveys.into_iter().partition(|survey| {
                         let tap = survey.get_tap();
                         let obs_date = tap.date_observation;
                         start_of_year <= obs_date && obs_date <= end_of_year
-                    })
-                    .collect::<Vec<_>>();
+                    });
+                surveys = remaining;
                 water_years.push(WaterYear(water_year_of_surveys));
             }
             if water_years.len() >= NUMBER_OF_CHARTS_TO_DISPLAY_DEFAULT {

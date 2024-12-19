@@ -55,31 +55,30 @@ impl ReservoirObservations {
         let mut observations = records.records_to_surveys();
         let mut hash_map: HashMap<String, Self> = HashMap::new();
         let reservoirs = Reservoir::get_reservoir_vector();
+        
         for reservoir in reservoirs {
             let station_id = reservoir.station_id;
-            let mut surveys = observations
-                .extract_if(|survey| {
+            
+            // Replace extract_if with partition
+            let (matching_surveys, remaining_observations): (Vec<_>, Vec<_>) = observations
+                .into_iter()
+                .partition(|survey| {
                     let tap = survey.get_tap();
                     let tap_station_id = tap.station_id.clone();
                     tap_station_id == station_id
-                })
-                .collect::<Vec<_>>();
+                });
+            observations = remaining_observations;
+            
+            let mut surveys = matching_surveys;
             surveys.sort();
+            
             if surveys.is_empty() {
                 continue;
             }
+            
             let surveys_len = surveys.len();
             let start_date = surveys[0].get_tap().date_observation;
             let end_date = surveys[surveys_len - 1].get_tap().date_observation;
-
-            // // okay this part below is a bit wonky and lazy
-            // let mut observable_range = ObservableRange::new(start_date, end_date);
-            // observable_range.observations = surveys;
-            // let mut vec_observable_range = vec![observable_range];
-            // vec_observable_range.interpolate_reservoir_observations();
-            // let observable_range = &vec_observable_range[0];
-            // let surveys = observable_range.observations.clone();
-            // // okay this part above is a bit wonky and lazy
 
             let reservoir_observations = ReservoirObservations {
                 observations: surveys,
@@ -96,19 +95,27 @@ impl ReservoirObservations {
         let mut observations = records.records_to_surveys();
         let mut hash_map: HashMap<String, Self> = HashMap::new();
         let reservoirs = Reservoir::get_reservoir_vector();
+        
         for reservoir in reservoirs {
             let station_id = reservoir.station_id;
-            let mut surveys = observations
-                .extract_if(|survey| {
+            
+            // Replace extract_if with partition
+            let (matching_surveys, remaining_observations): (Vec<_>, Vec<_>) = observations
+                .into_iter()
+                .partition(|survey| {
                     let tap = survey.get_tap();
                     let tap_station_id = tap.station_id.clone();
                     tap_station_id == station_id
-                })
-                .collect::<Vec<_>>();
+                });
+            observations = remaining_observations;
+            
+            let mut surveys = matching_surveys;
             surveys.sort();
+            
             if surveys.is_empty() {
                 continue;
             }
+            
             let surveys_len = surveys.len();
             let start_date = surveys[0].get_tap().date_observation;
             let end_date = surveys[surveys_len - 1].get_tap().date_observation;

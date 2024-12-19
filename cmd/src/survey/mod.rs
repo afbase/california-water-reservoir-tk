@@ -78,49 +78,5 @@ impl Run for Survey {
             }
             Some(file_path) => file_path,
         };
-        // 1. unzip reservoir input
-        // let mut observations = File::open(_existing_data_input_path).unwrap();
-        // let mut buffer: Vec<u8> = Vec::new();
-        // observations.read_to_end(&mut buffer).unwrap();
-        // let bytes = buffer.as_slice();
-        // let compressed_string_vectors = Observation::get_all_records_from_bytes(bytes);
-        // let mut observations = compressed_string_vectors.records_to_surveys();
-        // let mut hash_map: HashMap<String, ReservoirObservations> = HashMap::new();
-        // let reservoirs = Reservoir::get_reservoir_vector();
-        // for reservoir in reservoirs {
-        //     let station_id = reservoir.station_id;
-        //     let mut surveys = observations
-        //         .extract_if(|survey| {
-        //             let tap = survey.get_tap();
-        //             let tap_station_id = tap.station_id.clone();
-        //             tap_station_id == station_id
-        //         })
-        //         .collect::<Vec<_>>();
-        //     surveys.sort();
-        //     if surveys.is_empty() {
-        //         continue;
-        //     }
-        //     let surveys_len = surveys.len();
-        //     let start_date = surveys[0].get_tap().date_observation;
-        //     let end_date = surveys[surveys_len - 1].get_tap().date_observation;
-
-        //     // // okay this part below is a bit wonky and lazy
-        //     // let mut observable_range = ObservableRange::new(start_date, end_date);
-        //     // observable_range.observations = surveys;
-        //     // let mut vec_observable_range = vec![observable_range];
-        //     // vec_observable_range.interpolate_reservoir_observations();
-        //     // let observable_range = &vec_observable_range[0];
-        //     // let surveys = observable_range.observations.clone();
-        //     // // okay this part above is a bit wonky and lazy
-
-        //     let reservoir_observations = ReservoirObservations {
-        //         observations: surveys,
-        //         start_date,
-        //         end_date,
-        //     };
-        //     hash_map.insert(station_id, reservoir_observations);
-        // }
-        // hash_map
-        // Need to
     }
 }
