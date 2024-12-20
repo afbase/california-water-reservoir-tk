@@ -221,7 +221,7 @@ impl NormalizeCalendarYear for WaterYear {
             tap.date_observation = normalized_naive_date;
         }
         // get rid of feb_29
-        let _ = self.0.retain(|survey| {
+        self.0.retain(|survey| {
             let obs_date = survey.date_observation();
             let month = obs_date.month();
             let day = obs_date.day();

@@ -241,13 +241,13 @@ impl Component for ObservationsModel {
                         .into_iter()
                         .partition(|r| r.station_id != reservoir_id);
                     reservoir_vector = remaining_reservoirs;
-    
+
                     // Replace station_ids_sorted extract_if with partition
                     let (remaining_stations, _removed): (Vec<_>, Vec<_>) = station_ids_sorted
                         .into_iter()
                         .partition(|s| s != &reservoir_id);
                     station_ids_sorted = remaining_stations;
-                    
+
                     continue;
                 }
                 info!("using station: {reservoir_id}; water_years_len: {water_years_len}");

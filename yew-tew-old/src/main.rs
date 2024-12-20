@@ -121,16 +121,17 @@ impl<'a> ObservationsModel {
             .clone_from(&self.selected_reservoir_data);
         let mut vec_observable_range: Vec<ObservableRange> = vec![observable_range];
         vec_observable_range.interpolate_reservoir_observations();
-        
+
         if let Some(observable_range) = vec_observable_range.first_mut() {
-            let (filtered_data, _) = observable_range
-                .observations
-                .clone()
-                .into_iter()
-                .partition(|survey| {
-                    let date_observation = survey.get_tap().date_observation;
-                    self.start_date <= date_observation && date_observation <= self.end_date
-                });
+            let (filtered_data, _) =
+                observable_range
+                    .observations
+                    .clone()
+                    .into_iter()
+                    .partition(|survey| {
+                        let date_observation = survey.get_tap().date_observation;
+                        self.start_date <= date_observation && date_observation <= self.end_date
+                    });
             self.selected_reservoir_data = filtered_data;
             // observable_range.observations = remaining;
         };

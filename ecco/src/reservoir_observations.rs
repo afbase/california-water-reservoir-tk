@@ -55,27 +55,26 @@ impl ReservoirObservations {
         let mut observations = records.records_to_surveys();
         let mut hash_map: HashMap<String, Self> = HashMap::new();
         let reservoirs = Reservoir::get_reservoir_vector();
-        
+
         for reservoir in reservoirs {
             let station_id = reservoir.station_id;
-            
+
             // Replace extract_if with partition
-            let (matching_surveys, remaining_observations): (Vec<_>, Vec<_>) = observations
-                .into_iter()
-                .partition(|survey| {
+            let (matching_surveys, remaining_observations): (Vec<_>, Vec<_>) =
+                observations.into_iter().partition(|survey| {
                     let tap = survey.get_tap();
                     let tap_station_id = tap.station_id.clone();
                     tap_station_id == station_id
                 });
             observations = remaining_observations;
-            
+
             let mut surveys = matching_surveys;
             surveys.sort();
-            
+
             if surveys.is_empty() {
                 continue;
             }
-            
+
             let surveys_len = surveys.len();
             let start_date = surveys[0].get_tap().date_observation;
             let end_date = surveys[surveys_len - 1].get_tap().date_observation;
@@ -95,27 +94,26 @@ impl ReservoirObservations {
         let mut observations = records.records_to_surveys();
         let mut hash_map: HashMap<String, Self> = HashMap::new();
         let reservoirs = Reservoir::get_reservoir_vector();
-        
+
         for reservoir in reservoirs {
             let station_id = reservoir.station_id;
-            
+
             // Replace extract_if with partition
-            let (matching_surveys, remaining_observations): (Vec<_>, Vec<_>) = observations
-                .into_iter()
-                .partition(|survey| {
+            let (matching_surveys, remaining_observations): (Vec<_>, Vec<_>) =
+                observations.into_iter().partition(|survey| {
                     let tap = survey.get_tap();
                     let tap_station_id = tap.station_id.clone();
                     tap_station_id == station_id
                 });
             observations = remaining_observations;
-            
+
             let mut surveys = matching_surveys;
             surveys.sort();
-            
+
             if surveys.is_empty() {
                 continue;
             }
-            
+
             let surveys_len = surveys.len();
             let start_date = surveys[0].get_tap().date_observation;
             let end_date = surveys[surveys_len - 1].get_tap().date_observation;

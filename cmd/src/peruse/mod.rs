@@ -69,9 +69,7 @@ impl Run for Peruse {
         };
         info!("end date: {:?}", end_date_final);
         let start_date_final = match self.start_date {
-            None => {
-                NaiveDate::from_ymd_opt(1925, 1, 1).unwrap()
-            }
+            None => NaiveDate::from_ymd_opt(1925, 1, 1).unwrap(),
             Some(start_date_string) => {
                 match NaiveDate::parse_from_str(start_date_string.as_str(), "%Y-%m-%d") {
                     Ok(d) => d,
@@ -122,22 +120,21 @@ impl Run for Peruse {
                     .collect::<Vec<_>>();
                 let mut hash_map: HashMap<String, ReservoirObservations> = HashMap::new();
                 let reservoirs = Reservoir::get_reservoir_vector();
-                
+
                 for reservoir in reservoirs {
                     let station_id = reservoir.station_id;
-                    let (surveys, remaining_observations): (Vec<_>, Vec<_>) = observations
-                        .into_iter()
-                        .partition(|survey| {
+                    let (surveys, remaining_observations): (Vec<_>, Vec<_>) =
+                        observations.into_iter().partition(|survey| {
                             let tap = survey.get_tap();
                             let tap_station_id = tap.station_id.clone();
                             tap_station_id == station_id
                         });
                     observations = remaining_observations;
-                    
+
                     if surveys.is_empty() {
                         continue;
                     }
-                    
+
                     let mut surveys = surveys;
                     surveys.sort();
                     let surveys_len = surveys.len();
@@ -151,7 +148,7 @@ impl Run for Peruse {
                     };
                     hash_map.insert(station_id, reservoir_observations);
                 }
-                
+
                 let water_years_from_observable_ranges =
                     hash_map.get_water_years_from_reservoir_observations();
 
@@ -169,7 +166,7 @@ impl Run for Peruse {
                 let water_years_fs =
                     std::fs::File::create(water_years_file_path.as_path()).unwrap();
                 to_writer(water_years_fs, &hash_map).expect("failed to write water years file");
-                
+
                 let min_max_fs = std::fs::File::create(min_max_file_path.as_path()).unwrap();
                 to_writer(min_max_fs, &water_statistics).expect("failed to write min_max file");
             }
@@ -183,22 +180,21 @@ impl Run for Peruse {
                     .collect::<Vec<_>>();
                 let mut hash_map: HashMap<String, ReservoirObservations> = HashMap::new();
                 let reservoirs = Reservoir::get_reservoir_vector();
-                
+
                 for reservoir in reservoirs {
                     let station_id = reservoir.station_id;
-                    let (surveys, remaining_observations): (Vec<_>, Vec<_>) = observations
-                        .into_iter()
-                        .partition(|survey| {
+                    let (surveys, remaining_observations): (Vec<_>, Vec<_>) =
+                        observations.into_iter().partition(|survey| {
                             let tap = survey.get_tap();
                             let tap_station_id = tap.station_id.clone();
                             tap_station_id == station_id
                         });
                     observations = remaining_observations;
-                    
+
                     if surveys.is_empty() {
                         continue;
                     }
-                    
+
                     let mut surveys = surveys;
                     surveys.sort();
                     let surveys_len = surveys.len();
@@ -212,7 +208,7 @@ impl Run for Peruse {
                     };
                     hash_map.insert(station_id, reservoir_observations);
                 }
-                
+
                 let water_years_fs =
                     std::fs::File::create(water_years_file_path.as_path()).unwrap();
                 to_writer(water_years_fs, &hash_map).expect("failed to write water years file");
@@ -227,22 +223,21 @@ impl Run for Peruse {
                     .collect::<Vec<_>>();
                 let mut hash_map: HashMap<String, ReservoirObservations> = HashMap::new();
                 let reservoirs = Reservoir::get_reservoir_vector();
-                
+
                 for reservoir in reservoirs {
                     let station_id = reservoir.station_id;
-                    let (surveys, remaining_observations): (Vec<_>, Vec<_>) = observations
-                        .into_iter()
-                        .partition(|survey| {
+                    let (surveys, remaining_observations): (Vec<_>, Vec<_>) =
+                        observations.into_iter().partition(|survey| {
                             let tap = survey.get_tap();
                             let tap_station_id = tap.station_id.clone();
                             tap_station_id == station_id
                         });
                     observations = remaining_observations;
-                    
+
                     if surveys.is_empty() {
                         continue;
                     }
-                    
+
                     let mut surveys = surveys;
                     surveys.sort();
                     let surveys_len = surveys.len();
@@ -256,7 +251,7 @@ impl Run for Peruse {
                     };
                     hash_map.insert(station_id, reservoir_observations);
                 }
-                
+
                 let water_years_from_observable_ranges =
                     hash_map.get_water_years_from_reservoir_observations();
 
@@ -270,7 +265,7 @@ impl Run for Peruse {
                         (station_id, water_statistics)
                     })
                     .collect::<HashMap<String, Vec<WaterYearStatistics>>>();
-                
+
                 let min_max_fs = std::fs::File::create(min_max_file_path.as_path()).unwrap();
                 to_writer(min_max_fs, &water_statistics).expect("failed to write min_max file");
             }
