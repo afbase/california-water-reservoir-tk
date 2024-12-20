@@ -69,7 +69,7 @@ impl Run for Peruse {
         };
         info!("end date: {:?}", end_date_final);
         let start_date_final = match self.start_date {
-            None => NaiveDate::from_ymd_opt(1925, 1, 1).unwrap(),
+            None => NaiveDate::from_ymd_opt(1924, 12, 30).unwrap(),
             Some(start_date_string) => {
                 match NaiveDate::parse_from_str(start_date_string.as_str(), "%Y-%m-%d") {
                     Ok(d) => d,

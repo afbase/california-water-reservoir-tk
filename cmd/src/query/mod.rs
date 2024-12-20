@@ -70,7 +70,7 @@ impl Run for Query {
             None => {
                 //Oldest Reservoir Record is
                 //LGT,Lagunitas,Lagunitas Lake,Lagunitas Creek,341,1925
-                NaiveDate::from_ymd_opt(1925, 1, 1).unwrap()
+                NaiveDate::from_ymd_opt(1924, 12, 30).unwrap()
             }
             Some(start_date_string) => {
                 match NaiveDate::parse_from_str(start_date_string.as_str(), "%Y-%m-%d") {
