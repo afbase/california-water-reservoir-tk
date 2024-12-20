@@ -13,17 +13,17 @@ use wasm_bindgen::JsCast;
 use yew::prelude::*;
 
 const DATE_FORMAT: &str = "%Y-%m-%d";
-const END_DATE_NAME: &str = "end-date-yew-tew-old";
-const START_DATE_NAME: &str = "start-date-yew-tew-old";
-const DIV_END_DATE_NAME: &str = "div-end-date-yew-tew-old";
-const DIV_START_DATE_NAME: &str = "div-start-date-yew-tew-old";
-const ELEMENT_ID: &str = "svg-chart-yew-tew-old";
-const DIV_BLOG_NAME: &str = "yew-tew-old";
+const END_DATE_NAME: &str = "end-date-yew-tew";
+const START_DATE_NAME: &str = "start-date-yew-tew";
+const DIV_END_DATE_NAME: &str = "div-end-date-yew-tew";
+const DIV_START_DATE_NAME: &str = "div-start-date-yew-tew";
+const ELEMENT_ID: &str = "svg-chart-yew-tew";
+const DIV_BLOG_NAME: &str = "yew-tew";
 const START_DATE_STRING: &str = "Start Date: ";
 const END_DATE_STRING: &str = "End Date: ";
-const DIV_RESERVOIR_SELECTION_ID: &str = "div-reservoir-selections-yew-tew-old";
+const DIV_RESERVOIR_SELECTION_ID: &str = "div-reservoir-selections-yew-tew";
 const SELECT_RESERVOIR_TEXT: &str = "Select Reservoir: ";
-const RESERVOIR_SELECTION_ID: &str = "reservoir-selections-yew-tew-old";
+const RESERVOIR_SELECTION_ID: &str = "reservoir-selections-yew-tew";
 
 #[derive(Debug, Clone)]
 struct ObservationsModel {

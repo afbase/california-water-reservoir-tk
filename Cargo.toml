@@ -9,7 +9,7 @@ members = [
     "vectorize",
     "yew-avin_a_laf", 
     "yew-nani",
-    "yew-tew-old",
+    "yew-tew",
     "yew-wot_m8", 
     "yew-wu",
     "yew-wu-v2",]
