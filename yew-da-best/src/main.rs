@@ -9,12 +9,12 @@ use wasm_bindgen::JsCast;
 use yew::prelude::*;
 
 const DATE_FORMAT: &str = "%Y-%m-%d";
-const END_DATE_NAME: &str = "end-date-yew-wu-v2";
-const START_DATE_NAME: &str = "start-date-yew-wu-v2";
-const DIV_END_DATE_NAME: &str = "div-end-date-yew-wu-v2";
-const DIV_START_DATE_NAME: &str = "div-start-date-yew-wu-v2";
-const ELEMENT_ID: &str = "svg-chart-yew-wu-v2";
-const DIV_BLOG_NAME: &str = "yew-wu-v2";
+const END_DATE_NAME: &str = "end-date-yew-da-best";
+const START_DATE_NAME: &str = "start-date-yew-da-best";
+const DIV_END_DATE_NAME: &str = "div-end-date-yew-da-best";
+const DIV_START_DATE_NAME: &str = "div-start-date-yew-da-best";
+const ELEMENT_ID: &str = "svg-chart-yew-da-best";
+const DIV_BLOG_NAME: &str = "yew-da-best";
 const START_DATE_STRING: &str = "Start Date: ";
 const END_DATE_STRING: &str = "End Date: ";
 

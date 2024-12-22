@@ -12,7 +12,7 @@ members = [
     "yew-tew",
     "yew-wot_m8", 
     "yew-wu",
-    "yew-wu-v2",]
+    "yew-da-best",]
 resolver = "2"
 
 [workspace.package]
