@@ -51,10 +51,12 @@ impl ReservoirObservations {
     }
 
     pub fn init_from_lzma_without_interpolation() -> HashMap<String, Self> {
-        let records: Vec<CompressedStringRecord> = Observation::get_all_records();
+        let records: Vec<CompressedStringRecord> = Observation::get_all_records()
+            .expect("Failed to load embedded observation records");
         let mut observations = records.records_to_surveys();
         let mut hash_map: HashMap<String, Self> = HashMap::new();
-        let reservoirs = Reservoir::get_reservoir_vector();
+        let reservoirs = Reservoir::get_reservoir_vector()
+            .expect("Failed to load embedded reservoir data");
 
         for reservoir in reservoirs {
             let station_id = reservoir.station_id;
@@ -90,10 +92,12 @@ impl ReservoirObservations {
     }
 
     pub fn init_from_lzma() -> HashMap<String, Self> {
-        let records: Vec<CompressedStringRecord> = Observation::get_all_records();
+        let records: Vec<CompressedStringRecord> = Observation::get_all_records()
+            .expect("Failed to load embedded observation records");
         let mut observations = records.records_to_surveys();
         let mut hash_map: HashMap<String, Self> = HashMap::new();
-        let reservoirs = Reservoir::get_reservoir_vector();
+        let reservoirs = Reservoir::get_reservoir_vector()
+            .expect("Failed to load embedded reservoir data");
 
         for reservoir in reservoirs {
             let station_id = reservoir.station_id;
@@ -149,7 +153,8 @@ impl GetWaterYears for HashMap<String, ReservoirObservations> {
         for (station_id, reservoir_observations) in self {
             let observable_range: ObservableRange =
                 reservoir_observations.observations.clone().into();
-            let water_years = WaterYear::water_years_from_observable_range(&observable_range);
+            let water_years = WaterYear::water_years_from_observable_range(&observable_range)
+                .expect("Failed to convert observations to water years");
             hash_map.insert(station_id.clone(), water_years);
         }
         hash_map

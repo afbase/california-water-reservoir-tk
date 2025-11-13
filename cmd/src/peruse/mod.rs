@@ -119,7 +119,8 @@ impl Run for Peruse {
                     .flat_map(|observation_range| observation_range.observations)
                     .collect::<Vec<_>>();
                 let mut hash_map: HashMap<String, ReservoirObservations> = HashMap::new();
-                let reservoirs = Reservoir::get_reservoir_vector();
+                let reservoirs = Reservoir::get_reservoir_vector()
+                    .expect("Failed to load embedded reservoir data");
 
                 for reservoir in reservoirs {
                     let station_id = reservoir.station_id;
@@ -150,7 +151,8 @@ impl Run for Peruse {
                 }
 
                 let water_years_from_observable_ranges =
-                    hash_map.get_water_years_from_reservoir_observations();
+                    hash_map.get_water_years_from_reservoir_observations()
+                        .expect("Failed to convert observations to water years");
 
                 let water_statistics = water_years_from_observable_ranges
                     .into_iter()
@@ -179,7 +181,8 @@ impl Run for Peruse {
                     .flat_map(|observation_range| observation_range.observations)
                     .collect::<Vec<_>>();
                 let mut hash_map: HashMap<String, ReservoirObservations> = HashMap::new();
-                let reservoirs = Reservoir::get_reservoir_vector();
+                let reservoirs = Reservoir::get_reservoir_vector()
+                    .expect("Failed to load embedded reservoir data");
 
                 for reservoir in reservoirs {
                     let station_id = reservoir.station_id;
@@ -222,7 +225,8 @@ impl Run for Peruse {
                     .flat_map(|observation_range| observation_range.observations)
                     .collect::<Vec<_>>();
                 let mut hash_map: HashMap<String, ReservoirObservations> = HashMap::new();
-                let reservoirs = Reservoir::get_reservoir_vector();
+                let reservoirs = Reservoir::get_reservoir_vector()
+                    .expect("Failed to load embedded reservoir data");
 
                 for reservoir in reservoirs {
                     let station_id = reservoir.station_id;
@@ -253,7 +257,8 @@ impl Run for Peruse {
                 }
 
                 let water_years_from_observable_ranges =
-                    hash_map.get_water_years_from_reservoir_observations();
+                    hash_map.get_water_years_from_reservoir_observations()
+                        .expect("Failed to convert observations to water years");
 
                 let water_statistics = water_years_from_observable_ranges
                     .into_iter()

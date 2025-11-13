@@ -152,7 +152,8 @@ impl<'a> ObservationsModel {
             let water_year = &water_years_data[idx];
             // let survey_count = water_year.0.len();
             // date_recording is the original date in normalization
-            let (first, last) = water_year.calendar_year_from_normalized_water_year();
+            let (first, last) = water_year.calendar_year_from_normalized_water_year()
+                .expect("Failed to convert normalized water year to calendar year");
             // info!("{selected_reservoir} has {survey_count} surveys starting from {first} through {last}");
             let year_string = format!("{}-{}", first.year(), last.format("%y"));
             let final_legend_title_string = format!("{year_string} {legend_base}");
@@ -195,7 +196,8 @@ impl Component for ObservationsModel {
         info!("setting the reservoir observed keys");
         let reservoirs_observed = observations.keys().cloned().collect::<HashSet<_>>();
         info!("create reservoir vector");
-        let mut reservoir_vector = Reservoir::get_reservoir_vector();
+        let mut reservoir_vector = Reservoir::get_reservoir_vector()
+            .expect("Failed to load embedded reservoir data");
         let station_ids = reservoir_vector
             .iter()
             .map(|resy| resy.station_id.clone())
@@ -229,9 +231,12 @@ impl Component for ObservationsModel {
             vec_observable_range.interpolate_reservoir_observations();
             if let Some(observable_range) = vec_observable_range.first() {
                 let mut water_years =
-                    WaterYear::water_years_from_observable_range(observable_range);
-                water_years.normalize_dates();
-                water_years.sort_by_most_recent();
+                    WaterYear::water_years_from_observable_range(observable_range)
+                        .expect("Failed to convert observations to water years");
+                water_years.normalize_dates()
+                    .expect("Failed to normalize water year dates");
+                water_years.sort_by_most_recent()
+                    .expect("Failed to sort water years");
                 let water_years_len = water_years.len();
                 let idx_max = NUMBER_OF_CHARTS_TO_DISPLAY_DEFAULT.min(water_years_len);
                 if idx_max <= 2 {

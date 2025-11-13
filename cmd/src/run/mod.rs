@@ -21,7 +21,8 @@ pub async fn get_surveys_of_reservoirs(
     end_date: &NaiveDate,
 ) -> Vec<ObservableRange> {
     // 1. get observations from date range
-    let reservoirs = Reservoir::get_reservoir_vector();
+    let reservoirs = Reservoir::get_reservoir_vector()
+        .expect("Failed to load embedded reservoir data");
     let client = Client::new();
     let surveys = join_all(reservoirs.into_iter().map(|reservoir| {
         let client_ref = &client;
@@ -43,7 +44,8 @@ pub async fn get_surveys_of_reservoirs_v2(
     reservoir_list: &str,
 ) -> Vec<ObservableRange> {
     // 1. get observations from date range
-    let reservoirs = Reservoir::get_reservoir_vector_v2(reservoir_list);
+    let reservoirs = Reservoir::get_reservoir_vector_v2(reservoir_list)
+        .expect("Failed to load reservoir data");
     let client = Client::new();
     let surveys = join_all(reservoirs.into_iter().map(|reservoir| {
         let client_ref = &client;
@@ -61,6 +63,7 @@ pub async fn get_surveys_of_reservoirs_v2(
 
 pub async fn run_csv_v2(start_date: &NaiveDate, end_date: &NaiveDate) -> String {
     let reservoirs: HashMap<String, Reservoir> = Reservoir::get_reservoir_vector()
+        .expect("Failed to load embedded reservoir data")
         .iter()
         .map(|res| {
             let station = res.station_id.clone();

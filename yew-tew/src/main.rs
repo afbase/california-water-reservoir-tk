@@ -213,7 +213,8 @@ impl Component for ObservationsModel {
     type Properties = ();
     fn create(_ctx: &Context<Self>) -> Self {
         info!("create reservoir vector");
-        let reservoir_vector = Reservoir::get_reservoir_vector();
+        let reservoir_vector = Reservoir::get_reservoir_vector()
+            .expect("Failed to load embedded reservoir data");
         info!("un-lzma csv things");
         let observations = ReservoirObservations::init_from_lzma_without_interpolation()
             .into_iter()

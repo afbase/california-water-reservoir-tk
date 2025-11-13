@@ -24,7 +24,8 @@ pub struct WaterLevelObservations {
 impl WaterLevelObservations {
     /// this assumes everything has been tallied up already into total reservoir per day
     pub fn init_from_lzma_v3() -> Self {
-        let records: Vec<CumulativeSummedStringRecord> = Observation::get_all_records_v3();
+        let records: Vec<CumulativeSummedStringRecord> = Observation::get_all_records_v3()
+            .expect("Failed to load embedded cumulative records v3");
         let records_to_tuples = records.records_to_tuples();
         let mut btree = BTreeMap::new();
         for tuple in records_to_tuples {
@@ -46,7 +47,8 @@ impl WaterLevelObservations {
     }
     /// this assumes everything has been tallied up already into total reservoir per day
     pub fn init_from_lzma_v2() -> Self {
-        let records: Vec<CumulativeSummedStringRecord> = Observation::get_all_records_v2();
+        let records: Vec<CumulativeSummedStringRecord> = Observation::get_all_records_v2()
+            .expect("Failed to load embedded cumulative records v2");
         let records_to_tuples = records.records_to_tuples();
         let mut btree = BTreeMap::new();
         for tuple in records_to_tuples {
@@ -68,6 +70,7 @@ impl WaterLevelObservations {
     }
     pub fn init_from_lzma() -> Self {
         let reservoirs: HashMap<String, Reservoir> = Reservoir::get_reservoir_vector()
+            .expect("Failed to load embedded reservoir data")
             .iter()
             .map(|res| {
                 let station = res.station_id.clone();
@@ -77,7 +80,8 @@ impl WaterLevelObservations {
             .collect();
         let mut california_water_level_observations: BTreeMap<NaiveDate, u32> = BTreeMap::new();
         let mut observable_ranges_by_reservoir: BTreeMap<String, Vec<Survey>> = BTreeMap::new();
-        let records: Vec<CompressedStringRecord> = Observation::get_all_records();
+        let records: Vec<CompressedStringRecord> = Observation::get_all_records()
+            .expect("Failed to load embedded observation records");
         let observations = records.records_to_surveys();
         // needs to build observable ranges for each reservoir and then interpolate
         for survey in observations {

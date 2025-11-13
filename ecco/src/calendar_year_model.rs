@@ -14,7 +14,8 @@ pub struct CalendarYearModel {
 
 impl Default for CalendarYearModel {
     fn default() -> Self {
-        let reservoirs = Reservoir::get_reservoir_vector();
+        let reservoirs = Reservoir::get_reservoir_vector()
+            .expect("Failed to load embedded reservoir data");
         let observations_hash_map: HashMap<String, ReservoirObservations> =
             ReservoirObservations::init_from_lzma();
         let water_years_from_observable_range =
