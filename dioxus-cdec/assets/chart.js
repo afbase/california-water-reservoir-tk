@@ -1,27 +1,29 @@
-// D3.js chart implementation
-let chart = null;
+// D3.js chart implementation for Dioxus CDEC utility
+// This module is loaded via wasm-bindgen
 
-export function createChart(containerId, data, config) {
-    console.log('Creating chart with', data.length, 'data points');
+export function createD3Chart(containerId, dataJson) {
+    const data = JSON.parse(dataJson);
+    console.log('Creating D3 chart with', data.length, 'data points');
 
-    // Clear existing chart
     const container = document.getElementById(containerId);
     if (!container) {
         console.error('Chart container not found:', containerId);
         return;
     }
+
+    // Clear existing chart
     container.innerHTML = '';
 
     // Setup dimensions
-    const margin = config.margin;
-    const width = config.width - margin.left - margin.right;
-    const height = config.height - margin.top - margin.bottom;
+    const margin = {top: 20, right: 30, bottom: 70, left: 70};
+    const width = 900 - margin.left - margin.right;
+    const height = 500 - margin.top - margin.bottom;
 
     // Create SVG
-    const svg = d3.select(`#${containerId}`)
+    const svg = d3.select('#' + containerId)
         .append('svg')
-        .attr('width', config.width)
-        .attr('height', config.height)
+        .attr('width', width + margin.left + margin.right)
+        .attr('height', height + margin.top + margin.bottom)
         .append('g')
         .attr('transform', `translate(${margin.left},${margin.top})`);
 
@@ -147,6 +149,9 @@ export function createChart(containerId, data, config) {
             const bisect = d3.bisector(d => d.date).left;
             const x0 = x.invert(d3.pointer(event)[0]);
             const i = bisect(data, x0, 1);
+
+            if (i >= data.length) return;
+
             const d0 = data[i - 1];
             const d1 = data[i];
             const d = x0 - d0.date > d1.date - x0 ? d1 : d0;
@@ -156,16 +161,5 @@ export function createChart(containerId, data, config) {
             focus.select('.tooltip-value').text(d.value.toLocaleString() + ' AF');
         });
 
-    chart = { svg, data, x, y, line };
-    console.log('Chart created successfully');
-}
-
-export function updateChart(data) {
-    if (!chart) {
-        console.warn('Chart not initialized');
-        return;
-    }
-    console.log('Updating chart with', data.length, 'data points');
-    // For simplicity, recreate the chart
-    // In production, you'd update the existing chart for better performance
+    console.log('D3 chart created successfully');
 }
