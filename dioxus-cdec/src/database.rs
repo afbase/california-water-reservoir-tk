@@ -1,63 +1,104 @@
 use dioxus_logger::tracing::info;
-use serde::{Deserialize, Serialize};
+use rusqlite::Connection;
+use std::rc::Rc;
 
-const COMPRESSED_DATA: &[u8] = include_bytes!("../data/reservoir_data.json.zst");
+const COMPRESSED_DB: &[u8] = include_bytes!("../data/reservoir_data.db.zst");
 
-#[derive(Serialize, Deserialize)]
-struct DataFile {
-    observations: Vec<(String, u32)>,
+#[derive(Clone)]
+pub struct Database {
+    conn: Rc<Connection>,
 }
 
-#[derive(Clone, PartialEq)]
-pub struct Database {
-    data: Vec<(String, u32)>,
+// Manual PartialEq since Connection doesn't implement it
+impl PartialEq for Database {
+    fn eq(&self, other: &Self) -> bool {
+        Rc::ptr_eq(&self.conn, &other.conn)
+    }
 }
 
 impl Database {
     pub async fn new() -> Result<Self, String> {
-        info!("Decompressing data...");
+        info!("Decompressing SQLite database...");
 
-        // Decompress the data
-        let decompressed = zstd::decode_all(COMPRESSED_DATA)
-            .map_err(|e| format!("Failed to decompress data: {}", e))?;
+        // Decompress the database
+        let decompressed = zstd::decode_all(COMPRESSED_DB)
+            .map_err(|e| format!("Failed to decompress database: {}", e))?;
 
-        info!("Data decompressed, size: {} bytes", decompressed.len());
+        info!("Database decompressed, size: {} bytes", decompressed.len());
 
-        // Parse JSON
-        let data_file: DataFile = serde_json::from_slice(&decompressed)
-            .map_err(|e| format!("Failed to parse JSON: {}", e))?;
+        // Open SQLite database from memory
+        let conn = Connection::open_in_memory()
+            .map_err(|e| format!("Failed to create in-memory database: {}", e))?;
 
-        info!("Loaded {} observations", data_file.observations.len());
+        // Deserialize the database from bytes
+        unsafe {
+            let db_handle = conn.handle();
+            let result = rusqlite::ffi::sqlite3_deserialize(
+                db_handle,
+                b"main\0".as_ptr() as *const i8,
+                decompressed.as_ptr() as *mut u8,
+                decompressed.len() as i64,
+                decompressed.len() as i64,
+                rusqlite::ffi::SQLITE_DESERIALIZE_READONLY,
+            );
+
+            if result != rusqlite::ffi::SQLITE_OK {
+                return Err(format!("Failed to deserialize database: {}", result));
+            }
+
+            // Prevent decompressed from being freed
+            std::mem::forget(decompressed);
+        }
+
+        info!("SQLite database loaded successfully");
 
         Ok(Database {
-            data: data_file.observations,
+            conn: Rc::new(conn),
         })
     }
 
     pub async fn get_date_range(&self) -> Result<(String, String), String> {
-        if self.data.is_empty() {
-            return Err("No data available".to_string());
-        }
+        let conn = &self.conn;
 
-        let min_date = self.data.first()
-            .map(|(date, _)| date.clone())
-            .ok_or("Failed to get min date")?;
+        let min_date: String = conn
+            .query_row(
+                "SELECT date FROM observations ORDER BY date ASC LIMIT 1",
+                [],
+                |row| row.get(0),
+            )
+            .map_err(|e| format!("Failed to get min date: {}", e))?;
 
-        let max_date = self.data.last()
-            .map(|(date, _)| date.clone())
-            .ok_or("Failed to get max date")?;
+        let max_date: String = conn
+            .query_row(
+                "SELECT date FROM observations ORDER BY date DESC LIMIT 1",
+                [],
+                |row| row.get(0),
+            )
+            .map_err(|e| format!("Failed to get max date: {}", e))?;
 
         Ok((min_date, max_date))
     }
 
     pub async fn get_data(&self, start_date: &str, end_date: &str) -> Result<Vec<(String, u32)>, String> {
-        let filtered: Vec<(String, u32)> = self.data
-            .iter()
-            .filter(|(date, _)| date.as_str() >= start_date && date.as_str() <= end_date)
-            .cloned()
-            .collect();
+        let conn = &self.conn;
 
-        info!("Retrieved {} data points for range {} to {}", filtered.len(), start_date, end_date);
-        Ok(filtered)
+        let mut stmt = conn
+            .prepare("SELECT date, water_level FROM observations WHERE date >= ?1 AND date <= ?2 ORDER BY date ASC")
+            .map_err(|e| format!("Failed to prepare query: {}", e))?;
+
+        let rows = stmt
+            .query_map([start_date, end_date], |row| {
+                Ok((row.get::<_, String>(0)?, row.get::<_, u32>(1)?))
+            })
+            .map_err(|e| format!("Failed to execute query: {}", e))?;
+
+        let mut data = Vec::new();
+        for row in rows {
+            let (date, water_level) = row.map_err(|e| format!("Failed to read row: {}", e))?;
+            data.push((date, water_level));
+        }
+
+        info!("Retrieved {} data points for range {} to {}", data.len(), start_date, end_date);
+        Ok(data)
     }
 }
