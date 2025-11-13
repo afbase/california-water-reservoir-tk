@@ -1,4 +1,5 @@
 use crate::{
+    error::{CdecError, Result},
     observable::{MonthDatum, Observable},
     observation::{DataRecording, Duration, Observation},
 };
@@ -197,22 +198,17 @@ impl From<CompressedStringRecord> for Survey {
 }
 
 impl std::convert::TryFrom<StringRecord> for Survey {
-    type Error = ();
-    fn try_from(value: StringRecord) -> Result<Self, Self::Error> {
-        let observation_result: Result<Observation, _> = value.try_into();
-        match observation_result {
-            Ok(obs) => {
-                let r: Survey = obs.into();
-                Ok(r)
-            }
-            _ => Err(()),
-        }
+    type Error = CdecError;
+    fn try_from(value: StringRecord) -> Result<Self> {
+        let observation: Observation = value.try_into()?;
+        let survey: Survey = observation.into();
+        Ok(survey)
     }
 }
 
 impl std::convert::TryFrom<Survey> for StringRecord {
     type Error = ();
-    fn try_from(value: Survey) -> Result<Self, Self::Error> {
+    fn try_from(value: Survey) -> std::result::Result<Self, Self::Error> {
         // VIL,D,15,STORAGE,20220218 0000,20220218 0000,9585, ,AF
         let tap = value.get_tap();
         let station_id_tmp = tap.station_id.clone();

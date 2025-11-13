@@ -115,6 +115,7 @@ impl ObservableRangeRunner for Vec<ObservableRange> {
     }
     fn run_csv_v2(&self) -> String {
         let reservoirs: HashMap<String, Reservoir> = Reservoir::get_reservoir_vector()
+            .expect("Failed to load embedded reservoir data")
             .iter()
             .map(|res| {
                 let station = res.station_id.clone();

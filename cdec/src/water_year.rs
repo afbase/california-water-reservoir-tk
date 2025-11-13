@@ -1,51 +1,84 @@
-use crate::observation::Observation;
-use crate::reservoir::Reservoir;
-use crate::survey::{CompressedStringRecord, VectorCompressedStringRecord};
+/// Water year calculations and normalization for California reservoir data
 use crate::{
-    normalized_naive_date::NormalizedNaiveDate, observable::ObservableRange, survey::Survey,
+    error::{CdecError, Result},
+    normalized_naive_date::NormalizedNaiveDate,
+    observable::ObservableRange,
+    observation::Observation,
+    reservoir::Reservoir,
+    survey::{Survey, VectorCompressedStringRecord},
 };
 use chrono::{DateTime, Datelike, Local, NaiveDate};
 use easy_cast::Cast;
 use serde::{Deserialize, Serialize};
 use std::cmp::Ordering::{Equal, Greater, Less};
 use std::collections::HashMap;
+
+/// Default number of water years to display in charts
 pub const NUMBER_OF_CHARTS_TO_DISPLAY_DEFAULT: usize = 20;
 
-/// California’s water year runs from October 1 to September 30 and is the official 12-month timeframe used by water managers to compile and compare hydrologic records.
+/// Minimum days required for a complete water year (approximately 12 months)
+pub const MIN_DAYS_FOR_COMPLETE_YEAR: usize = 364;
+
+/// California's water year runs from October 1 to September 30 and is the official
+/// 12-month timeframe used by water managers to compile and compare hydrologic records.
 #[derive(Debug, Clone, PartialEq, Eq, Hash)]
 pub struct WaterYear(pub Vec<Survey>);
 
+/// Statistical summary of a water year
 #[derive(Debug, Serialize, Deserialize)]
 pub struct WaterYearStatistics {
+    /// Water year (starts in October)
     pub year: i32,
+    /// Date of lowest water level
     pub date_lowest: NaiveDate,
+    /// Date of highest water level
     pub date_highest: NaiveDate,
+    /// Highest recorded value in acre-feet
     pub highest_value: f64,
+    /// Lowest recorded value in acre-feet
     pub lowest_value: f64,
 }
+
+/// Trait for normalizing calendar years in water year data
 pub trait NormalizeCalendarYear {
-    fn normalize_calendar_years(&mut self);
-}
-#[derive(Debug)]
-pub enum WaterYearErrors {
-    InsufficientWaterYears,
+    /// Normalizes all dates to a standard calendar year for comparison
+    fn normalize_calendar_years(&mut self) -> Result<()>;
 }
 
+/// Trait for normalizing and manipulating collections of water years
 pub trait NormalizeWaterYears {
-    fn normalize_dates(&mut self);
-    fn get_largest_acrefeet_over_n_years(&self, len: usize) -> Result<f64, WaterYearErrors>;
-    fn get_complete_normalized_water_years(&self) -> Self;
+    /// Normalizes dates across all water years
+    fn normalize_dates(&mut self) -> Result<()>;
+
+    /// Returns the largest acre-feet value over the first n years
+    ///
+    /// # Errors
+    ///
+    /// Returns `CdecError::InsufficientWaterYears` if there are no complete years
+    fn get_largest_acrefeet_over_n_years(&self, len: usize) -> Result<f64>;
+
+    /// Returns only complete, normalized water years
+    fn get_complete_normalized_water_years(&self) -> Result<Self>
+    where
+        Self: Sized;
+
+    /// Sorts by lowest recorded water levels (driest years first)
     fn sort_by_lowest_recorded_years(&mut self);
-    fn sort_by_most_recent(&mut self);
-    fn sort_surveys(&mut self);
+
+    /// Sorts by most recent water years first
+    fn sort_by_most_recent(&mut self) -> Result<()>;
+
+    /// Sorts surveys within each water year by date
+    fn sort_surveys(&mut self) -> Result<()>;
 }
 
 impl NormalizeWaterYears for Vec<WaterYear> {
-    fn normalize_dates(&mut self) {
+    fn normalize_dates(&mut self) -> Result<()> {
         self.retain(|water_year| {
             // keep the water year if it has at least ~12 months of data
-            water_year.0.len() >= 364
+            water_year.0.len() >= MIN_DAYS_FOR_COMPLETE_YEAR
         });
+
         for water_year in self.iter_mut() {
             // get rid of feb_29
             water_year.0.retain(|survey| {
@@ -54,188 +87,202 @@ impl NormalizeWaterYears for Vec<WaterYear> {
                 let day = obs_date.day();
                 !matches!((month, day), (2, 29))
             });
+
             // turn date_recording into date_observation of the original date
-            // California’s water year runs from October 1 to September 30 and is the official 12-month timeframe
+            // California's water year runs from October 1 to September 30
             for survey in &mut water_year.0 {
                 let tap = survey.tap();
                 tap.date_recording = tap.date_observation;
-                // California’s water year runs from October 1 to September 30 and is the official 12-month timeframe
+
                 let month = tap.date_observation.month();
                 let day = tap.date_observation.day();
                 let year = {
                     let dt: DateTime<Local> = Local::now();
-                    let (first_year, second_year) = {
-                        let this = &dt.naive_local().date();
-                        let year = this.year();
-                        (year - 1, year)
-                    };
+                    let current_year = dt.naive_local().date().year();
                     match month {
-                        10..=12 => first_year,
-                        _ => second_year,
+                        10..=12 => current_year - 1,
+                        _ => current_year,
                     }
                 };
-                match NaiveDate::from_ymd_opt(year, month, day) {
-                    Some(d) => {
-                        tap.date_observation = d;
-                    }
-                    None => {
-                        panic!("Normalize Date Failed: {year}/{month}/{day}");
-                    }
-                }
-                tap.date_observation = NaiveDate::from_ymd_opt(year, month, day).unwrap();
+
+                tap.date_observation = NaiveDate::from_ymd_opt(year, month, day)
+                    .ok_or_else(|| {
+                        CdecError::DateParse(format!(
+                            "Failed to create normalized date: {}/{}/{}",
+                            year, month, day
+                        ))
+                    })?;
             }
         }
+        Ok(())
     }
-    fn get_largest_acrefeet_over_n_years(&self, len: usize) -> Result<f64, WaterYearErrors> {
+    fn get_largest_acrefeet_over_n_years(&self, len: usize) -> Result<f64> {
         let number_of_charts = self.len().min(len);
-        if number_of_charts > 0 {
-            let largest_acrefeet = self[0..number_of_charts]
-                .to_vec()
-                .iter()
-                .map(|water_year| {
-                    let water_stat: WaterYearStatistics = water_year.into();
-                    water_stat.highest_value
-                })
-                .collect::<Vec<_>>();
-            let mut y_max: f64 = ((largest_acrefeet
-                .iter()
-                .max_by(|a, b| a.total_cmp(b))
-                .unwrap()
-                + 0.0) as i64)
-                .cast();
-            if y_max > 500000.0 {
-                y_max += 500000.0;
-            } else {
-                y_max += y_max / 5.0;
-            }
-            Ok(y_max)
-        } else {
-            Err(WaterYearErrors::InsufficientWaterYears)
+        if number_of_charts == 0 {
+            return Err(CdecError::InsufficientWaterYears {
+                needed: 1,
+                found: 0,
+            });
         }
+
+        let largest_acrefeet = self[0..number_of_charts]
+            .iter()
+            .map(|water_year| {
+                let water_stat: WaterYearStatistics = water_year.into();
+                water_stat.highest_value
+            })
+            .collect::<Vec<_>>();
+
+        let max_value = largest_acrefeet
+            .iter()
+            .max_by(|a, b| a.total_cmp(b))
+            .ok_or_else(|| CdecError::InvalidFormat("No valid water year data found".to_string()))?;
+
+        let mut y_max: f64 = ((*max_value + 0.0) as i64).cast();
+        if y_max > 500000.0 {
+            y_max += 500000.0;
+        } else {
+            y_max += y_max / 5.0;
+        }
+        Ok(y_max)
     }
 
-    fn get_complete_normalized_water_years(&self) -> Self {
+    fn get_complete_normalized_water_years(&self) -> Result<Self> {
         let mut vector_clone = self.clone();
         vector_clone.retain(|water_year| {
             // keep the water year if it has at least ~12 months of data
-            water_year.0.len() >= 364
+            water_year.0.len() >= MIN_DAYS_FOR_COMPLETE_YEAR
         });
         for water_year in &mut vector_clone {
-            water_year.normalize_calendar_years();
+            water_year.normalize_calendar_years()?;
         }
-        vector_clone
+        Ok(vector_clone)
     }
 
     fn sort_by_lowest_recorded_years(&mut self) {
         self.sort_by(|a, b| {
-            let a_surveys = &a.0;
-            let b_surveys = &b.0;
-            let a_min = {
-                let mut val = f64::MAX;
-                let mut other;
-                for survey in a_surveys {
-                    other = survey.get_value();
-                    val = val.min(other)
-                }
-                val
-            };
-            let b_min = {
-                let mut val = f64::MAX;
-                let mut other;
-                for survey in b_surveys {
-                    other = survey.get_value();
-                    val = val.min(other)
-                }
-                val
-            };
-            a_min.partial_cmp(&b_min).unwrap()
+            let a_min = a
+                .0
+                .iter()
+                .map(|survey| survey.get_value())
+                .fold(f64::MAX, f64::min);
+            let b_min = b
+                .0
+                .iter()
+                .map(|survey| survey.get_value())
+                .fold(f64::MAX, f64::min);
+            a_min.total_cmp(&b_min)
         });
     }
 
-    fn sort_by_most_recent(&mut self) {
+    fn sort_by_most_recent(&mut self) -> Result<()> {
         // use date recording
         self.sort_by(|a, b| {
-            let a_surveys = &a.0;
-            let b_surveys = &b.0;
-            let a_survey = a_surveys.first().unwrap();
-            let b_survey = b_surveys.first().unwrap();
-            let a_year = a_survey.get_tap().date_recording.year();
-            let b_year = b_survey.get_tap().date_recording.year();
-            a_year.partial_cmp(&b_year).unwrap()
+            let a_year = a
+                .0
+                .first()
+                .map(|survey| survey.get_tap().date_recording.year())
+                .unwrap_or(0);
+            let b_year = b
+                .0
+                .first()
+                .map(|survey| survey.get_tap().date_recording.year())
+                .unwrap_or(0);
+            a_year.cmp(&b_year)
         });
         self.reverse();
+        Ok(())
     }
 
-    fn sort_surveys(&mut self) {
+    fn sort_surveys(&mut self) -> Result<()> {
         for water_year in self {
             water_year.0.sort_by(|a, b| {
-                let a_tap = a.get_tap();
-                let b_tap = b.get_tap();
-                let a_date_recording = a_tap.date_recording;
-                let b_date_recording = b_tap.date_recording;
-                a_date_recording.partial_cmp(&b_date_recording).unwrap()
+                let a_date = a.get_tap().date_recording;
+                let b_date = b.get_tap().date_recording;
+                a_date.cmp(&b_date)
             });
         }
+        Ok(())
     }
 }
 
+/// Trait for cleaning and normalizing reservoir water year data
 pub trait CleanReservoirData {
-    fn get_clean_reservoir_water_years(&self, key: String) -> Option<Vec<WaterYear>>;
+    /// Returns complete, normalized water years for a specific reservoir
+    ///
+    /// # Errors
+    ///
+    /// Returns `CdecError::ReservoirNotFound` if the key doesn't exist
+    fn get_clean_reservoir_water_years(&self, key: &str) -> Result<Vec<WaterYear>>;
 }
 
 impl CleanReservoirData for HashMap<String, Vec<WaterYear>> {
-    fn get_clean_reservoir_water_years(&self, key: String) -> Option<Vec<WaterYear>> {
-        let test = self.get(&key);
-        if test.is_none() {
-            panic!("something is going on here");
-        }
-        test.map(|selected_reservoir_data| {
-            selected_reservoir_data.get_complete_normalized_water_years()
-        })
+    fn get_clean_reservoir_water_years(&self, key: &str) -> Result<Vec<WaterYear>> {
+        let water_years = self
+            .get(key)
+            .ok_or_else(|| CdecError::ReservoirNotFound(key.to_string()))?;
+        water_years.get_complete_normalized_water_years()
     }
 }
 
 impl NormalizeCalendarYear for WaterYear {
-    fn normalize_calendar_years(&mut self) {
+    fn normalize_calendar_years(&mut self) -> Result<()> {
         if !self.0.iter().is_sorted() {
             self.0.sort();
         }
+
         for survey in &mut self.0 {
             // turn date_recording into date_observation of the original date
             let tap = survey.tap();
             tap.date_recording = tap.date_observation;
-            // California’s water year runs from October 1 to September 30 and is the official 12-month timeframe
+
+            // California's water year runs from October 1 to September 30
             let month = tap.date_observation.month();
             let day = tap.date_observation.day();
             let normalized_year = NormalizedNaiveDate::derive_normalized_year(month);
-            let normalized_date =
-                NaiveDate::from_ymd_opt(normalized_year, month, day).map(|_| NormalizedNaiveDate {
+
+            if let Some(_) = NaiveDate::from_ymd_opt(normalized_year, month, day) {
+                let normalized_naive_date: NaiveDate = NormalizedNaiveDate {
                     year: normalized_year,
                     month,
                     day,
-                });
-            if normalized_date.is_none() {
-                continue;
+                }
+                .into();
+                tap.date_observation = normalized_naive_date;
             }
-            let normalized_naive_date: NaiveDate = normalized_date.unwrap().into();
-            tap.date_observation = normalized_naive_date;
+            // Skip invalid dates (like Feb 29 in non-leap years)
         }
+
         // get rid of feb_29
         self.0.retain(|survey| {
             let obs_date = survey.date_observation();
             let month = obs_date.month();
             let day = obs_date.day();
-            !matches!((month, day), (2, 29)) // Note the ! to invert the condition
+            !matches!((month, day), (2, 29))
         });
+
+        Ok(())
     }
 }
 
 impl WaterYear {
-    pub fn init_reservoirs_from_lzma_without_interpolation() -> HashMap<String, Vec<Self>> {
-        let records: Vec<CompressedStringRecord> = Observation::get_all_records();
+    /// Initializes all reservoirs from embedded LZMA data without interpolation
+    ///
+    /// Loads compressed observation data and organizes it by reservoir and water year.
+    ///
+    /// # Returns
+    ///
+    /// HashMap mapping station IDs to vectors of water years
+    ///
+    /// # Errors
+    ///
+    /// Returns errors if data loading or parsing fails
+    pub fn init_reservoirs_from_lzma_without_interpolation() -> Result<HashMap<String, Vec<Self>>> {
+        let records = Observation::get_all_records()?;
         let mut observations = records.records_to_surveys();
         let mut hash_map: HashMap<String, Vec<Self>> = HashMap::new();
-        let reservoirs = Reservoir::get_reservoir_vector();
+        let reservoirs = Reservoir::get_reservoir_vector()?;
+
         for reservoir in reservoirs {
             let station_id = reservoir.station_id;
             let (mut surveys, remaining): (Vec<_>, Vec<_>) =
@@ -246,19 +293,29 @@ impl WaterYear {
                 });
             surveys.sort();
             observations = remaining;
+
             if surveys.is_empty() {
                 continue;
             }
+
             let surveys_len = surveys.len();
             let start_date = surveys[0].get_tap().date_observation;
             let end_date = surveys[surveys_len - 1].get_tap().date_observation;
             let min_year = start_date.year() - 1;
             let max_year = end_date.year();
             let mut water_years: Vec<WaterYear> = Vec::new();
+
             // build vecs of water years
             for year in min_year..=max_year {
-                let start_of_year = NaiveDate::from_ymd_opt(year, 10, 1).unwrap();
-                let end_of_year = NaiveDate::from_ymd_opt(year + 1, 9, 30).unwrap();
+                let start_of_year = NaiveDate::from_ymd_opt(year, 10, 1)
+                    .ok_or_else(|| {
+                        CdecError::DateParse(format!("Invalid water year start: {}/10/1", year))
+                    })?;
+                let end_of_year = NaiveDate::from_ymd_opt(year + 1, 9, 30)
+                    .ok_or_else(|| {
+                        CdecError::DateParse(format!("Invalid water year end: {}/9/30", year + 1))
+                    })?;
+
                 let (water_year_of_surveys, remaining): (Vec<_>, Vec<_>) =
                     surveys.into_iter().partition(|survey| {
                         let tap = survey.get_tap();
@@ -268,27 +325,60 @@ impl WaterYear {
                 surveys = remaining;
                 water_years.push(WaterYear(water_year_of_surveys));
             }
+
             if water_years.len() >= NUMBER_OF_CHARTS_TO_DISPLAY_DEFAULT {
                 hash_map.insert(station_id, water_years);
             }
         }
-        hash_map
+        Ok(hash_map)
     }
 
-    pub fn calendar_year_from_normalized_water_year(&self) -> (NaiveDate, NaiveDate) {
-        // in a normalized water year - the date_recording has the original date_observation
-        // let mut surveys = self.0.clone();
-        let first_survey = self.0.first().unwrap();
-        let last_survey = self.0.last().unwrap();
+    /// Returns the calendar year date range for a normalized water year
+    ///
+    /// In a normalized water year, date_recording holds the original date_observation
+    ///
+    /// # Returns
+    ///
+    /// Tuple of (first_date, last_date)
+    ///
+    /// # Errors
+    ///
+    /// Returns error if the water year has no surveys
+    pub fn calendar_year_from_normalized_water_year(&self) -> Result<(NaiveDate, NaiveDate)> {
+        let first_survey = self
+            .0
+            .first()
+            .ok_or_else(|| CdecError::InvalidFormat("Water year has no surveys".to_string()))?;
+        let last_survey = self
+            .0
+            .last()
+            .ok_or_else(|| CdecError::InvalidFormat("Water year has no surveys".to_string()))?;
+
         let first_date = first_survey.get_tap().date_recording;
         let last_date = last_survey.get_tap().date_recording;
-        (first_date, last_date)
+        Ok((first_date, last_date))
     }
-    pub fn calendar_year_change(&mut self) -> f64 {
-        let _ = &self.0.sort();
-        let first_day = self.0.first().unwrap();
-        let last_day = self.0.last().unwrap();
-        (last_day.get_value() - first_day.get_value()).round()
+
+    /// Calculates the change in water level over the calendar year
+    ///
+    /// # Returns
+    ///
+    /// Change in acre-feet (rounded)
+    ///
+    /// # Errors
+    ///
+    /// Returns error if the water year has no surveys
+    pub fn calendar_year_change(&mut self) -> Result<f64> {
+        self.0.sort();
+        let first_day = self
+            .0
+            .first()
+            .ok_or_else(|| CdecError::InvalidFormat("Water year has no surveys".to_string()))?;
+        let last_day = self
+            .0
+            .last()
+            .ok_or_else(|| CdecError::InvalidFormat("Water year has no surveys".to_string()))?;
+        Ok((last_day.get_value() - first_day.get_value()).round())
     }
     // pub fn water_years_from_observable_range(water_observations: &ObservableRange) -> Vec<Self> {
     //     let min_year = water_observations.start_date.year() - 1;
@@ -317,17 +407,35 @@ impl WaterYear {
     //     hm.into_values().collect::<Vec<_>>()
     // }
 
-    // src/water_year.rs
+    /// Converts an ObservableRange into separate water years
+    ///
+    /// Splits observations by water year (Oct 1 - Sep 30) and filters out Feb 29.
+    ///
+    /// # Arguments
+    ///
+    /// * `water_observations` - Range of observations to split
+    ///
+    /// # Returns
+    ///
+    /// Vector of water years
+    ///
+    /// # Errors
+    ///
+    /// Returns error if date construction fails
     pub fn water_years_from_observable_range(
         water_observations: &ObservableRange,
-    ) -> Vec<WaterYear> {
+    ) -> Result<Vec<WaterYear>> {
         let min_year = water_observations.start_date.year() - 1;
         let max_year = water_observations.end_date.year();
         let mut water_years = Vec::new();
 
         for year in min_year..=max_year {
-            let start_of_year = NaiveDate::from_ymd_opt(year, 10, 1).unwrap();
-            let end_of_year = NaiveDate::from_ymd_opt(year + 1, 9, 30).unwrap();
+            let start_of_year = NaiveDate::from_ymd_opt(year, 10, 1).ok_or_else(|| {
+                CdecError::DateParse(format!("Invalid water year start: {}/10/1", year))
+            })?;
+            let end_of_year = NaiveDate::from_ymd_opt(year + 1, 9, 30).ok_or_else(|| {
+                CdecError::DateParse(format!("Invalid water year end: {}/9/30", year + 1))
+            })?;
 
             let water_calendar_year_of_observations: Vec<_> = water_observations
                 .observations
@@ -351,7 +459,7 @@ impl WaterYear {
             }
         }
 
-        water_years
+        Ok(water_years)
     }
 }
 
@@ -365,10 +473,15 @@ impl From<WaterYear> for WaterYearStatistics {
                     let date_observation = survey.get_tap().date_observation;
                     let date_observation_year = date_observation.year();
                     // if date precedes water calendar year, then it is year minus 1
-                    let start_of_year =
-                        NaiveDate::from_ymd_opt(date_observation_year, 10, 1).unwrap();
-                    if date_observation < start_of_year {
-                        date_observation_year - 1
+                    // Oct 1 should always be valid, but provide fallback to current year
+                    if let Some(start_of_year) =
+                        NaiveDate::from_ymd_opt(date_observation_year, 10, 1)
+                    {
+                        if date_observation < start_of_year {
+                            date_observation_year - 1
+                        } else {
+                            date_observation_year
+                        }
                     } else {
                         date_observation_year
                     }
@@ -401,14 +514,12 @@ impl From<&WaterYear> for WaterYearStatistics {
     }
 }
 
-// let mut floats = [5f64, 4.0, 1.0, 3.0, 2.0];
-// floats.sort_by(|a, b| a.partial_cmp(b).unwrap());
-// assert_eq!(floats, [1.0, 2.0, 3.0, 4.0, 5.0]);
+/// Sorts surveys by their water level values in ascending order
 fn sort_by_values_ascending(surveys: &mut [Survey]) {
     surveys.sort_by(|survey_a, survey_b| {
         let a = survey_a.get_value();
         let b = survey_b.get_value();
-        a.partial_cmp(&b).unwrap()
+        a.total_cmp(&b)
     });
 }
 
@@ -481,7 +592,7 @@ mod tests {
         };
 
         let actual: HashSet<WaterYear> =
-            HashSet::from_iter(WaterYear::water_years_from_observable_range(&obs));
+            HashSet::from_iter(WaterYear::water_years_from_observable_range(&obs).unwrap());
         let expected: HashSet<WaterYear> = HashSet::from_iter(vec![
             WaterYear(vec![Survey::Daily(Tap {
                 station_id: String::new(),
@@ -525,9 +636,9 @@ mod tests {
         }
         let actual_observable_range: ObservableRange = surveys.into();
         let mut actual_water_years =
-            WaterYear::water_years_from_observable_range(&actual_observable_range);
+            WaterYear::water_years_from_observable_range(&actual_observable_range).unwrap();
         for water_year in &mut actual_water_years {
-            water_year.normalize_calendar_years();
+            water_year.normalize_calendar_years().unwrap();
         }
         // make expected
         let dt: DateTime<Local> = Local::now();
@@ -548,7 +659,7 @@ mod tests {
         }
         let expected_observable_range: ObservableRange = surveys.into();
         let expected_water_years =
-            WaterYear::water_years_from_observable_range(&expected_observable_range);
+            WaterYear::water_years_from_observable_range(&expected_observable_range).unwrap();
         assert_eq!(actual_water_years, expected_water_years);
     }
     #[test]
@@ -578,9 +689,9 @@ mod tests {
         }
         let actual_observable_range: ObservableRange = surveys.into();
         let mut actual_water_years =
-            WaterYear::water_years_from_observable_range(&actual_observable_range);
+            WaterYear::water_years_from_observable_range(&actual_observable_range).unwrap();
         for water_year in &mut actual_water_years {
-            water_year.normalize_calendar_years();
+            water_year.normalize_calendar_years().unwrap();
         }
         // make expected
         let dt: DateTime<Local> = Local::now();
@@ -601,10 +712,10 @@ mod tests {
         }
         let expected_observable_range: ObservableRange = surveys.into();
         let mut expected_water_years =
-            WaterYear::water_years_from_observable_range(&expected_observable_range);
+            WaterYear::water_years_from_observable_range(&expected_observable_range).unwrap();
         // 2024 was a leap year and breaks the test
         for water_year in &mut expected_water_years {
-            water_year.normalize_calendar_years();
+            water_year.normalize_calendar_years().unwrap();
         }
         // Note that expected_water_years may have a record that looks like
         // Daily(Tap { station_id: "", date_observation: 2024-09-30, date_recording: 2024-09-30, value: Recording(3) })
