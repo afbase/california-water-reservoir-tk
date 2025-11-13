@@ -6,24 +6,27 @@ A modern web application for visualizing California water reservoir data using *
 
 - ✅ **Dioxus 0.7.1** - Modern Rust web framework for WASM
 - ✅ **D3.js** - Interactive data visualization
-- ✅ **Zstd Compression** - Efficient data storage (138 KB compressed from 823 KB JSON)
+- ✅ **SQLite WASM** - In-memory database with SQL queries (rusqlite)
+- ✅ **Zstd Compression** - Efficient data storage (359 KB compressed from 2.2 MB)
 - ✅ **Pure WASM** - Compiled for `wasm32-unknown-unknown` target
 - ✅ **GitHub Pages Ready** - Static deployment with no backend required
-- ✅ **In-Memory Data** - Compressed JSON embedded in WASM binary
+- ✅ **In-Memory Database** - Compressed SQLite DB embedded in WASM binary
 
 ## Architecture
 
 ### Data Storage
-Instead of using a large LZMA blob or complex SQLite WASM setup, this implementation uses:
-- **JSON data** extracted from CDEC cumulative observations
-- **Zstd compression** (16.71% compression ratio)
-- **`include_bytes!` macro** to embed compressed data in the WASM binary
-- **In-memory decompression** on app startup
+This implementation uses a proper SQLite WASM database:
+- **SQLite database** with indexed observations table
+- **Zstd compression** (15.6% compression ratio: 359 KB from 2.2 MB)
+- **`include_bytes!` macro** to embed compressed DB in the WASM binary
+- **In-memory decompression** on app startup using `sqlite3_deserialize`
+- **rusqlite** for safe Rust SQL API (trevyn's wasm32-unknown-unknown branch)
 
 ### Tech Stack
 - **Frontend Framework**: Dioxus 0.7.1 (web platform)
+- **Database**: SQLite WASM (rusqlite with bundled feature)
 - **Visualization**: D3.js v7 (via wasm-bindgen module imports)
-- **Data Format**: Zstd-compressed JSON
+- **Data Format**: Zstd-compressed SQLite database
 - **Build Target**: wasm32-unknown-unknown
 - **Deployment**: GitHub Pages (static files)
 - **JS Interop**: wasm-bindgen module system (no eval, proper FFI bindings)
@@ -107,22 +110,23 @@ This structure makes it easy to extend with new views:
 
 1. **Build Time**:
    - Extract CSV from `cumulative_v2.tar.lzma`
-   - Convert to JSON format
+   - Create SQLite database with indexed table
    - Compress with zstd
    - Embed in WASM binary via `include_bytes!`
 
 2. **Runtime**:
-   - Decompress JSON data in browser
-   - Parse observations into memory
-   - Filter by date range
+   - Decompress SQLite database in browser
+   - Deserialize into in-memory SQLite connection
+   - Query with SQL (indexed lookups)
    - Render with D3.js
 
 ## Performance
 
-- **Compressed data**: 138 KB
-- **Uncompressed data**: 823 KB (35,930 observations)
+- **Compressed database**: 359 KB
+- **Uncompressed database**: 2.2 MB SQLite (35,930 observations)
 - **Date range**: 1925-01-01 to 2024-12-31
-- **WASM bundle**: ~25 MB (includes all dependencies)
+- **WASM bundle**: ~25 MB (includes Dioxus, SQLite, D3 bindings)
+- **Query performance**: Indexed SQL queries, sub-millisecond for date ranges
 
 ## Comparison with Previous Implementations
 
@@ -130,9 +134,10 @@ This structure makes it easy to extend with new views:
 |---------|-----------|--------------|
 | Framework | Yew 0.21 | Dioxus 0.7.1 |
 | Visualization | Plotters | D3.js |
-| Data Format | LZMA blob | Zstd JSON |
-| Data Size | ~1.6 MB | 138 KB |
-| Charts | SVG (server-side) | D3 (interactive) |
+| Data Format | LZMA blob | Zstd SQLite |
+| Data Size | ~1.6 MB | 359 KB |
+| Queries | In-memory filter | SQL (indexed) |
+| Charts | SVG (static) | D3 (interactive) |
 
 ## License
 
