@@ -22,10 +22,11 @@ Instead of using a large LZMA blob or complex SQLite WASM setup, this implementa
 
 ### Tech Stack
 - **Frontend Framework**: Dioxus 0.7.1 (web platform)
-- **Visualization**: D3.js v7
+- **Visualization**: D3.js v7 (via wasm-bindgen module imports)
 - **Data Format**: Zstd-compressed JSON
 - **Build Target**: wasm32-unknown-unknown
 - **Deployment**: GitHub Pages (static files)
+- **JS Interop**: wasm-bindgen module system (no eval, proper FFI bindings)
 
 ## Building
 
