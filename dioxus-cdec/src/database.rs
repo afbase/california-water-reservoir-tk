@@ -7,6 +7,8 @@ const COMPRESSED_DB: &[u8] = include_bytes!("../data/reservoir_data.db.zst");
 #[derive(Clone)]
 pub struct Database {
     conn: Rc<Connection>,
+    // Keep the decompressed buffer alive for the lifetime of the connection
+    _buffer: Rc<Vec<u8>>,
 }
 
 // Manual PartialEq since Connection doesn't implement it
@@ -45,15 +47,14 @@ impl Database {
             if result != rusqlite::ffi::SQLITE_OK {
                 return Err(format!("Failed to deserialize database: {}", result));
             }
-
-            // Prevent decompressed from being freed
-            std::mem::forget(decompressed);
         }
 
         info!("SQLite database loaded successfully");
 
         Ok(Database {
             conn: Rc::new(conn),
+            // Keep buffer alive - SQLite's READONLY mode doesn't take ownership
+            _buffer: Rc::new(decompressed),
         })
     }
 
