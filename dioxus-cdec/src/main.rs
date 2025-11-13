@@ -2,10 +2,10 @@ use dioxus::prelude::*;
 use dioxus_logger::tracing::{info, Level};
 
 mod database;
-mod chart;
+mod components;
 
 use database::Database;
-use chart::ChartComponent;
+use components::{ChartComponent, DateControls};
 
 const MIN_DATE: &str = "1925-01-01";
 const MAX_DATE: &str = "2024-12-31";
@@ -21,6 +21,8 @@ fn App() -> Element {
     let mut database = use_signal(|| None::<Database>);
     let mut start_date = use_signal(|| MIN_DATE.to_string());
     let mut end_date = use_signal(|| MAX_DATE.to_string());
+    let mut min_date = use_signal(|| MIN_DATE.to_string());
+    let mut max_date = use_signal(|| MAX_DATE.to_string());
     let mut error_msg = use_signal(|| None::<String>);
 
     // Initialize database on mount
@@ -32,7 +34,9 @@ fn App() -> Element {
                     info!("Database loaded successfully");
                     // Get actual min/max dates from database
                     if let Ok((min, max)) = db.get_date_range().await {
-                        start_date.set(min.clone());
+                        min_date.set(min.clone());
+                        max_date.set(max.clone());
+                        start_date.set(min);
                         end_date.set(max);
                     }
                     database.set(Some(db));
@@ -50,8 +54,13 @@ fn App() -> Element {
             style: "max-width: 1200px; margin: 0 auto; padding: 20px; font-family: sans-serif;",
 
             h1 {
-                style: "text-align: center; color: #2c3e50;",
+                style: "text-align: center; color: #2c3e50; margin-bottom: 10px;",
                 "California Water Reservoir Data"
+            }
+
+            p {
+                style: "text-align: center; color: #666; margin-bottom: 20px;",
+                "Total statewide reservoir levels over time"
             }
 
             if let Some(error) = error_msg() {
@@ -62,46 +71,22 @@ fn App() -> Element {
                 }
             }
 
-            if database().is_some() {
-                div {
-                    class: "controls",
-                    style: "display: flex; gap: 20px; margin: 20px 0; justify-content: center; align-items: center;",
-
-                    div {
-                        label {
-                            style: "margin-right: 10px;",
-                            "Start Date: "
-                        }
-                        input {
-                            r#type: "date",
-                            value: "{start_date}",
-                            min: MIN_DATE,
-                            max: "{end_date}",
-                            oninput: move |evt| {
-                                start_date.set(evt.value().clone());
-                            }
-                        }
-                    }
-
-                    div {
-                        label {
-                            style: "margin-right: 10px;",
-                            "End Date: "
-                        }
-                        input {
-                            r#type: "date",
-                            value: "{end_date}",
-                            min: "{start_date}",
-                            max: MAX_DATE,
-                            oninput: move |evt| {
-                                end_date.set(evt.value().clone());
-                            }
-                        }
+            if let Some(db) = database() {
+                DateControls {
+                    start_date: start_date(),
+                    end_date: end_date(),
+                    min_date: min_date(),
+                    max_date: max_date(),
+                    on_start_change: move |new_date| {
+                        start_date.set(new_date);
+                    },
+                    on_end_change: move |new_date| {
+                        end_date.set(new_date);
                     }
                 }
 
                 ChartComponent {
-                    database: database().clone().unwrap(),
+                    database: db,
                     start_date: start_date(),
                     end_date: end_date()
                 }

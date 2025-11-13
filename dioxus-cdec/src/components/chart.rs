@@ -63,11 +63,13 @@ pub fn ChartComponent(database: Database, start_date: String, end_date: String) 
 
             if loading() {
                 div {
+                    class: "loading-indicator",
                     style: "text-align: center; padding: 20px; color: #666;",
                     "Loading chart data..."
                 }
             } else if chart_data().is_empty() {
                 div {
+                    class: "no-data-message",
                     style: "text-align: center; padding: 20px; color: #666;",
                     "No data available for selected date range"
                 }
@@ -79,6 +81,7 @@ pub fn ChartComponent(database: Database, start_date: String, end_date: String) 
             }
 
             div {
+                class: "data-count",
                 style: "text-align: center; margin-top: 10px; color: #666; font-size: 14px;",
                 "Data points: {chart_data().len()}"
             }
