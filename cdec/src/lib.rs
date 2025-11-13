@@ -1,4 +1,3 @@
-#![feature(array_chunks)]
 pub mod compression;
 pub mod date_range;
 pub mod normalized_naive_date;
