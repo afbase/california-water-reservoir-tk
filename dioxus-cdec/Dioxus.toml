@@ -1,0 +1,20 @@
+[application]
+name = "dioxus-cdec"
+default_platform = "web"
+
+[web.app]
+title = "California Water Reservoir Data"
+base_path = "."
+
+[web.watcher]
+
+[web.resource]
+# CSS
+style = []
+
+# JS
+script = []
+
+[web.resource.dev]
+style = []
+script = []

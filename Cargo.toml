@@ -1,18 +1,19 @@
 [workspace]
 members = [
-    "cdec", 
+    "cdec",
     "cli",
-    "cmd", 
+    "cmd",
     "ecco",
     "my_log",
     "utils",
     "vectorize",
-    "yew-avin_a_laf", 
+    "yew-avin_a_laf",
     "yew-nani",
     "yew-tew",
-    "yew-wot_m8", 
+    "yew-wot_m8",
     "yew-wu",
-    "yew-da-best",]
+    "yew-da-best",
+    "dioxus-cdec",]
 resolver = "2"
 
 [workspace.package]
