@@ -72,19 +72,36 @@ This will start a development server with hot-reloading.
 ```
 dioxus-cdec/
 ├── src/
-│   ├── main.rs          # App entry point & main UI
-│   ├── database.rs      # Data loading & filtering
-│   └── chart.rs         # D3.js chart component
+│   ├── main.rs                    # App entry point
+│   ├── database.rs                # Data loading & filtering
+│   └── components/
+│       ├── mod.rs                 # Component exports
+│       ├── chart.rs               # D3.js chart component
+│       └── date_controls.rs       # Date range selector component
 ├── data/
-│   ├── reservoir_data.json      # Uncompressed data (generated)
-│   └── reservoir_data.json.zst  # Compressed data (embedded)
+│   ├── reservoir_data.json        # Uncompressed data (generated)
+│   └── reservoir_data.json.zst    # Compressed data (embedded)
 ├── assets/
-│   └── chart.js         # D3.js chart implementation (reference)
-├── index.html           # Custom HTML template
-├── Dioxus.toml          # Dioxus configuration
-├── build_json.py        # Data extraction script
-└── README.md            # This file
+│   └── chart.js                   # D3.js chart implementation
+├── index.html                     # Custom HTML template
+├── Dioxus.toml                    # Dioxus configuration
+├── build_json.py                  # Data extraction script
+└── README.md                      # This file
 ```
+
+### Component Architecture
+
+The app is built with a modular component architecture:
+
+- **App** (main.rs) - Root component managing database and top-level state
+- **DateControls** - Reusable date range selector with min/max validation
+- **ChartComponent** - D3.js visualization with loading states
+
+This structure makes it easy to extend with new views:
+- Per-reservoir charts
+- Water year comparisons
+- Statistical tables
+- Multi-reservoir overlays
 
 ## Data Flow
 
