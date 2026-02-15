@@ -164,41 +164,27 @@ jobs:
             cwr-fixtures-
       - name: Install Dioxus CLI
         run: cargo install dioxus-cli --locked || true
-      - name: Build water WASM apps
+      - name: Build and collect water WASM apps
         run: |
           set -euxo pipefail
+          mkdir -p dist
           for app in chart-total-water chart-water-years chart-reservoir-history table-water-year-stats chart-local-reservoirs chart-cumulative-water; do
             echo "Building WASM for ${app}"
             cd "${app}"
             dx build --release --platform web || echo "WARNING: ${app} build failed"
             cd ..
-          done
-      - name: Collect water artifacts
-        run: |
-          set -euxo pipefail
-          echo "=== Working directory: $(pwd) ==="
-          echo "=== Looking for target/dx ==="
-          find . -path "*/release/web/public/wasm/*.js" 2>/dev/null | head -20 || echo "No JS files found in target/dx"
-          mkdir -p dist
-          for app in chart-total-water chart-water-years chart-reservoir-history table-water-year-stats chart-local-reservoirs chart-cumulative-water; do
             wasm_dir="target/dx/${app}/release/web/public/wasm"
             if [ -d "$wasm_dir" ]; then
               mkdir -p "dist/${app}"
-              cp "$wasm_dir"/*.js "$wasm_dir"/*_bg.wasm "dist/${app}/" 2>/dev/null || true
+              cp "$wasm_dir"/*.js "$wasm_dir"/*_bg.wasm "dist/${app}/"
               echo "Collected ${app}: $(ls dist/${app}/)"
             else
-              echo "WARNING: No wasm output at ${wasm_dir}"
-              # Try alternative paths
-              alt=$(find . -path "*/${app}*/wasm/${app}.js" 2>/dev/null | head -1)
-              if [ -n "$alt" ]; then
-                alt_dir=$(dirname "$alt")
-                echo "FOUND at alternative path: ${alt_dir}"
-                mkdir -p "dist/${app}"
-                cp "$alt_dir"/*.js "$alt_dir"/*_bg.wasm "dist/${app}/" 2>/dev/null || true
-                echo "Collected ${app}: $(ls dist/${app}/)"
-              fi
+              echo "WARNING: No wasm output at ${wasm_dir}, listing target/dx/${app}:"
+              find "target/dx/${app}" -type f -name "*.js" -o -name "*.wasm" 2>/dev/null | head -10 || echo "  (nothing found)"
             fi
           done
+          echo "=== Final dist contents ==="
+          find dist -type f | sort
       - name: Upload water artifacts
         uses: actions/upload-artifact@v4
         with:
@@ -236,39 +222,27 @@ jobs:
             cwr-fixtures-
       - name: Install Dioxus CLI
         run: cargo install dioxus-cli --locked || true
-      - name: Build snow WASM apps
+      - name: Build and collect snow WASM apps
         run: |
           set -euxo pipefail
+          mkdir -p dist
           for app in chart-total-snow chart-snow-years chart-snow-history table-snow-stats; do
             echo "Building WASM for ${app}"
             cd "${app}"
             dx build --release --platform web || echo "WARNING: ${app} build failed"
             cd ..
-          done
-      - name: Collect snow artifacts
-        run: |
-          set -euxo pipefail
-          echo "=== Working directory: $(pwd) ==="
-          find . -path "*/release/web/public/wasm/*.js" 2>/dev/null | head -20 || echo "No JS files found"
-          mkdir -p dist
-          for app in chart-total-snow chart-snow-years chart-snow-history table-snow-stats; do
             wasm_dir="target/dx/${app}/release/web/public/wasm"
             if [ -d "$wasm_dir" ]; then
               mkdir -p "dist/${app}"
-              cp "$wasm_dir"/*.js "$wasm_dir"/*_bg.wasm "dist/${app}/" 2>/dev/null || true
+              cp "$wasm_dir"/*.js "$wasm_dir"/*_bg.wasm "dist/${app}/"
               echo "Collected ${app}: $(ls dist/${app}/)"
             else
-              echo "WARNING: No wasm output at ${wasm_dir}"
-              alt=$(find . -path "*/${app}*/wasm/${app}.js" 2>/dev/null | head -1)
-              if [ -n "$alt" ]; then
-                alt_dir=$(dirname "$alt")
-                echo "FOUND at alternative path: ${alt_dir}"
-                mkdir -p "dist/${app}"
-                cp "$alt_dir"/*.js "$alt_dir"/*_bg.wasm "dist/${app}/" 2>/dev/null || true
-                echo "Collected ${app}: $(ls dist/${app}/)"
-              fi
+              echo "WARNING: No wasm output at ${wasm_dir}, listing target/dx/${app}:"
+              find "target/dx/${app}" -type f -name "*.js" -o -name "*.wasm" 2>/dev/null | head -10 || echo "  (nothing found)"
             fi
           done
+          echo "=== Final dist contents ==="
+          find dist -type f | sort
       - name: Upload snow artifacts
         uses: actions/upload-artifact@v4
         with:
