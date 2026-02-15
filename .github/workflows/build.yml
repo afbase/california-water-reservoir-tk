@@ -69,33 +69,43 @@ jobs:
       - name: Run tests
         run: cargo test --package cwr-cdec --package cwr-db --package cwr-data --package cwr-utils --package cwr-cmd
 
-  fetch-data:
+  build-cli-image:
     needs: detect-changes
     if: needs.detect-changes.outputs.cli == 'true' || needs.detect-changes.outputs.fixtures == 'true' || github.event_name == 'schedule' || github.event_name == 'workflow_dispatch'
     runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: docker/login-action@v3
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+      - uses: docker/build-push-action@v6
+        with:
+          context: .
+          file: docker-images/cwr-cli/Dockerfile
+          push: true
+          tags: ghcr.io/afbase/cwr-cli:latest
+
+  fetch-water-data:
+    needs: [detect-changes, build-cli-image]
+    if: always() && (needs.detect-changes.outputs.cli == 'true' || needs.detect-changes.outputs.fixtures == 'true' || github.event_name == 'schedule' || github.event_name == 'workflow_dispatch')
+    runs-on: ubuntu-latest
     container:
-      image: ghcr.io/afbase/rust-zola-builder:pinned
+      image: ghcr.io/afbase/cwr-cli:latest
       credentials:
         username: ${{ github.actor }}
         password: ${{ secrets.GITHUB_TOKEN }}
-    defaults:
-      run:
-        shell: bash
     steps:
       - uses: actions/checkout@v4
-      - name: Cache fixture data
+        with:
+          sparse-checkout: fixtures
+      - name: Cache water fixtures
         uses: actions/cache@v4
         with:
-          path: |
-            fixtures/observations.csv
-            fixtures/capacity.csv
-            fixtures/snow_stations.csv
-            fixtures/snow_observations.csv
-          key: cwr-fixtures-${{ github.run_number }}
-          restore-keys: |
-            cwr-fixtures-
-      - name: Build CLI
-        run: cargo build --release --package cwr-cli
+          path: fixtures/observations.csv
+          key: cwr-water-fixtures-${{ github.run_number }}
+          restore-keys: cwr-water-fixtures-
       - name: Fetch water data (incremental)
         run: |
           set -euxo pipefail
@@ -103,8 +113,7 @@ jobs:
           RETRY_DELAY=5
           for attempt in $(seq 1 $MAX_RETRIES); do
             echo "Attempt $attempt of $MAX_RETRIES"
-            if cargo run --release --bin cwr-cli -- incremental-query \
-                 -r fixtures/observations.csv; then
+            if cwr-cli incremental-query -r fixtures/observations.csv; then
               echo "Water queries completed successfully"
               break
             fi
@@ -116,38 +125,63 @@ jobs:
               exit 1
             fi
           done
-      - name: Fetch snow data (incremental)
+      - name: Validate water data
         run: |
-          set -euxo pipefail
-          cargo run --release --bin cwr-cli -- snow-query \
-            -t fixtures/snow_observations.csv || echo "Snow query failed (non-fatal)"
-      - name: Validate fetched data
-        run: |
-          set -euxo pipefail
-          echo "Checking fixture file sizes..."
-          for f in fixtures/observations.csv fixtures/snow_observations.csv; do
-            if [ -f "$f" ]; then
-              lines=$(wc -l < "$f")
-              echo "$f: $lines lines"
-              if [ "$lines" -lt 10 ]; then
-                echo "WARNING: $f has fewer than 10 lines"
-              fi
-            else
-              echo "WARNING: $f does not exist"
-            fi
-          done
-      - name: Upload fixture artifacts
-        uses: actions/upload-artifact@v4
+          if [ -f fixtures/observations.csv ]; then
+            lines=$(wc -l < fixtures/observations.csv)
+            echo "fixtures/observations.csv: $lines lines"
+          else
+            echo "WARNING: fixtures/observations.csv does not exist"
+          fi
+      - uses: actions/upload-artifact@v4
         with:
-          name: cwr-fixtures
+          name: cwr-water-fixtures
           path: |
             fixtures/observations.csv
             fixtures/capacity.csv
+
+  fetch-snow-data:
+    needs: [detect-changes, build-cli-image]
+    if: always() && (needs.detect-changes.outputs.cli == 'true' || needs.detect-changes.outputs.fixtures == 'true' || github.event_name == 'schedule' || github.event_name == 'workflow_dispatch')
+    runs-on: ubuntu-latest
+    container:
+      image: ghcr.io/afbase/cwr-cli:latest
+      credentials:
+        username: ${{ github.actor }}
+        password: ${{ secrets.GITHUB_TOKEN }}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          sparse-checkout: fixtures
+      - name: Cache snow fixtures
+        uses: actions/cache@v4
+        with:
+          path: |
+            fixtures/snow_stations.csv
+            fixtures/snow_observations.csv
+          key: cwr-snow-fixtures-${{ github.run_number }}
+          restore-keys: cwr-snow-fixtures-
+      - name: Fetch snow data (incremental)
+        run: |
+          set -euxo pipefail
+          cwr-cli snow-query -t fixtures/snow_observations.csv || echo "Snow query failed (non-fatal)"
+      - name: Validate snow data
+        run: |
+          if [ -f fixtures/snow_observations.csv ]; then
+            lines=$(wc -l < fixtures/snow_observations.csv)
+            echo "fixtures/snow_observations.csv: $lines lines"
+          else
+            echo "WARNING: fixtures/snow_observations.csv does not exist"
+          fi
+      - uses: actions/upload-artifact@v4
+        with:
+          name: cwr-snow-fixtures
+          path: |
             fixtures/snow_stations.csv
             fixtures/snow_observations.csv
 
   build-water-wasm:
-    needs: [detect-changes, fetch-data]
+    needs: [detect-changes, fetch-water-data]
     if: always() && (needs.detect-changes.outputs.core-libs == 'true' || needs.detect-changes.outputs.water-charts == 'true' || github.event_name == 'schedule' || github.event_name == 'workflow_dispatch')
     runs-on: ubuntu-latest
     container:
@@ -163,7 +197,7 @@ jobs:
       - name: Download fixtures
         uses: actions/download-artifact@v4
         with:
-          name: cwr-fixtures
+          name: cwr-water-fixtures
           path: fixtures/
         continue-on-error: true
       - name: Cache fixture data
@@ -172,9 +206,9 @@ jobs:
           path: |
             fixtures/observations.csv
             fixtures/capacity.csv
-          key: cwr-fixtures-${{ github.run_number }}
+          key: cwr-water-fixtures-${{ github.run_number }}
           restore-keys: |
-            cwr-fixtures-
+            cwr-water-fixtures-
       - name: Install Dioxus CLI
         run: cargo install dioxus-cli --locked || true
       - name: Build and collect water WASM apps
@@ -242,7 +276,7 @@ jobs:
           path: dist/
 
   build-snow-wasm:
-    needs: [detect-changes, fetch-data]
+    needs: [detect-changes, fetch-snow-data]
     if: always() && (needs.detect-changes.outputs.core-libs == 'true' || needs.detect-changes.outputs.snow-charts == 'true' || github.event_name == 'schedule' || github.event_name == 'workflow_dispatch')
     runs-on: ubuntu-latest
     container:
@@ -258,7 +292,7 @@ jobs:
       - name: Download fixtures
         uses: actions/download-artifact@v4
         with:
-          name: cwr-fixtures
+          name: cwr-snow-fixtures
           path: fixtures/
         continue-on-error: true
       - name: Cache fixture data
@@ -267,9 +301,9 @@ jobs:
           path: |
             fixtures/snow_stations.csv
             fixtures/snow_observations.csv
-          key: cwr-fixtures-${{ github.run_number }}
+          key: cwr-snow-fixtures-${{ github.run_number }}
           restore-keys: |
-            cwr-fixtures-
+            cwr-snow-fixtures-
       - name: Install Dioxus CLI
         run: cargo install dioxus-cli --locked || true
       - name: Build and collect snow WASM apps
@@ -354,10 +388,16 @@ jobs:
           name: cwr-snow-dist
           path: dist/
         continue-on-error: true
-      - name: Download fixture artifacts
+      - name: Download water fixture artifacts
         uses: actions/download-artifact@v4
         with:
-          name: cwr-fixtures
+          name: cwr-water-fixtures
+          path: dist/fixtures/
+        continue-on-error: true
+      - name: Download snow fixture artifacts
+        uses: actions/download-artifact@v4
+        with:
+          name: cwr-snow-fixtures
           path: dist/fixtures/
         continue-on-error: true
       - name: Login to GHCR
