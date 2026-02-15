@@ -168,24 +168,60 @@ jobs:
         run: |
           set -euxo pipefail
           mkdir -p dist
+          BUILD_SUCCESS=()
+          BUILD_FAILED=()
+
           for app in chart-total-water chart-water-years chart-reservoir-history table-water-year-stats chart-local-reservoirs chart-cumulative-water; do
+            echo "============================================"
             echo "Building WASM for ${app}"
+            echo "============================================"
             cd "${app}"
-            dx build --release --platform web || echo "WARNING: ${app} build failed"
-            cd ..
-            public_dir="target/dx/${app}/release/web/public"
-            if [ -d "$public_dir" ]; then
-              mkdir -p "dist/${app}"
-              cp -r "$public_dir"/* "dist/${app}/" 2>/dev/null || true
-              # Remove index.html (not needed for embedding)
-              rm -f "dist/${app}/index.html"
-              echo "Collected ${app}: $(find dist/${app} -type f | sort)"
+
+            if dx build --release --platform web; then
+              cd ..
+              public_dir="target/dx/${app}/release/web/public"
+              if [ -d "$public_dir" ]; then
+                # Verify that both JS and WASM files were generated
+                js_count=$(find "$public_dir" -name "*.js" -not -name "*_bg*" | wc -l)
+                wasm_count=$(find "$public_dir" -name "*_bg*.wasm" | wc -l)
+
+                if [ "$js_count" -gt 0 ] && [ "$wasm_count" -gt 0 ]; then
+                  mkdir -p "dist/${app}"
+                  cp -r "$public_dir"/* "dist/${app}/" 2>/dev/null || true
+                  rm -f "dist/${app}/index.html"
+                  echo "✓ Successfully collected ${app}:"
+                  find "dist/${app}" -type f | sort | sed 's/^/  /'
+                  BUILD_SUCCESS+=("${app}")
+                else
+                  echo "✗ Build completed but missing files: JS=${js_count}, WASM=${wasm_count}"
+                  BUILD_FAILED+=("${app}")
+                fi
+              else
+                echo "✗ Build succeeded but no public output directory: ${public_dir}"
+                BUILD_FAILED+=("${app}")
+              fi
             else
-              echo "WARNING: No public output for ${app}"
+              cd ..
+              echo "✗ Build command failed for ${app}"
+              BUILD_FAILED+=("${app}")
             fi
           done
+
+          echo ""
+          echo "============================================"
+          echo "Build Summary"
+          echo "============================================"
+          echo "Successful builds (${#BUILD_SUCCESS[@]}): ${BUILD_SUCCESS[*]}"
+          echo "Failed builds (${#BUILD_FAILED[@]}): ${BUILD_FAILED[*]}"
+          echo ""
           echo "=== Final dist contents ==="
           find dist -type f | sort
+
+          # Fail workflow if ALL builds failed
+          if [ ${#BUILD_SUCCESS[@]} -eq 0 ]; then
+            echo "ERROR: All builds failed"
+            exit 1
+          fi
       - name: Upload water artifacts
         uses: actions/upload-artifact@v4
         with:
@@ -227,23 +263,60 @@ jobs:
         run: |
           set -euxo pipefail
           mkdir -p dist
+          BUILD_SUCCESS=()
+          BUILD_FAILED=()
+
           for app in chart-total-snow chart-snow-years chart-snow-history table-snow-stats; do
+            echo "============================================"
             echo "Building WASM for ${app}"
+            echo "============================================"
             cd "${app}"
-            dx build --release --platform web || echo "WARNING: ${app} build failed"
-            cd ..
-            public_dir="target/dx/${app}/release/web/public"
-            if [ -d "$public_dir" ]; then
-              mkdir -p "dist/${app}"
-              cp -r "$public_dir"/* "dist/${app}/" 2>/dev/null || true
-              rm -f "dist/${app}/index.html"
-              echo "Collected ${app}: $(find dist/${app} -type f | sort)"
+
+            if dx build --release --platform web; then
+              cd ..
+              public_dir="target/dx/${app}/release/web/public"
+              if [ -d "$public_dir" ]; then
+                # Verify that both JS and WASM files were generated
+                js_count=$(find "$public_dir" -name "*.js" -not -name "*_bg*" | wc -l)
+                wasm_count=$(find "$public_dir" -name "*_bg*.wasm" | wc -l)
+
+                if [ "$js_count" -gt 0 ] && [ "$wasm_count" -gt 0 ]; then
+                  mkdir -p "dist/${app}"
+                  cp -r "$public_dir"/* "dist/${app}/" 2>/dev/null || true
+                  rm -f "dist/${app}/index.html"
+                  echo "✓ Successfully collected ${app}:"
+                  find "dist/${app}" -type f | sort | sed 's/^/  /'
+                  BUILD_SUCCESS+=("${app}")
+                else
+                  echo "✗ Build completed but missing files: JS=${js_count}, WASM=${wasm_count}"
+                  BUILD_FAILED+=("${app}")
+                fi
+              else
+                echo "✗ Build succeeded but no public output directory: ${public_dir}"
+                BUILD_FAILED+=("${app}")
+              fi
             else
-              echo "WARNING: No public output for ${app}"
+              cd ..
+              echo "✗ Build command failed for ${app}"
+              BUILD_FAILED+=("${app}")
             fi
           done
+
+          echo ""
+          echo "============================================"
+          echo "Build Summary"
+          echo "============================================"
+          echo "Successful builds (${#BUILD_SUCCESS[@]}): ${BUILD_SUCCESS[*]}"
+          echo "Failed builds (${#BUILD_FAILED[@]}): ${BUILD_FAILED[*]}"
+          echo ""
           echo "=== Final dist contents ==="
           find dist -type f | sort
+
+          # Fail workflow if ALL builds failed
+          if [ ${#BUILD_SUCCESS[@]} -eq 0 ]; then
+            echo "ERROR: All builds failed"
+            exit 1
+          fi
       - name: Upload snow artifacts
         uses: actions/upload-artifact@v4
         with:
