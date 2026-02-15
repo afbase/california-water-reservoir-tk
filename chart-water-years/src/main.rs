@@ -91,48 +91,69 @@ fn App() -> Element {
 
     // Re-render chart whenever reservoir selection, sort mode, or display count changes
     use_effect(move || {
+        log::info!("[CWR Debug Rust] water-years use_effect triggered");
+
         if (state.loading)() {
+            log::info!("[CWR Debug Rust] Exiting: still loading");
             return;
         }
         if (state.error_msg)().is_some() {
+            log::info!("[CWR Debug Rust] Exiting: error present");
             return;
         }
 
         let db = match &*state.db.read() {
-            Some(db) => db.clone(),
-            None => return,
+            Some(db) => {
+                log::info!("[CWR Debug Rust] Database available");
+                db.clone()
+            }
+            None => {
+                log::info!("[CWR Debug Rust] Exiting: no database");
+                return;
+            }
         };
 
         let station = (state.selected_station)();
         let sort_mode = (state.sort_mode)();
         let display_count = (state.display_count)();
+        log::info!("[CWR Debug Rust] Selected station: {}, sort: {}, count: {}", station, sort_mode, display_count);
 
         if station.is_empty() {
+            log::info!("[CWR Debug Rust] Exiting: empty station");
             return;
         }
 
         // Initialize D3.js chart scripts
         js_bridge::init_charts();
 
+        log::info!("[CWR Debug Rust] Querying water years for: {}", station);
         // 1. Query all water year data for the selected reservoir
         let water_years = match db.query_water_years(&station) {
-            Ok(wy) => wy,
+            Ok(wy) => {
+                log::info!("[CWR Debug Rust] Query returned {} water year records", wy.len());
+                wy
+            }
             Err(e) => {
-                log::error!("Failed to query water years: {}", e);
+                log::error!("[CWR Debug Rust] Water years query failed: {}", e);
                 return;
             }
         };
 
         if water_years.is_empty() {
+            log::info!("[CWR Debug Rust] No water years data, destroying chart");
             js_bridge::destroy_chart(CHART_ID);
             return;
         }
 
+        log::info!("[CWR Debug Rust] Querying water year stats");
         // 2. Query water year stats (has is_driest/is_wettest already computed dynamically)
         let stats = match db.query_water_year_stats(&station) {
-            Ok(s) => s,
+            Ok(s) => {
+                log::info!("[CWR Debug Rust] Stats returned {} years", s.len());
+                s
+            }
             Err(e) => {
-                log::error!("Failed to query water year stats: {}", e);
+                log::error!("[CWR Debug Rust] Stats query failed: {}", e);
                 return;
             }
         };
@@ -254,7 +275,9 @@ fn App() -> Element {
         }))
         .unwrap_or_default();
 
+        log::info!("[CWR Debug Rust] Calling render_water_years_chart");
         js_bridge::render_water_years_chart(CHART_ID, &data_json, &config_json);
+        log::info!("[CWR Debug Rust] render_water_years_chart returned");
     });
 
     rsx! {

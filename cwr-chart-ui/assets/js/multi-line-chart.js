@@ -24,13 +24,37 @@
 // }
 
 function renderMultiLineChart(containerId, seriesJson, configJson) {
-    var series = JSON.parse(seriesJson);
-    var config = JSON.parse(configJson);
+    console.log('[CWR Debug D3] renderMultiLineChart called');
+    console.log('[CWR Debug D3] containerId:', containerId);
+    console.log('[CWR Debug D3] seriesJson length:', seriesJson.length);
+    console.log('[CWR Debug D3] configJson length:', configJson.length);
+
+    try {
+        var series = JSON.parse(seriesJson);
+        console.log('[CWR Debug D3] Parsed series:', {
+            isArray: Array.isArray(series),
+            length: series ? series.length : 0,
+            firstItem: series ? series[0] : null
+        });
+    } catch(e) {
+        console.error('[CWR Debug D3] JSON parse error (series):', e);
+        return;
+    }
+
+    try {
+        var config = JSON.parse(configJson);
+        console.log('[CWR Debug D3] Parsed config successfully');
+    } catch(e) {
+        console.error('[CWR Debug D3] JSON parse error (config):', e);
+        return;
+    }
 
     var container = d3.select("#" + containerId);
+    console.log('[CWR Debug D3] Container selected:', container.empty() ? 'EMPTY' : 'found');
     container.selectAll("*").remove();
 
     if (!series || !series.length) {
+        console.log('[CWR Debug D3] No series data available');
         container.append("p")
             .style("text-align", "center")
             .style("color", "#999")
@@ -66,16 +90,9 @@ function renderMultiLineChart(containerId, seriesJson, configJson) {
     var parseDate = d3.timeParse("%Y-%m-%d");
     var globalXMin = null, globalXMax = null, globalYMax = 0;
 
-    console.log('[CWR Debug] renderMultiLineChart received data:', {
-        dataType: Array.isArray(series) ? 'array' : typeof series,
-        length: series.length,
-        firstItem: series[0],
-        hasDataProperty: series[0] && 'data' in series[0]
-    });
-
     series.forEach(function(s) {
         if (!s.data) {
-            console.error('[CWR Debug] Series item missing data property:', s);
+            console.error('[CWR Debug D3] Series item missing data property:', s);
             return;
         }
         s.data.forEach(function(d) {

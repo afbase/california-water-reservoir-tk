@@ -113,23 +113,35 @@ fn App() -> Element {
 
     // Re-render chart whenever selection or date range changes
     use_effect(move || {
+        log::info!("[CWR Debug Rust] reservoir-history use_effect triggered");
+
         if (state.loading)() {
+            log::info!("[CWR Debug Rust] Exiting: still loading");
             return;
         }
         if (state.error_msg)().is_some() {
+            log::info!("[CWR Debug Rust] Exiting: error present");
             return;
         }
 
         let db = match &*state.db.read() {
-            Some(db) => db.clone(),
-            None => return,
+            Some(db) => {
+                log::info!("[CWR Debug Rust] Database available");
+                db.clone()
+            }
+            None => {
+                log::info!("[CWR Debug Rust] Exiting: no database");
+                return;
+            }
         };
 
         let station = (state.selected_station)();
         let start_date_html = (state.start_date)();
         let end_date_html = (state.end_date)();
+        log::info!("[CWR Debug Rust] Selected station: {}", station);
 
         if station.is_empty() || start_date_html.is_empty() || end_date_html.is_empty() {
+            log::info!("[CWR Debug Rust] Exiting: empty station or date range");
             return;
         }
 
@@ -140,16 +152,21 @@ fn App() -> Element {
         // Initialize D3.js chart scripts
         js_bridge::init_charts();
 
+        log::info!("[CWR Debug Rust] Querying reservoir history for: {}", station);
         // Query the selected reservoir's history within the date range
         let data = match db.query_reservoir_history(&station, &start_date, &end_date) {
-            Ok(d) => d,
+            Ok(d) => {
+                log::info!("[CWR Debug Rust] Query returned {} records", d.len());
+                d
+            }
             Err(e) => {
-                log::error!("Failed to query reservoir history: {}", e);
+                log::error!("[CWR Debug Rust] Query failed: {}", e);
                 return;
             }
         };
 
         if data.is_empty() {
+            log::info!("[CWR Debug Rust] No data returned, destroying chart");
             js_bridge::destroy_chart(CHART_ID);
             return;
         }
@@ -200,7 +217,9 @@ fn App() -> Element {
         }))
         .unwrap_or_default();
 
+        log::info!("[CWR Debug Rust] Calling render_multi_line_chart");
         js_bridge::render_multi_line_chart(CHART_ID, &data_json, &config_json);
+        log::info!("[CWR Debug Rust] render_multi_line_chart returned");
     });
 
     rsx! {

@@ -56,19 +56,37 @@ var _WY_COLOR_WETTEST = "#4CAF50"; // green
 var _WY_COLOR_NORMAL  = "#9E9E9E"; // grey
 
 function renderWaterYearsChart(containerId, dataJson, configJson) {
-    var data = JSON.parse(dataJson);
-    var config = JSON.parse(configJson);
+    console.log('[CWR Debug D3] renderWaterYearsChart called');
+    console.log('[CWR Debug D3] containerId:', containerId);
+    console.log('[CWR Debug D3] dataJson length:', dataJson.length);
+    console.log('[CWR Debug D3] configJson length:', configJson.length);
 
-    console.log('[CWR Debug] renderWaterYearsChart received data:', {
-        dataType: Array.isArray(data) ? 'array' : typeof data,
-        length: data.length,
-        firstItem: data[0]
-    });
+    try {
+        var data = JSON.parse(dataJson);
+        console.log('[CWR Debug D3] Parsed data:', {
+            isArray: Array.isArray(data),
+            length: data ? data.length : 0,
+            firstItem: data ? data[0] : null
+        });
+    } catch(e) {
+        console.error('[CWR Debug D3] JSON parse error (data):', e);
+        return;
+    }
+
+    try {
+        var config = JSON.parse(configJson);
+        console.log('[CWR Debug D3] Parsed config successfully');
+    } catch(e) {
+        console.error('[CWR Debug D3] JSON parse error (config):', e);
+        return;
+    }
 
     var container = d3.select("#" + containerId);
+    console.log('[CWR Debug D3] Container selected:', container.empty() ? 'EMPTY' : 'found');
     container.selectAll("*").remove();
 
     if (!data || !data.length) {
+        console.log('[CWR Debug D3] No data available');
         container.append("p")
             .style("text-align", "center")
             .style("color", "#999")

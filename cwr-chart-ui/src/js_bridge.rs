@@ -13,11 +13,17 @@ static DATA_TABLE_JS: &str = include_str!("../assets/js/data-table.js");
 
 /// Execute arbitrary JS, wrapping in try/catch to avoid panics.
 pub fn call_js(code: &str) {
+    log::info!("[CWR Debug CallJS] Executing {} bytes of JavaScript", code.len());
+
     let wrapped = format!(
-        "try {{ {} }} catch(e) {{ console.warn('CWR JS call failed:', e); }}",
+        "try {{ {} }} catch(e) {{ console.error('CWR JS call failed:', e); console.error('Stack:', e.stack); }}",
         code
     );
-    let _ = js_sys::eval(&wrapped);
+
+    match js_sys::eval(&wrapped) {
+        Ok(_) => log::info!("[CWR Debug CallJS] eval() succeeded"),
+        Err(e) => log::error!("[CWR Debug CallJS] eval() failed: {:?}", e),
+    }
 }
 
 /// Load and evaluate all chart JS scripts. Call once at app startup.
@@ -114,31 +120,52 @@ pub fn render_line_chart(container_id: &str, data_json: &str, config_json: &str)
 /// Uses a polling loop to wait for D3.js to load, chart scripts to initialize,
 /// and the container DOM element to exist before rendering.
 pub fn render_multi_line_chart(container_id: &str, data_json: &str, config_json: &str) {
+    log::info!("[CWR Debug Bridge] render_multi_line_chart called for container: {}", container_id);
+    log::info!("[CWR Debug Bridge] Data length: {} bytes", data_json.len());
+    log::info!("[CWR Debug Bridge] Config length: {} bytes", config_json.len());
+
     let escaped_data = data_json.replace('\'', "\\'").replace('\n', "");
     let escaped_config = config_json.replace('\'', "\\'").replace('\n', "");
+
+    log::info!("[CWR Debug Bridge] Calling call_js");
     call_js(&format!(
         r#"
         (function() {{
-            console.log('[CWR Debug] Initiating polling for multi-line-chart');
+            console.log('[CWR Debug JS] Polling started for multi-line-chart');
+            console.log('[CWR Debug JS] Container ID:', '{container_id}');
+
+            var pollCount = 0;
             var poll = setInterval(function() {{
-                console.log('[CWR Debug] Poll attempt:', {{
-                    chartsReady: !!window.__cwrChartsReady,
-                    functionAvailable: typeof window.renderMultiLineChart !== 'undefined',
-                    domExists: !!document.getElementById('{container_id}'),
-                    timestamp: Date.now()
-                }});
+                pollCount++;
+                console.log('[CWR Debug JS] Poll attempt #' + pollCount);
+                console.log('[CWR Debug JS] chartsReady:', !!window.__cwrChartsReady);
+                console.log('[CWR Debug JS] functionAvailable:', typeof window.renderMultiLineChart !== 'undefined');
+                console.log('[CWR Debug JS] domExists:', !!document.getElementById('{container_id}'));
+
                 if (window.__cwrChartsReady &&
                     typeof window.renderMultiLineChart !== 'undefined' &&
                     document.getElementById('{container_id}')) {{
                     clearInterval(poll);
+                    console.log('[CWR Debug JS] All conditions met, calling renderMultiLineChart');
                     try {{
                         window.renderMultiLineChart('{container_id}', '{escaped_data}', '{escaped_config}');
-                    }} catch(e) {{ console.error('[CWR] renderMultiLineChart error:', e); }}
+                        console.log('[CWR Debug JS] renderMultiLineChart returned successfully');
+                    }} catch(e) {{
+                        console.error('[CWR Debug JS] renderMultiLineChart error:', e);
+                        console.error('[CWR Debug JS] Stack:', e.stack);
+                    }}
+                }}
+
+                // Stop polling after 50 attempts (5 seconds)
+                if (pollCount > 50) {{
+                    clearInterval(poll);
+                    console.error('[CWR Debug JS] Polling timeout after 50 attempts');
                 }}
             }}, 100);
         }})();
         "#,
     ));
+    log::info!("[CWR Debug Bridge] call_js returned");
 }
 
 /// Render a water years overlay chart.
@@ -146,31 +173,52 @@ pub fn render_multi_line_chart(container_id: &str, data_json: &str, config_json:
 /// Uses a polling loop to wait for D3.js to load, chart scripts to initialize,
 /// and the container DOM element to exist before rendering.
 pub fn render_water_years_chart(container_id: &str, data_json: &str, config_json: &str) {
+    log::info!("[CWR Debug Bridge] render_water_years_chart called for container: {}", container_id);
+    log::info!("[CWR Debug Bridge] Data length: {} bytes", data_json.len());
+    log::info!("[CWR Debug Bridge] Config length: {} bytes", config_json.len());
+
     let escaped_data = data_json.replace('\'', "\\'").replace('\n', "");
     let escaped_config = config_json.replace('\'', "\\'").replace('\n', "");
+
+    log::info!("[CWR Debug Bridge] Calling call_js");
     call_js(&format!(
         r#"
         (function() {{
-            console.log('[CWR Debug] Initiating polling for water-years-chart');
+            console.log('[CWR Debug JS] Polling started for water-years-chart');
+            console.log('[CWR Debug JS] Container ID:', '{container_id}');
+
+            var pollCount = 0;
             var poll = setInterval(function() {{
-                console.log('[CWR Debug] Poll attempt:', {{
-                    chartsReady: !!window.__cwrChartsReady,
-                    functionAvailable: typeof window.renderWaterYearsChart !== 'undefined',
-                    domExists: !!document.getElementById('{container_id}'),
-                    timestamp: Date.now()
-                }});
+                pollCount++;
+                console.log('[CWR Debug JS] Poll attempt #' + pollCount);
+                console.log('[CWR Debug JS] chartsReady:', !!window.__cwrChartsReady);
+                console.log('[CWR Debug JS] functionAvailable:', typeof window.renderWaterYearsChart !== 'undefined');
+                console.log('[CWR Debug JS] domExists:', !!document.getElementById('{container_id}'));
+
                 if (window.__cwrChartsReady &&
                     typeof window.renderWaterYearsChart !== 'undefined' &&
                     document.getElementById('{container_id}')) {{
                     clearInterval(poll);
+                    console.log('[CWR Debug JS] All conditions met, calling renderWaterYearsChart');
                     try {{
                         window.renderWaterYearsChart('{container_id}', '{escaped_data}', '{escaped_config}');
-                    }} catch(e) {{ console.error('[CWR] renderWaterYearsChart error:', e); }}
+                        console.log('[CWR Debug JS] renderWaterYearsChart returned successfully');
+                    }} catch(e) {{
+                        console.error('[CWR Debug JS] renderWaterYearsChart error:', e);
+                        console.error('[CWR Debug JS] Stack:', e.stack);
+                    }}
+                }}
+
+                // Stop polling after 50 attempts (5 seconds)
+                if (pollCount > 50) {{
+                    clearInterval(poll);
+                    console.error('[CWR Debug JS] Polling timeout after 50 attempts');
                 }}
             }}, 100);
         }})();
         "#,
     ));
+    log::info!("[CWR Debug Bridge] call_js returned");
 }
 
 /// Render a sortable data table.
