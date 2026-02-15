@@ -41,7 +41,9 @@ const NAME_APN: &str = "Lake Lagunitas";
 
 fn main() {
     dioxus_logger::init(dioxus_logger::tracing::Level::INFO).expect("failed to init logger");
-    dioxus::launch(App);
+    dioxus::LaunchBuilder::new()
+        .with_cfg(dioxus::web::Config::new().rootname("local-reservoirs-root"))
+        .launch(App);
 }
 
 #[component]

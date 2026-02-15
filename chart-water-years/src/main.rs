@@ -35,7 +35,9 @@ const CHART_ID: &str = "water-years-chart";
 
 fn main() {
     dioxus_logger::init(dioxus_logger::tracing::Level::INFO).expect("failed to init logger");
-    dioxus::launch(App);
+    dioxus::LaunchBuilder::new()
+        .with_cfg(dioxus::web::Config::new().rootname("water-years-root"))
+        .launch(App);
 }
 
 #[component]

@@ -33,7 +33,9 @@ struct DataPoint {
 
 fn main() {
     dioxus_logger::init(dioxus_logger::tracing::Level::INFO).expect("failed to init logger");
-    dioxus::launch(App);
+    dioxus::LaunchBuilder::new()
+        .with_cfg(dioxus::web::Config::new().rootname("total-water-root"))
+        .launch(App);
 }
 
 /// Convert a date string from YYYYMMDD to YYYY-MM-DD format for D3.js consumption.
