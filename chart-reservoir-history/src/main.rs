@@ -118,13 +118,13 @@ fn App() -> Element {
     // Re-render chart whenever selection or date range changes
     use_effect(move || {
         web_sys::console::log_1(&"[CWR CRITICAL] use_effect triggered".into());
-        log::info!("[CWR Debug Rust] reservoir-history use_effect triggered");
+        web_sys::console::log_1(&"[CWR Debug Rust] reservoir-history use_effect triggered".into());
 
         let loading_state = (state.loading)();
         web_sys::console::log_1(&format!("[CWR CRITICAL] loading={}", loading_state).into());
 
         if loading_state {
-            log::info!("[CWR Debug Rust] Exiting: still loading");
+            web_sys::console::log_1(&"[CWR Debug Rust] Exiting: still loading".into());
             return;
         }
 
@@ -132,17 +132,17 @@ fn App() -> Element {
         web_sys::console::log_1(&format!("[CWR CRITICAL] has_error={}", error_state).into());
 
         if error_state {
-            log::info!("[CWR Debug Rust] Exiting: error present");
+            web_sys::console::log_1(&"[CWR Debug Rust] Exiting: error present".into());
             return;
         }
 
         let db = match &*state.db.read() {
             Some(db) => {
-                log::info!("[CWR Debug Rust] Database available");
+                web_sys::console::log_1(&"[CWR Debug Rust] Database available".into());
                 db.clone()
             }
             None => {
-                log::info!("[CWR Debug Rust] Exiting: no database");
+                web_sys::console::log_1(&"[CWR Debug Rust] Exiting: no database".into());
                 return;
             }
         };
@@ -150,10 +150,10 @@ fn App() -> Element {
         let station = (state.selected_station)();
         let start_date_html = (state.start_date)();
         let end_date_html = (state.end_date)();
-        log::info!("[CWR Debug Rust] Selected station: {}", station);
+        web_sys::console::log_1(&format!("[CWR Debug Rust] Selected station: {}", station).into());
 
         if station.is_empty() || start_date_html.is_empty() || end_date_html.is_empty() {
-            log::info!("[CWR Debug Rust] Exiting: empty station or date range");
+            web_sys::console::log_1(&"[CWR Debug Rust] Exiting: empty station or date range".into());
             return;
         }
 
@@ -164,21 +164,21 @@ fn App() -> Element {
         // Initialize D3.js chart scripts
         js_bridge::init_charts();
 
-        log::info!("[CWR Debug Rust] Querying reservoir history for: {}", station);
+        web_sys::console::log_1(&format!("[CWR Debug Rust] Querying reservoir history for: {}", station).into());
         // Query the selected reservoir's history within the date range
         let data = match db.query_reservoir_history(&station, &start_date, &end_date) {
             Ok(d) => {
-                log::info!("[CWR Debug Rust] Query returned {} records", d.len());
+                web_sys::console::log_1(&format!("[CWR Debug Rust] Query returned {} records", d.len()).into());
                 d
             }
             Err(e) => {
-                log::error!("[CWR Debug Rust] Query failed: {}", e);
+                web_sys::console::log_1(&format!("[CWR Debug Rust] Query failed: {}", e).into());
                 return;
             }
         };
 
         if data.is_empty() {
-            log::info!("[CWR Debug Rust] No data returned, destroying chart");
+            web_sys::console::log_1(&"[CWR Debug Rust] No data returned, destroying chart".into());
             js_bridge::destroy_chart(CHART_ID);
             return;
         }
@@ -214,10 +214,10 @@ fn App() -> Element {
             .collect();
 
         let data_json = serde_json::to_string(&station_data).unwrap_or_default();
-        log::info!(
+        web_sys::console::log_1(&format!(
             "Sending to renderMultiLineChart: {}",
             &data_json[..200.min(data_json.len())]
-        );
+        ).into());
         let config_json = serde_json::to_string(&serde_json::json!({
             "title": format!("Water Levels: {}", reservoir_name),
             "yAxisLabel": "Acre-Feet (AF)",
@@ -229,9 +229,9 @@ fn App() -> Element {
         }))
         .unwrap_or_default();
 
-        log::info!("[CWR Debug Rust] Calling render_multi_line_chart");
+        web_sys::console::log_1(&"[CWR Debug Rust] Calling render_multi_line_chart".into());
         js_bridge::render_multi_line_chart(CHART_ID, &data_json, &config_json);
-        log::info!("[CWR Debug Rust] render_multi_line_chart returned");
+        web_sys::console::log_1(&"[CWR Debug Rust] render_multi_line_chart returned".into());
     });
 
     rsx! {

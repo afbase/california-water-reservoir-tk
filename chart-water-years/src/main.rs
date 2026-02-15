@@ -96,13 +96,13 @@ fn App() -> Element {
     // Re-render chart whenever reservoir selection, sort mode, or display count changes
     use_effect(move || {
         web_sys::console::log_1(&"[CWR CRITICAL] use_effect triggered".into());
-        log::info!("[CWR Debug Rust] water-years use_effect triggered");
+        web_sys::console::log_1(&"[CWR Debug Rust] water-years use_effect triggered".into());
 
         let loading_state = (state.loading)();
         web_sys::console::log_1(&format!("[CWR CRITICAL] loading={}", loading_state).into());
 
         if loading_state {
-            log::info!("[CWR Debug Rust] Exiting: still loading");
+            web_sys::console::log_1(&"[CWR Debug Rust] Exiting: still loading".into());
             return;
         }
 
@@ -110,17 +110,17 @@ fn App() -> Element {
         web_sys::console::log_1(&format!("[CWR CRITICAL] has_error={}", error_state).into());
 
         if error_state {
-            log::info!("[CWR Debug Rust] Exiting: error present");
+            web_sys::console::log_1(&"[CWR Debug Rust] Exiting: error present".into());
             return;
         }
 
         let db = match &*state.db.read() {
             Some(db) => {
-                log::info!("[CWR Debug Rust] Database available");
+                web_sys::console::log_1(&"[CWR Debug Rust] Database available".into());
                 db.clone()
             }
             None => {
-                log::info!("[CWR Debug Rust] Exiting: no database");
+                web_sys::console::log_1(&"[CWR Debug Rust] Exiting: no database".into());
                 return;
             }
         };
@@ -128,44 +128,44 @@ fn App() -> Element {
         let station = (state.selected_station)();
         let sort_mode = (state.sort_mode)();
         let display_count = (state.display_count)();
-        log::info!("[CWR Debug Rust] Selected station: {}, sort: {}, count: {}", station, sort_mode, display_count);
+        web_sys::console::log_1(&format!("[CWR Debug Rust] Selected station: {}, sort: {}, count: {}", station, sort_mode, display_count).into());
 
         if station.is_empty() {
-            log::info!("[CWR Debug Rust] Exiting: empty station");
+            web_sys::console::log_1(&"[CWR Debug Rust] Exiting: empty station".into());
             return;
         }
 
         // Initialize D3.js chart scripts
         js_bridge::init_charts();
 
-        log::info!("[CWR Debug Rust] Querying water years for: {}", station);
+        web_sys::console::log_1(&format!("[CWR Debug Rust] Querying water years for: {}", station).into());
         // 1. Query all water year data for the selected reservoir
         let water_years = match db.query_water_years(&station) {
             Ok(wy) => {
-                log::info!("[CWR Debug Rust] Query returned {} water year records", wy.len());
+                web_sys::console::log_1(&format!("[CWR Debug Rust] Query returned {} water year records", wy.len()).into());
                 wy
             }
             Err(e) => {
-                log::error!("[CWR Debug Rust] Water years query failed: {}", e);
+                web_sys::console::log_1(&format!("[CWR Debug Rust] Water years query failed: {}", e).into());
                 return;
             }
         };
 
         if water_years.is_empty() {
-            log::info!("[CWR Debug Rust] No water years data, destroying chart");
+            web_sys::console::log_1(&"[CWR Debug Rust] No water years data, destroying chart".into());
             js_bridge::destroy_chart(CHART_ID);
             return;
         }
 
-        log::info!("[CWR Debug Rust] Querying water year stats");
+        web_sys::console::log_1(&"[CWR Debug Rust] Querying water year stats".into());
         // 2. Query water year stats (has is_driest/is_wettest already computed dynamically)
         let stats = match db.query_water_year_stats(&station) {
             Ok(s) => {
-                log::info!("[CWR Debug Rust] Stats returned {} years", s.len());
+                web_sys::console::log_1(&format!("[CWR Debug Rust] Stats returned {} years", s.len()).into());
                 s
             }
             Err(e) => {
-                log::error!("[CWR Debug Rust] Stats query failed: {}", e);
+                web_sys::console::log_1(&format!("[CWR Debug Rust] Stats query failed: {}", e).into());
                 return;
             }
         };
@@ -266,10 +266,10 @@ fn App() -> Element {
             .unwrap_or(0);
 
         let data_json = serde_json::to_string(&filtered_data).unwrap_or_default();
-        log::info!(
+        web_sys::console::log_1(&format!(
             "Sending to renderWaterYearsChart: {}",
             &data_json[..200.min(data_json.len())]
-        );
+        ).into());
         let config_json = serde_json::to_string(&serde_json::json!({
             "title": format!("Water Years: {}", reservoir_name),
             "yAxisLabel": "Acre-Feet (AF)",
@@ -287,9 +287,9 @@ fn App() -> Element {
         }))
         .unwrap_or_default();
 
-        log::info!("[CWR Debug Rust] Calling render_water_years_chart");
+        web_sys::console::log_1(&"[CWR Debug Rust] Calling render_water_years_chart".into());
         js_bridge::render_water_years_chart(CHART_ID, &data_json, &config_json);
-        log::info!("[CWR Debug Rust] render_water_years_chart returned");
+        web_sys::console::log_1(&"[CWR Debug Rust] render_water_years_chart returned".into());
     });
 
     rsx! {
