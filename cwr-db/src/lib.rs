@@ -81,6 +81,7 @@ impl Database {
     pub fn new() -> anyhow::Result<Self> {
         let conn = Connection::open_in_memory()?;
         conn.execute_batch(schema::create_schema())?;
+        log::info!("[CWR Debug] db: Created new in-memory database");
         Ok(Self {
             conn: Rc::new(RefCell::new(conn)),
         })

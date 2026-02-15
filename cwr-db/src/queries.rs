@@ -44,6 +44,7 @@ impl Database {
                 })
             })?
             .collect::<Result<Vec<_>, _>>()?;
+        log::info!("[CWR Debug] query: query_total_water returned {} records", rows.len());
         Ok(rows)
     }
 
@@ -75,6 +76,7 @@ impl Database {
                 })
             })?
             .collect::<Result<Vec<_>, _>>()?;
+        log::info!("[CWR Debug] query: query_total_water_ca_only returned {} records", rows.len());
         Ok(rows)
     }
 
@@ -102,6 +104,7 @@ impl Database {
                 })
             })?
             .collect::<Result<Vec<_>, _>>()?;
+        log::info!("[CWR Debug] query: query_reservoir_history returned {} records", rows.len());
         Ok(rows)
     }
 
@@ -130,6 +133,7 @@ impl Database {
                 })
             })?
             .collect::<Result<Vec<_>, _>>()?;
+        log::info!("[CWR Debug] query: query_all_reservoir_histories returned {} records", rows.len());
         Ok(rows)
     }
 
@@ -168,6 +172,7 @@ impl Database {
                 });
             }
         }
+        log::info!("[CWR Debug] query: query_water_years returned {} records", results.len());
         Ok(results)
     }
 
@@ -241,6 +246,7 @@ impl Database {
             })
             .collect();
 
+        log::info!("[CWR Debug] query: query_water_year_stats returned {} records", results.len());
         Ok(results)
     }
 
@@ -264,6 +270,7 @@ impl Database {
                 })
             })?
             .collect::<Result<Vec<_>, _>>()?;
+        log::info!("[CWR Debug] query: query_reservoirs returned {} records", rows.len());
         Ok(rows)
     }
 
@@ -283,6 +290,7 @@ impl Database {
                 ))
             },
         )?;
+        log::info!("[CWR Debug] query: query_date_range returned ({}, {})", min_date, max_date);
         Ok((min_date, max_date))
     }
 
@@ -315,6 +323,7 @@ impl Database {
                 })
             })?
             .collect::<Result<Vec<_>, _>>()?;
+        log::info!("[CWR Debug] query: query_total_snow returned {} records", rows.len());
         Ok(rows)
     }
 
@@ -344,6 +353,7 @@ impl Database {
                 })
             })?
             .collect::<Result<Vec<_>, _>>()?;
+        log::info!("[CWR Debug] query: query_snow_station_history returned {} records", rows.len());
         Ok(rows)
     }
 
@@ -378,6 +388,7 @@ impl Database {
                 });
             }
         }
+        log::info!("[CWR Debug] query: query_snow_years returned {} records", results.len());
         Ok(results)
     }
 
@@ -441,6 +452,7 @@ impl Database {
             })
             .collect();
 
+        log::info!("[CWR Debug] query: query_snow_year_stats returned {} records", results.len());
         Ok(results)
     }
 
@@ -464,7 +476,27 @@ impl Database {
                 })
             })?
             .collect::<Result<Vec<_>, _>>()?;
+        log::info!("[CWR Debug] query: query_snow_stations returned {} records", rows.len());
         Ok(rows)
+    }
+
+    /// Get the (min, max) date range for all snow observations.
+    ///
+    /// Returns the earliest and latest dates across all snow station observations
+    /// in YYYYMMDD format.
+    pub fn query_snow_date_range(&self) -> anyhow::Result<(String, String)> {
+        let conn = self.conn.borrow();
+        let (min_date, max_date) = conn.query_row(
+            "SELECT MIN(date), MAX(date) FROM snow_observations",
+            [],
+            |row| {
+                Ok((
+                    row.get::<_, String>(0)?,
+                    row.get::<_, String>(1)?,
+                ))
+            },
+        )?;
+        Ok((min_date, max_date))
     }
 }
 
@@ -1003,5 +1035,13 @@ PWL,D,20220101,8000000
         for (i, &d) in days.iter().enumerate() {
             assert_eq!(d, i as i32, "Day {} should have day_of_year {}", i, i);
         }
+    }
+
+    #[test]
+    fn query_snow_date_range() {
+        let db = sample_snow_db();
+        let (min_date, max_date) = db.query_snow_date_range().unwrap();
+        assert_eq!(min_date, "20211001");
+        assert_eq!(max_date, "20230930");
     }
 }

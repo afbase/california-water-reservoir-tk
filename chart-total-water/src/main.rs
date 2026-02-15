@@ -135,6 +135,7 @@ fn App() -> Element {
         // doesn't interfere with Dioxus signal tracking.
         let data: Vec<DataPoint> = all_data.read().clone();
         if data.is_empty() {
+            state.error_msg.set(Some("No total water data available for the selected date range.".to_string()));
             return;
         }
 
@@ -148,8 +149,11 @@ fn App() -> Element {
             .collect();
 
         if filtered.is_empty() {
+            state.error_msg.set(Some("No total water data available for the selected date range.".to_string()));
             return;
         }
+        // Clear any previous error when data IS available
+        state.error_msg.set(None);
 
         // Downsample to ~2000 points for crisp rendering
         let display_data: Vec<&DataPoint> = if filtered.len() > 2000 {

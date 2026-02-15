@@ -21,6 +21,7 @@ use cwr_chart_ui::js_bridge;
 use cwr_chart_ui::state::AppState;
 use cwr_db::Database;
 use dioxus::prelude::*;
+use wasm_bindgen::JsValue;
 
 /// All reservoir metadata.
 const CAPACITY_CSV: &str = include_str!(concat!(env!("OUT_DIR"), "/capacity.csv"));
@@ -133,7 +134,7 @@ fn App() -> Element {
             .unwrap_or(0);
 
         // Render Alpine Lake (LGT) chart
-        render_local_chart(
+        let lgt_ok = render_local_chart(
             &db,
             STATION_LGT,
             NAME_LGT,
@@ -145,7 +146,7 @@ fn App() -> Element {
         );
 
         // Render Lake Lagunitas (APN) chart
-        render_local_chart(
+        let apn_ok = render_local_chart(
             &db,
             STATION_APN,
             NAME_APN,
@@ -155,6 +156,12 @@ fn App() -> Element {
             apn_capacity,
             "#2E7D32", // Dark green
         );
+
+        if !lgt_ok && !apn_ok {
+            state.error_msg.set(Some("No observation data available for local reservoirs. These reservoirs may not have data in our database yet.".to_string()));
+        } else {
+            state.error_msg.set(None);
+        }
     });
 
     rsx! {
@@ -209,7 +216,7 @@ fn App() -> Element {
     }
 }
 
-/// Render a line chart for a single local reservoir.
+/// Render a line chart for a single local reservoir. Returns true if data was found and rendered.
 fn render_local_chart(
     db: &Database,
     station_id: &str,
@@ -219,18 +226,19 @@ fn render_local_chart(
     end: &str,
     capacity: i32,
     line_color: &str,
-) {
+) -> bool {
     let data = match db.query_reservoir_history(station_id, start, end) {
         Ok(d) => d,
         Err(e) => {
             log::warn!("No data for station {}: {}", station_id, e);
-            return;
+            return false;
         }
     };
 
     if data.is_empty() {
         log::warn!("No observations found for station {}", station_id);
-        return;
+        web_sys::console::log_1(&format!("[CWR Debug] No data available for local reservoir {} ({})", station_name, station_id).into());
+        return false;
     }
 
     let data_json = serde_json::to_string(&data).unwrap_or_default();
@@ -247,4 +255,5 @@ fn render_local_chart(
     .unwrap_or_default();
 
     js_bridge::render_line_chart(chart_id, &data_json, &config_json);
+    true
 }

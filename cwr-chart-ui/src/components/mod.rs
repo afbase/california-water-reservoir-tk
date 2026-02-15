@@ -6,6 +6,7 @@ mod date_range_picker;
 mod error_display;
 mod loading_spinner;
 mod reservoir_selector;
+mod snow_station_selector;
 mod sort_selector;
 
 pub use chart_container::ChartContainer;
@@ -14,4 +15,5 @@ pub use date_range_picker::DateRangePicker;
 pub use error_display::ErrorDisplay;
 pub use loading_spinner::LoadingSpinner;
 pub use reservoir_selector::ReservoirSelector;
+pub use snow_station_selector::SnowStationSelector;
 pub use sort_selector::SortSelector;

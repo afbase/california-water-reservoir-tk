@@ -107,6 +107,7 @@ fn App() -> Element {
 
         if data.is_empty() {
             log::warn!("No cumulative CA-only water data found");
+            state.error_msg.set(Some("No cumulative water data available for the selected date range.".to_string()));
             return;
         }
 

@@ -87,8 +87,8 @@ jobs:
         uses: actions/cache@v4
         with:
           path: |
-            fixtures/reservoirs.csv
-            fixtures/reservoirs_v2.csv
+            fixtures/observations.csv
+            fixtures/capacity.csv
             fixtures/snow_stations.csv
             fixtures/snow_observations.csv
           key: cwr-fixtures-${{ github.run_number }}
@@ -104,9 +104,7 @@ jobs:
           for attempt in $(seq 1 $MAX_RETRIES); do
             echo "Attempt $attempt of $MAX_RETRIES"
             if cargo run --release --bin cwr-cli -- incremental-query \
-                 -r fixtures/reservoirs.csv && \
-               cargo run --release --bin cwr-cli -- incremental-query \
-                 -r fixtures/reservoirs_v2.csv --california-only; then
+                 -r fixtures/observations.csv; then
               echo "Water queries completed successfully"
               break
             fi
@@ -123,13 +121,28 @@ jobs:
           set -euxo pipefail
           cargo run --release --bin cwr-cli -- snow-query \
             -t fixtures/snow_observations.csv || echo "Snow query failed (non-fatal)"
+      - name: Validate fetched data
+        run: |
+          set -euxo pipefail
+          echo "Checking fixture file sizes..."
+          for f in fixtures/observations.csv fixtures/snow_observations.csv; do
+            if [ -f "$f" ]; then
+              lines=$(wc -l < "$f")
+              echo "$f: $lines lines"
+              if [ "$lines" -lt 10 ]; then
+                echo "WARNING: $f has fewer than 10 lines"
+              fi
+            else
+              echo "WARNING: $f does not exist"
+            fi
+          done
       - name: Upload fixture artifacts
         uses: actions/upload-artifact@v4
         with:
           name: cwr-fixtures
           path: |
-            fixtures/reservoirs.csv
-            fixtures/reservoirs_v2.csv
+            fixtures/observations.csv
+            fixtures/capacity.csv
             fixtures/snow_stations.csv
             fixtures/snow_observations.csv
 
@@ -157,8 +170,8 @@ jobs:
         uses: actions/cache@v4
         with:
           path: |
-            fixtures/reservoirs.csv
-            fixtures/reservoirs_v2.csv
+            fixtures/observations.csv
+            fixtures/capacity.csv
           key: cwr-fixtures-${{ github.run_number }}
           restore-keys: |
             cwr-fixtures-

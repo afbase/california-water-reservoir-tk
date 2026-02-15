@@ -3,7 +3,7 @@
 //! `AppState` bundles all reactive signals into a single struct provided via
 //! `use_context_provider`. Child components retrieve it with `use_context::<AppState>()`.
 
-use cwr_db::models::ReservoirInfo;
+use cwr_db::models::{ReservoirInfo, SnowStationInfo};
 use cwr_db::Database;
 use dioxus::prelude::*;
 
@@ -20,6 +20,8 @@ pub struct AppState {
     pub selected_station: Signal<String>,
     /// Available reservoirs
     pub reservoirs: Signal<Vec<ReservoirInfo>>,
+    /// Available snow stations
+    pub snow_stations: Signal<Vec<SnowStationInfo>>,
     /// Start date for date range filtering
     pub start_date: Signal<String>,
     /// End date for date range filtering
@@ -39,6 +41,7 @@ impl AppState {
             error_msg: Signal::new(None),
             selected_station: Signal::new("SHA".to_string()),
             reservoirs: Signal::new(Vec::new()),
+            snow_stations: Signal::new(Vec::new()),
             start_date: Signal::new(String::new()),
             end_date: Signal::new(String::new()),
             sort_mode: Signal::new("most_recent".to_string()),

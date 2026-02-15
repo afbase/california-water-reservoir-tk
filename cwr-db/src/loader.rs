@@ -31,6 +31,7 @@ impl Database {
             .flexible(true)
             .from_reader(csv_data.as_bytes());
 
+        let mut count = 0u32;
         for result in rdr.records() {
             let r = result?;
             let station_id = r.get(0).unwrap_or("").trim();
@@ -45,7 +46,9 @@ impl Database {
                  VALUES (?1, ?2, ?3, ?4, ?5, ?6)",
                 params![station_id, dam, lake, stream, capacity, fill_year],
             )?;
+            count += 1;
         }
+        log::info!("[CWR Debug] loader: Loaded {} reservoirs", count);
         Ok(())
     }
 
@@ -69,6 +72,8 @@ impl Database {
             .flexible(true)
             .from_reader(csv_data.as_bytes());
 
+        let mut count = 0u32;
+        let mut skipped = 0u32;
         for result in rdr.records() {
             let r = result?;
             let station_id = r.get(0).unwrap_or("").trim();
@@ -79,11 +84,12 @@ impl Database {
             // Skip non-numeric values (ART, BRT, ---)
             let value: f64 = match value_str.parse::<f64>() {
                 Ok(v) => v,
-                Err(_) => continue,
+                Err(_) => { skipped += 1; continue; }
             };
 
             // Skip if station_id or date is empty
             if station_id.is_empty() || date.is_empty() {
+                skipped += 1;
                 continue;
             }
 
@@ -92,7 +98,9 @@ impl Database {
                  VALUES (?1, ?2, ?3)",
                 params![station_id, date, value],
             )?;
+            count += 1;
         }
+        log::info!("[CWR Debug] loader: Loaded {} observations, skipped {} non-numeric", count, skipped);
         Ok(())
     }
 
@@ -112,6 +120,7 @@ impl Database {
             .flexible(true)
             .from_reader(csv_data.as_bytes());
 
+        let mut count = 0u32;
         for result in rdr.records() {
             let r = result?;
             let station_id = r.get(0).unwrap_or("").trim();
@@ -128,7 +137,9 @@ impl Database {
                  VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7)",
                 params![station_id, name, elevation, river_basin, county, latitude, longitude],
             )?;
+            count += 1;
         }
+        log::info!("[CWR Debug] loader: Loaded {} snow stations", count);
         Ok(())
     }
 
@@ -152,6 +163,8 @@ impl Database {
             .flexible(true)
             .from_reader(csv_data.as_bytes());
 
+        let mut count = 0u32;
+        let mut skipped = 0u32;
         for result in rdr.records() {
             let r = result?;
             let station_id = r.get(0).unwrap_or("").trim();
@@ -160,11 +173,13 @@ impl Database {
             let depth: Option<f64> = r.get(3).and_then(|s| s.trim().parse().ok());
 
             if station_id.is_empty() || date.is_empty() {
+                skipped += 1;
                 continue;
             }
 
             // Skip rows where both values are missing
             if swe.is_none() && depth.is_none() {
+                skipped += 1;
                 continue;
             }
 
@@ -174,7 +189,9 @@ impl Database {
                  VALUES (?1, ?2, ?3, ?4)",
                 params![station_id, date, swe, depth],
             )?;
+            count += 1;
         }
+        log::info!("[CWR Debug] loader: Loaded {} snow observations, skipped {} invalid", count, skipped);
         Ok(())
     }
 

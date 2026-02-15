@@ -71,11 +71,15 @@ fn App() -> Element {
 
                 // Populate reservoir list for the dropdown
                 if let Ok(reservoirs) = db.query_reservoirs() {
-                    if !reservoirs.is_empty() {
-                        // Default to the largest reservoir
-                        state
-                            .selected_station
-                            .set(reservoirs[0].station_id.clone());
+                    let default_station = reservoirs.iter()
+                        .find(|r| r.station_id == "ORO")
+                        .or_else(|| reservoirs.first())
+                        .map(|r| r.station_id.clone())
+                        .unwrap_or_default();
+
+                    if !default_station.is_empty() {
+                        web_sys::console::log_1(&format!("[CWR Debug] reservoir-history: Default selection: {}", default_station).into());
+                        state.selected_station.set(default_station);
                     }
                     state.reservoirs.set(reservoirs);
                 }
@@ -179,9 +183,19 @@ fn App() -> Element {
 
         if data.is_empty() {
             web_sys::console::log_1(&"[CWR Debug Rust] No data returned, destroying chart".into());
+            let reservoir_name = state.reservoirs.read().iter()
+                .find(|r| r.station_id == station)
+                .map(|r| format!("{} ({})", r.dam, r.station_id))
+                .unwrap_or_else(|| station.clone());
+            state.error_msg.set(Some(format!(
+                "No observation data available for {}. This reservoir may not have data in our database yet. Please select another reservoir from the dropdown.",
+                reservoir_name
+            )));
             js_bridge::destroy_chart(CHART_ID);
             return;
         }
+        // Clear any previous error when data IS available
+        state.error_msg.set(None);
 
         // Find the reservoir name for the chart title
         let reservoir_name = state
