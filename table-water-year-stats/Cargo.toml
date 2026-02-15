@@ -12,6 +12,7 @@ dioxus = { workspace = true }
 dioxus-logger = { workspace = true }
 js-sys = { workspace = true }
 wasm-bindgen = { workspace = true }
+web-sys = { workspace = true }
 serde = { workspace = true }
 serde_json = { workspace = true }
 log = { workspace = true }

@@ -19,7 +19,7 @@ use cwr_chart_ui::js_bridge;
 use cwr_chart_ui::state::AppState;
 use cwr_db::Database;
 use dioxus::prelude::*;
-use wasm_bindgen::JsValue;
+
 
 /// All snow station metadata.
 const SNOW_STATIONS_CSV: &str = include_str!(concat!(env!("OUT_DIR"), "/snow_stations.csv"));
