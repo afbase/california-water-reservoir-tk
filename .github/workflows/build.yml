@@ -174,21 +174,14 @@ jobs:
             dx build --release --platform web || echo "WARNING: ${app} build failed"
             cd ..
             public_dir="target/dx/${app}/release/web/public"
-            assets_dir="${public_dir}/assets"
-            wasm_dir="${public_dir}/wasm"
-            if [ -d "$assets_dir" ]; then
+            if [ -d "$public_dir" ]; then
               mkdir -p "dist/${app}"
-              # JS is in assets/ with a hash — rename to clean name
-              for f in "$assets_dir"/${app}*.js; do
-                [ -f "$f" ] && cp "$f" "dist/${app}/${app}.js"
-              done
-              # WASM is in wasm/ with clean name
-              if [ -f "$wasm_dir/${app}_bg.wasm" ]; then
-                cp "$wasm_dir/${app}_bg.wasm" "dist/${app}/${app}_bg.wasm"
-              fi
-              echo "Collected ${app}: $(ls dist/${app}/)"
+              cp -r "$public_dir"/* "dist/${app}/" 2>/dev/null || true
+              # Remove index.html (not needed for embedding)
+              rm -f "dist/${app}/index.html"
+              echo "Collected ${app}: $(find dist/${app} -type f | sort)"
             else
-              echo "WARNING: No assets output for ${app}"
+              echo "WARNING: No public output for ${app}"
             fi
           done
           echo "=== Final dist contents ==="
