@@ -188,7 +188,7 @@ jobs:
 
   build-water-wasm:
     needs: [detect-changes, fetch-water-data]
-    if: always() && (needs.detect-changes.outputs.core-libs == 'true' || needs.detect-changes.outputs.water-charts == 'true' || github.event_name == 'schedule' || github.event_name == 'workflow_dispatch')
+    if: always() && (needs.fetch-water-data.result == 'success' || needs.detect-changes.outputs.core-libs == 'true' || needs.detect-changes.outputs.water-charts == 'true' || github.event_name == 'schedule' || github.event_name == 'workflow_dispatch')
     runs-on: ubuntu-latest
     container:
       image: ghcr.io/afbase/rust-zola-builder:pinned
@@ -206,15 +206,6 @@ jobs:
           name: cwr-water-fixtures
           path: fixtures/
         continue-on-error: true
-      - name: Cache fixture data
-        uses: actions/cache@v4
-        with:
-          path: |
-            fixtures/observations.csv
-            fixtures/capacity.csv
-          key: cwr-water-fixtures-${{ github.run_number }}
-          restore-keys: |
-            cwr-water-fixtures-
       - name: Install Dioxus CLI
         run: cargo install dioxus-cli --locked || true
       - name: Build and collect water WASM apps
@@ -283,7 +274,7 @@ jobs:
 
   build-snow-wasm:
     needs: [detect-changes, fetch-snow-data]
-    if: always() && (needs.detect-changes.outputs.core-libs == 'true' || needs.detect-changes.outputs.snow-charts == 'true' || github.event_name == 'schedule' || github.event_name == 'workflow_dispatch')
+    if: always() && (needs.fetch-snow-data.result == 'success' || needs.detect-changes.outputs.core-libs == 'true' || needs.detect-changes.outputs.snow-charts == 'true' || github.event_name == 'schedule' || github.event_name == 'workflow_dispatch')
     runs-on: ubuntu-latest
     container:
       image: ghcr.io/afbase/rust-zola-builder:pinned
@@ -301,15 +292,6 @@ jobs:
           name: cwr-snow-fixtures
           path: fixtures/
         continue-on-error: true
-      - name: Cache fixture data
-        uses: actions/cache@v4
-        with:
-          path: |
-            fixtures/snow_stations.csv
-            fixtures/snow_observations.csv
-          key: cwr-snow-fixtures-${{ github.run_number }}
-          restore-keys: |
-            cwr-snow-fixtures-
       - name: Install Dioxus CLI
         run: cargo install dioxus-cli --locked || true
       - name: Build and collect snow WASM apps
