@@ -187,28 +187,7 @@ fn App() -> Element {
         })
         .to_string();
 
-        let escaped_data = data_json.replace('\'', "\\'").replace('\n', "");
-        let escaped_config = config_json.replace('\'', "\\'").replace('\n', "");
-        let container_id = CHART_CONTAINER_ID;
-
-        js_bridge::call_js(&format!(
-            r#"
-            (function() {{
-                var waitForCharts = setInterval(function() {{
-                    if (window.__cwrChartsReady &&
-                        typeof window.renderLineChart !== 'undefined' &&
-                        document.getElementById('{container_id}')) {{
-                        clearInterval(waitForCharts);
-                        try {{
-                            window.renderLineChart('{container_id}', '{escaped_data}', '{escaped_config}');
-                        }} catch(e) {{
-                            console.error('[CWR] renderLineChart error:', e);
-                        }}
-                    }}
-                }}, 100);
-            }})();
-            "#,
-        ));
+        js_bridge::render_line_chart(CHART_CONTAINER_ID, &data_json, &config_json);
     });
 
     // ─── Render ───

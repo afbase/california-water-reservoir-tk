@@ -85,42 +85,102 @@ pub fn init_charts() {
 }
 
 /// Render a single line chart (total water, cumulative water, local reservoirs).
+///
+/// Uses a polling loop to wait for D3.js to load, chart scripts to initialize,
+/// and the container DOM element to exist before rendering.
 pub fn render_line_chart(container_id: &str, data_json: &str, config_json: &str) {
+    let escaped_data = data_json.replace('\'', "\\'").replace('\n', "");
+    let escaped_config = config_json.replace('\'', "\\'").replace('\n', "");
     call_js(&format!(
-        "if (typeof renderLineChart !== 'undefined') renderLineChart('{}', '{}', '{}');",
-        container_id,
-        data_json.replace('\'', "\\'"),
-        config_json.replace('\'', "\\'"),
+        r#"
+        (function() {{
+            var poll = setInterval(function() {{
+                if (window.__cwrChartsReady &&
+                    typeof window.renderLineChart !== 'undefined' &&
+                    document.getElementById('{container_id}')) {{
+                    clearInterval(poll);
+                    try {{
+                        window.renderLineChart('{container_id}', '{escaped_data}', '{escaped_config}');
+                    }} catch(e) {{ console.error('[CWR] renderLineChart error:', e); }}
+                }}
+            }}, 100);
+        }})();
+        "#,
     ));
 }
 
 /// Render a multi-line chart (reservoir history, snow history).
+///
+/// Uses a polling loop to wait for D3.js to load, chart scripts to initialize,
+/// and the container DOM element to exist before rendering.
 pub fn render_multi_line_chart(container_id: &str, data_json: &str, config_json: &str) {
+    let escaped_data = data_json.replace('\'', "\\'").replace('\n', "");
+    let escaped_config = config_json.replace('\'', "\\'").replace('\n', "");
     call_js(&format!(
-        "if (typeof renderMultiLineChart !== 'undefined') renderMultiLineChart('{}', '{}', '{}');",
-        container_id,
-        data_json.replace('\'', "\\'"),
-        config_json.replace('\'', "\\'"),
+        r#"
+        (function() {{
+            var poll = setInterval(function() {{
+                if (window.__cwrChartsReady &&
+                    typeof window.renderMultiLineChart !== 'undefined' &&
+                    document.getElementById('{container_id}')) {{
+                    clearInterval(poll);
+                    try {{
+                        window.renderMultiLineChart('{container_id}', '{escaped_data}', '{escaped_config}');
+                    }} catch(e) {{ console.error('[CWR] renderMultiLineChart error:', e); }}
+                }}
+            }}, 100);
+        }})();
+        "#,
     ));
 }
 
 /// Render a water years overlay chart.
+///
+/// Uses a polling loop to wait for D3.js to load, chart scripts to initialize,
+/// and the container DOM element to exist before rendering.
 pub fn render_water_years_chart(container_id: &str, data_json: &str, config_json: &str) {
+    let escaped_data = data_json.replace('\'', "\\'").replace('\n', "");
+    let escaped_config = config_json.replace('\'', "\\'").replace('\n', "");
     call_js(&format!(
-        "if (typeof renderWaterYearsChart !== 'undefined') renderWaterYearsChart('{}', '{}', '{}');",
-        container_id,
-        data_json.replace('\'', "\\'"),
-        config_json.replace('\'', "\\'"),
+        r#"
+        (function() {{
+            var poll = setInterval(function() {{
+                if (window.__cwrChartsReady &&
+                    typeof window.renderWaterYearsChart !== 'undefined' &&
+                    document.getElementById('{container_id}')) {{
+                    clearInterval(poll);
+                    try {{
+                        window.renderWaterYearsChart('{container_id}', '{escaped_data}', '{escaped_config}');
+                    }} catch(e) {{ console.error('[CWR] renderWaterYearsChart error:', e); }}
+                }}
+            }}, 100);
+        }})();
+        "#,
     ));
 }
 
 /// Render a sortable data table.
+///
+/// Uses a polling loop to wait for D3.js to load, chart scripts to initialize,
+/// and the container DOM element to exist before rendering.
 pub fn render_data_table(container_id: &str, data_json: &str, config_json: &str) {
+    let escaped_data = data_json.replace('\'', "\\'").replace('\n', "");
+    let escaped_config = config_json.replace('\'', "\\'").replace('\n', "");
     call_js(&format!(
-        "if (typeof renderDataTable !== 'undefined') renderDataTable('{}', '{}', '{}');",
-        container_id,
-        data_json.replace('\'', "\\'"),
-        config_json.replace('\'', "\\'"),
+        r#"
+        (function() {{
+            var poll = setInterval(function() {{
+                if (window.__cwrChartsReady &&
+                    typeof window.renderDataTable !== 'undefined' &&
+                    document.getElementById('{container_id}')) {{
+                    clearInterval(poll);
+                    try {{
+                        window.renderDataTable('{container_id}', '{escaped_data}', '{escaped_config}');
+                    }} catch(e) {{ console.error('[CWR] renderDataTable error:', e); }}
+                }}
+            }}, 100);
+        }})();
+        "#,
     ));
 }
 
