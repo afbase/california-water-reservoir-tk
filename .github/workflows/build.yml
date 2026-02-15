@@ -173,17 +173,25 @@ jobs:
             dx build --release --platform web || echo "WARNING: ${app} build failed"
             cd ..
           done
+      - name: Collect water artifacts
+        run: |
+          set -euxo pipefail
+          mkdir -p dist
+          for app in chart-total-water chart-water-years chart-reservoir-history table-water-year-stats chart-local-reservoirs chart-cumulative-water; do
+            wasm_dir="target/dx/${app}/release/web/public/wasm"
+            if [ -d "$wasm_dir" ]; then
+              mkdir -p "dist/${app}"
+              cp "$wasm_dir"/*.js "$wasm_dir"/*_bg.wasm "dist/${app}/" 2>/dev/null || true
+              echo "Collected ${app}: $(ls dist/${app}/)"
+            else
+              echo "WARNING: No wasm output for ${app}"
+            fi
+          done
       - name: Upload water artifacts
         uses: actions/upload-artifact@v4
         with:
           name: cwr-water-dist
-          path: |
-            chart-total-water/dist/
-            chart-water-years/dist/
-            chart-reservoir-history/dist/
-            table-water-year-stats/dist/
-            chart-local-reservoirs/dist/
-            chart-cumulative-water/dist/
+          path: dist/
 
   build-snow-wasm:
     needs: [detect-changes, fetch-data]
@@ -225,15 +233,25 @@ jobs:
             dx build --release --platform web || echo "WARNING: ${app} build failed"
             cd ..
           done
+      - name: Collect snow artifacts
+        run: |
+          set -euxo pipefail
+          mkdir -p dist
+          for app in chart-total-snow chart-snow-years chart-snow-history table-snow-stats; do
+            wasm_dir="target/dx/${app}/release/web/public/wasm"
+            if [ -d "$wasm_dir" ]; then
+              mkdir -p "dist/${app}"
+              cp "$wasm_dir"/*.js "$wasm_dir"/*_bg.wasm "dist/${app}/" 2>/dev/null || true
+              echo "Collected ${app}: $(ls dist/${app}/)"
+            else
+              echo "WARNING: No wasm output for ${app}"
+            fi
+          done
       - name: Upload snow artifacts
         uses: actions/upload-artifact@v4
         with:
           name: cwr-snow-dist
-          path: |
-            chart-total-snow/dist/
-            chart-snow-years/dist/
-            chart-snow-history/dist/
-            table-snow-stats/dist/
+          path: dist/
 
   publish:
     needs: [build-water-wasm, build-snow-wasm]
