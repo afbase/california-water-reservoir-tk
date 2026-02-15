@@ -152,7 +152,9 @@ fn App() -> Element {
             return;
         }
         // Clear any previous error when data IS available
-        state.error_msg.set(None);
+        if state.error_msg.peek().is_some() {
+            state.error_msg.set(None);
+        }
 
         // Downsample to ~2000 points for crisp rendering
         let display_data: Vec<&DataPoint> = if filtered.len() > 2000 {

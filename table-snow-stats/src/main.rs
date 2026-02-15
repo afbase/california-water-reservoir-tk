@@ -132,7 +132,9 @@ fn App() -> Element {
             return;
         }
         // Clear any previous error when data IS available
-        state.error_msg.set(None);
+        if state.error_msg.peek().is_some() {
+            state.error_msg.set(None);
+        }
 
         // Determine the most recent year for additional highlighting
         let most_recent_year = stats.iter().map(|s| s.year).max().unwrap_or(0);

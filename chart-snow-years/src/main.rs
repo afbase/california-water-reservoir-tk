@@ -164,7 +164,9 @@ fn App() -> Element {
             return;
         }
         // Clear any previous error when data IS available
-        state.error_msg.set(None);
+        if state.error_msg.peek().is_some() {
+            state.error_msg.set(None);
+        }
 
         web_sys::console::log_1(&"[CWR Debug Rust] Querying snow year stats".into());
         // 2. Query snow year stats (has is_driest/is_wettest already computed dynamically)

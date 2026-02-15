@@ -160,7 +160,9 @@ fn App() -> Element {
         if !lgt_ok && !apn_ok {
             state.error_msg.set(Some("No observation data available for local reservoirs. These reservoirs may not have data in our database yet.".to_string()));
         } else {
-            state.error_msg.set(None);
+            if state.error_msg.peek().is_some() {
+                state.error_msg.set(None);
+            }
         }
     });
 
