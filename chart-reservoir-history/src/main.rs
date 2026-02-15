@@ -185,6 +185,10 @@ fn App() -> Element {
             .collect();
 
         let data_json = serde_json::to_string(&station_data).unwrap_or_default();
+        log::info!(
+            "Sending to renderMultiLineChart: {}",
+            &data_json[..200.min(data_json.len())]
+        );
         let config_json = serde_json::to_string(&serde_json::json!({
             "title": format!("Water Levels: {}", reservoir_name),
             "yAxisLabel": "Acre-Feet (AF)",

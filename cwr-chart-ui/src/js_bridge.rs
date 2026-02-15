@@ -119,7 +119,14 @@ pub fn render_multi_line_chart(container_id: &str, data_json: &str, config_json:
     call_js(&format!(
         r#"
         (function() {{
+            console.log('[CWR Debug] Initiating polling for multi-line-chart');
             var poll = setInterval(function() {{
+                console.log('[CWR Debug] Poll attempt:', {{
+                    chartsReady: !!window.__cwrChartsReady,
+                    functionAvailable: typeof window.renderMultiLineChart !== 'undefined',
+                    domExists: !!document.getElementById('{container_id}'),
+                    timestamp: Date.now()
+                }});
                 if (window.__cwrChartsReady &&
                     typeof window.renderMultiLineChart !== 'undefined' &&
                     document.getElementById('{container_id}')) {{
@@ -144,7 +151,14 @@ pub fn render_water_years_chart(container_id: &str, data_json: &str, config_json
     call_js(&format!(
         r#"
         (function() {{
+            console.log('[CWR Debug] Initiating polling for water-years-chart');
             var poll = setInterval(function() {{
+                console.log('[CWR Debug] Poll attempt:', {{
+                    chartsReady: !!window.__cwrChartsReady,
+                    functionAvailable: typeof window.renderWaterYearsChart !== 'undefined',
+                    domExists: !!document.getElementById('{container_id}'),
+                    timestamp: Date.now()
+                }});
                 if (window.__cwrChartsReady &&
                     typeof window.renderWaterYearsChart !== 'undefined' &&
                     document.getElementById('{container_id}')) {{
@@ -169,7 +183,14 @@ pub fn render_data_table(container_id: &str, data_json: &str, config_json: &str)
     call_js(&format!(
         r#"
         (function() {{
+            console.log('[CWR Debug] Initiating polling for data-table');
             var poll = setInterval(function() {{
+                console.log('[CWR Debug] Poll attempt:', {{
+                    chartsReady: !!window.__cwrChartsReady,
+                    functionAvailable: typeof window.renderDataTable !== 'undefined',
+                    domExists: !!document.getElementById('{container_id}'),
+                    timestamp: Date.now()
+                }});
                 if (window.__cwrChartsReady &&
                     typeof window.renderDataTable !== 'undefined' &&
                     document.getElementById('{container_id}')) {{

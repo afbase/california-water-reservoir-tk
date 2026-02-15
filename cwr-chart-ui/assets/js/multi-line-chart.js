@@ -66,7 +66,18 @@ function renderMultiLineChart(containerId, seriesJson, configJson) {
     var parseDate = d3.timeParse("%Y-%m-%d");
     var globalXMin = null, globalXMax = null, globalYMax = 0;
 
+    console.log('[CWR Debug] renderMultiLineChart received data:', {
+        dataType: Array.isArray(series) ? 'array' : typeof series,
+        length: series.length,
+        firstItem: series[0],
+        hasDataProperty: series[0] && 'data' in series[0]
+    });
+
     series.forEach(function(s) {
+        if (!s.data) {
+            console.error('[CWR Debug] Series item missing data property:', s);
+            return;
+        }
         s.data.forEach(function(d) {
             d._date  = parseDate(d.date);
             d._value = +d.value;

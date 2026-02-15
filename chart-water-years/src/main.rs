@@ -233,6 +233,10 @@ fn App() -> Element {
             .unwrap_or(0);
 
         let data_json = serde_json::to_string(&filtered_data).unwrap_or_default();
+        log::info!(
+            "Sending to renderWaterYearsChart: {}",
+            &data_json[..200.min(data_json.len())]
+        );
         let config_json = serde_json::to_string(&serde_json::json!({
             "title": format!("Water Years: {}", reservoir_name),
             "yAxisLabel": "Acre-Feet (AF)",

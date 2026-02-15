@@ -59,6 +59,12 @@ function renderWaterYearsChart(containerId, dataJson, configJson) {
     var data = JSON.parse(dataJson);
     var config = JSON.parse(configJson);
 
+    console.log('[CWR Debug] renderWaterYearsChart received data:', {
+        dataType: Array.isArray(data) ? 'array' : typeof data,
+        length: data.length,
+        firstItem: data[0]
+    });
+
     var container = d3.select("#" + containerId);
     container.selectAll("*").remove();
 
