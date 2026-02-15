@@ -89,13 +89,16 @@ jobs:
 
   fetch-water-data:
     needs: [detect-changes, build-cli-image]
-    if: always() && (needs.detect-changes.outputs.cli == 'true' || needs.detect-changes.outputs.fixtures == 'true' || github.event_name == 'schedule' || github.event_name == 'workflow_dispatch')
+    if: always()
     runs-on: ubuntu-latest
     container:
       image: ghcr.io/afbase/cwr-cli:latest
       credentials:
         username: ${{ github.actor }}
         password: ${{ secrets.GITHUB_TOKEN }}
+    defaults:
+      run:
+        shell: bash
     steps:
       - uses: actions/checkout@v4
         with:
@@ -142,13 +145,16 @@ jobs:
 
   fetch-snow-data:
     needs: [detect-changes, build-cli-image]
-    if: always() && (needs.detect-changes.outputs.cli == 'true' || needs.detect-changes.outputs.fixtures == 'true' || github.event_name == 'schedule' || github.event_name == 'workflow_dispatch')
+    if: always()
     runs-on: ubuntu-latest
     container:
       image: ghcr.io/afbase/cwr-cli:latest
       credentials:
         username: ${{ github.actor }}
         password: ${{ secrets.GITHUB_TOKEN }}
+    defaults:
+      run:
+        shell: bash
     steps:
       - uses: actions/checkout@v4
         with:
