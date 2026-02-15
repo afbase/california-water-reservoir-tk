@@ -1,0 +1,100 @@
+name: Build and Publish CWR Artifacts
+on:
+  push:
+    branches: [main]
+  schedule:
+    - cron: '0 18 * * *'
+  workflow_dispatch:
+
+permissions:
+  packages: write
+  contents: read
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    container:
+      image: ghcr.io/afbase/rust-zola-builder:pinned
+      credentials:
+        username: ${{ github.actor }}
+        password: ${{ secrets.GITHUB_TOKEN }}
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Run tests
+        run: cargo test
+
+      - name: Build CLI
+        run: cargo build --release --package cli
+
+      - name: Fetch CDEC data
+        run: |
+          set -euxo pipefail
+          MAX_RETRIES=5
+          RETRY_DELAY=5
+          for attempt in $(seq 1 $MAX_RETRIES); do
+            echo "Attempt $attempt of $MAX_RETRIES"
+            rm -f fixtures/cumulative.csv fixtures/cumulative_v2.csv fixtures/reservoirs.csv fixtures/reservoirs_v2.csv
+            if cargo run --release --bin cli -- query -s fixtures/cumulative.csv -r fixtures/reservoirs.csv && \
+               cargo run --release --bin cli -- query -s fixtures/cumulative_v2.csv -r fixtures/reservoirs_v2.csv --california-only; then
+              echo "Queries completed successfully"
+              break
+            fi
+            if [ $attempt -lt $MAX_RETRIES ]; then
+              echo "Retrying in $RETRY_DELAY seconds..."
+              sleep $RETRY_DELAY
+            else
+              echo "Failed after $MAX_RETRIES attempts"
+              exit 1
+            fi
+          done
+
+      - name: Build Yew WASM apps
+        run: |
+          set -euxo pipefail
+          for app in avin_a_laf da-best nani tew wot_m8 wu; do
+            yew_app="yew-${app}"
+            echo "Building WASM for ${yew_app}"
+            cd "${yew_app}"
+            trunk build --release index.html
+            cd ..
+          done
+
+      - name: Collect artifacts
+        run: |
+          set -euxo pipefail
+          mkdir -p dist
+          for app in avin_a_laf da-best nani tew wot_m8 wu; do
+            yew_app="yew-${app}"
+            if [ -d "${yew_app}/dist" ]; then
+              mkdir -p "dist/${yew_app}"
+              cp -r "${yew_app}/dist/"* "dist/${yew_app}/"
+            fi
+          done
+          # Also include fixtures for reference
+          mkdir -p dist/fixtures
+          cp fixtures/cumulative.csv fixtures/cumulative_v2.csv \
+             fixtures/reservoirs.csv fixtures/reservoirs_v2.csv \
+             dist/fixtures/ 2>/dev/null || true
+
+      - name: Login to GHCR
+        uses: docker/login-action@v3
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Build and push artifact image
+        uses: docker/build-push-action@v6
+        with:
+          context: .
+          file: .github/Dockerfile.artifact
+          push: true
+          tags: ghcr.io/afbase/california-water-reservoir-tk:latest
+
+      - name: Trigger afbase.github.io rebuild
+        uses: peter-evans/repository-dispatch@v3
+        with:
+          token: ${{ secrets.CROSS_REPO_TOKEN }}
+          repository: afbase/afbase.github.io
+          event-type: cwr-updated

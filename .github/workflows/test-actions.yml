@@ -1,27 +1,22 @@
-on: [push]
+on:
+  push:
+    branches-ignore: [main]
+  pull_request:
 name: CI
 jobs:
   build_and_test:
     name: Rust project
     runs-on: ubuntu-latest
+    container:
+      image: ghcr.io/afbase/rust-zola-builder:pinned
+      credentials:
+        username: ${{ github.actor }}
+        password: ${{ secrets.GITHUB_TOKEN }}
     steps:
       - uses: actions/checkout@v4
-      
-      # Add this step to install system dependencies
-      - name: Install system dependencies
-        run: |
-          sudo apt-get update
-          sudo apt-get install -y libfontconfig1-dev pkg-config
-      
-      - name: Install rust
-        uses: dtolnay/rust-toolchain@stable
-        with:
-          # toolchain: nightly-2024-06-21
-          toolchain: nightly-2024-12-14
-          targets: wasm32-unknown-unknown,x86_64-unknown-linux-gnu
-          
+
       - name: Cargo test
-        run: rustup default nightly && cargo test
-        
+        run: cargo test
+
       - name: Cargo Build cli
-        run: rustup default nightly && cargo build --release --package cli
+        run: cargo build --release --package cli
