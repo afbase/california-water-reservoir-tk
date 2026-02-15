@@ -173,14 +173,19 @@ jobs:
             cd "${app}"
             dx build --release --platform web || echo "WARNING: ${app} build failed"
             cd ..
-            wasm_dir="target/dx/${app}/release/web/public/wasm"
-            if [ -d "$wasm_dir" ]; then
+            assets_dir="target/dx/${app}/release/web/public/assets"
+            if [ -d "$assets_dir" ]; then
               mkdir -p "dist/${app}"
-              cp "$wasm_dir"/*.js "$wasm_dir"/*_bg.wasm "dist/${app}/"
+              # Copy JS and WASM, renaming hashed files to clean names
+              for f in "$assets_dir"/${app}*.js; do
+                [ -f "$f" ] && cp "$f" "dist/${app}/${app}.js"
+              done
+              for f in "$assets_dir"/${app}*_bg.wasm; do
+                [ -f "$f" ] && cp "$f" "dist/${app}/${app}_bg.wasm"
+              done
               echo "Collected ${app}: $(ls dist/${app}/)"
             else
-              echo "WARNING: No wasm output at ${wasm_dir}, listing target/dx/${app}:"
-              find "target/dx/${app}" -type f -name "*.js" -o -name "*.wasm" 2>/dev/null | head -10 || echo "  (nothing found)"
+              echo "WARNING: No assets output for ${app}"
             fi
           done
           echo "=== Final dist contents ==="
@@ -231,14 +236,18 @@ jobs:
             cd "${app}"
             dx build --release --platform web || echo "WARNING: ${app} build failed"
             cd ..
-            wasm_dir="target/dx/${app}/release/web/public/wasm"
-            if [ -d "$wasm_dir" ]; then
+            assets_dir="target/dx/${app}/release/web/public/assets"
+            if [ -d "$assets_dir" ]; then
               mkdir -p "dist/${app}"
-              cp "$wasm_dir"/*.js "$wasm_dir"/*_bg.wasm "dist/${app}/"
+              for f in "$assets_dir"/${app}*.js; do
+                [ -f "$f" ] && cp "$f" "dist/${app}/${app}.js"
+              done
+              for f in "$assets_dir"/${app}*_bg.wasm; do
+                [ -f "$f" ] && cp "$f" "dist/${app}/${app}_bg.wasm"
+              done
               echo "Collected ${app}: $(ls dist/${app}/)"
             else
-              echo "WARNING: No wasm output at ${wasm_dir}, listing target/dx/${app}:"
-              find "target/dx/${app}" -type f -name "*.js" -o -name "*.wasm" 2>/dev/null | head -10 || echo "  (nothing found)"
+              echo "WARNING: No assets output for ${app}"
             fi
           done
           echo "=== Final dist contents ==="
