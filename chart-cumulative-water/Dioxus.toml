@@ -2,7 +2,6 @@
 
 [web.app]
 title = "Cumulative California Water Storage"
-base_path = "chart-cumulative-water"
 
 [web.resource]
 style = []

@@ -2,7 +2,6 @@
 
 [web.app]
 title = "Snow Years Comparison"
-base_path = "chart-snow-years"
 
 [web.resource]
 style = []

@@ -2,7 +2,6 @@
 
 [web.app]
 title = "Snow Year Statistics Table"
-base_path = "table-snow-stats"
 
 [web.resource]
 style = []

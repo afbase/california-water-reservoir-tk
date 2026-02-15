@@ -2,7 +2,6 @@
 
 [web.app]
 title = "Water Year Statistics Table"
-base_path = "table-water-year-stats"
 
 [web.resource]
 style = []

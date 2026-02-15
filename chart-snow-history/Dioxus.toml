@@ -2,7 +2,6 @@
 
 [web.app]
 title = "Historical Snow Water Equivalent by Sensor"
-base_path = "chart-snow-history"
 
 [web.resource]
 style = []

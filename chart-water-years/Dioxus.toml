@@ -2,7 +2,6 @@
 
 [web.app]
 title = "Water Years Comparison"
-base_path = "chart-water-years"
 
 [web.resource]
 style = []

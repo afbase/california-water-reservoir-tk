@@ -2,7 +2,6 @@
 
 [web.app]
 title = "Local Reservoir Observations"
-base_path = "chart-local-reservoirs"
 
 [web.resource]
 style = []
