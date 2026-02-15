@@ -1,0 +1,21 @@
+[package]
+name = "chart-total-water"
+version.workspace = true
+edition.workspace = true
+description = "Total California Water Reservoir Levels"
+
+[dependencies]
+cwr-chart-ui = { path = "../cwr-chart-ui" }
+cwr-db = { path = "../cwr-db" }
+cwr-cdec = { path = "../cwr-cdec" }
+csv = { workspace = true }
+dioxus = { workspace = true }
+dioxus-logger = { workspace = true }
+js-sys = { workspace = true }
+wasm-bindgen = { workspace = true }
+serde = { workspace = true }
+serde_json = { workspace = true }
+log = { workspace = true }
+
+[build-dependencies]
+csv = { workspace = true }

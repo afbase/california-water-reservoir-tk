@@ -1,0 +1,11 @@
+[package]
+name = "cwr-data"
+version.workspace = true
+edition.workspace = true
+description = "Data processing and interpolation for water/snow observations"
+
+[dependencies]
+cwr-cdec = { path = "../cwr-cdec" }
+chrono = { workspace = true }
+serde = { workspace = true }
+log = { workspace = true }

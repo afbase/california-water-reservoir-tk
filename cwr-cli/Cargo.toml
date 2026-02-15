@@ -1,0 +1,17 @@
+[package]
+name = "cwr-cli"
+version.workspace = true
+edition.workspace = true
+description = "CLI tool for querying CDEC water and snow data"
+
+[[bin]]
+name = "cwr-cli"
+path = "src/main.rs"
+
+[dependencies]
+cwr-cmd = { path = "../cwr-cmd" }
+anyhow = { workspace = true }
+clap = { workspace = true }
+tokio = { workspace = true }
+log = { workspace = true }
+env_logger = "0.11"

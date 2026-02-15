@@ -1,0 +1,20 @@
+[package]
+name = "chart-water-years"
+version.workspace = true
+edition.workspace = true
+description = "Water Years Comparison"
+
+[dependencies]
+cwr-chart-ui = { path = "../cwr-chart-ui" }
+cwr-db = { path = "../cwr-db" }
+cwr-cdec = { path = "../cwr-cdec" }
+dioxus = { workspace = true }
+dioxus-logger = { workspace = true }
+js-sys = { workspace = true }
+wasm-bindgen = { workspace = true }
+serde = { workspace = true }
+serde_json = { workspace = true }
+log = { workspace = true }
+
+[build-dependencies]
+csv = { workspace = true }

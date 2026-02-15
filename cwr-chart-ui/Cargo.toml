@@ -1,0 +1,15 @@
+[package]
+name = "cwr-chart-ui"
+version.workspace = true
+edition.workspace = true
+description = "Shared Dioxus components and D3.js bridge for CWR chart apps"
+
+[dependencies]
+cwr-cdec = { path = "../cwr-cdec" }
+cwr-db = { path = "../cwr-db" }
+dioxus = { workspace = true }
+js-sys = { workspace = true }
+wasm-bindgen = { workspace = true }
+serde = { workspace = true }
+serde_json = { workspace = true }
+log = { workspace = true }

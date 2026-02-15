@@ -1,0 +1,16 @@
+[package]
+name = "cwr-cmd"
+version.workspace = true
+edition.workspace = true
+description = "Command implementations for CWR CLI"
+
+[dependencies]
+cwr-cdec = { path = "../cwr-cdec", features = ["api"] }
+cwr-data = { path = "../cwr-data" }
+chrono = { workspace = true }
+csv = { workspace = true }
+clap = { workspace = true }
+reqwest = { workspace = true }
+tokio = { workspace = true }
+anyhow = { workspace = true }
+log = { workspace = true }

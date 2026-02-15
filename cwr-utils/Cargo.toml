@@ -1,0 +1,9 @@
+[package]
+name = "cwr-utils"
+version.workspace = true
+edition.workspace = true
+description = "Shared utility functions for CWR crates"
+
+[dependencies]
+chrono = { workspace = true }
+anyhow = { workspace = true }

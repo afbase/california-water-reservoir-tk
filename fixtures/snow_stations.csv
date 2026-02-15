@@ -1,0 +1,13 @@
+station_id,name,elevation,river_basin,county,latitude,longitude
+GRZ,Grizzly Ridge,5280,Feather River,Plumas,39.95,-120.68
+HYS,Huysink,6950,Feather River,Plumas,39.93,-121.17
+KTL,Kettle Rock,6800,Feather River,Plumas,39.88,-120.60
+BLC,Blue Canyon,5280,American River,Placer,39.28,-120.71
+CSL,Central Sierra Snow Lab,6890,Truckee River,Nevada,39.33,-120.37
+HNT,Huntington Lake,7000,San Joaquin River,Fresno,37.23,-119.22
+GNL,Gin Flat,7050,Merced River,Mariposa,37.77,-119.77
+TUM,Tuolumne Meadows,8600,Tuolumne River,Tuolumne,37.87,-119.35
+SDF,Slide Canyon,9200,Walker River,Mono,38.10,-119.43
+PRS,Poison Flat,8000,Carson River,Alpine,38.55,-119.72
+VLC,Volcanic Knob,9200,San Joaquin River,Fresno,37.37,-118.96
+SLI,Slide Peak,7400,Kings River,Fresno,36.97,-118.94

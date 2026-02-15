@@ -1,0 +1,14 @@
+[application]
+
+[web.app]
+title = "Total California Water Reservoir Levels"
+base_path = "chart-total-water"
+
+[web.resource]
+style = []
+script = [
+  "https://cdnjs.cloudflare.com/ajax/libs/d3/7.8.5/d3.min.js",
+]
+
+[web.resource.dev]
+script = []

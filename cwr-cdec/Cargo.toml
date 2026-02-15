@@ -1,0 +1,21 @@
+[package]
+name = "cwr-cdec"
+version.workspace = true
+edition.workspace = true
+description = "Core types and CDEC API client for California water reservoir and snow data"
+
+[features]
+default = []
+api = ["reqwest", "tokio"]
+
+[dependencies]
+chrono = { workspace = true }
+csv = { workspace = true }
+serde = { workspace = true }
+serde_json = { workspace = true }
+anyhow = { workspace = true }
+log = { workspace = true }
+
+# Optional: only for native CLI (not WASM)
+reqwest = { workspace = true, optional = true }
+tokio = { workspace = true, optional = true }

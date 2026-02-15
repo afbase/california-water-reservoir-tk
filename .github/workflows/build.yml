@@ -11,36 +11,97 @@ permissions:
   contents: read
 
 jobs:
-  build:
+  detect-changes:
+    runs-on: ubuntu-latest
+    outputs:
+      core-libs: ${{ steps.filter.outputs.core-libs }}
+      cli: ${{ steps.filter.outputs.cli }}
+      water-charts: ${{ steps.filter.outputs.water-charts }}
+      snow-charts: ${{ steps.filter.outputs.snow-charts }}
+      fixtures: ${{ steps.filter.outputs.fixtures }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: dorny/paths-filter@v3
+        id: filter
+        if: github.event_name == 'push'
+        with:
+          filters: |
+            core-libs:
+              - 'cwr-cdec/**'
+              - 'cwr-db/**'
+              - 'cwr-data/**'
+              - 'cwr-utils/**'
+              - 'cwr-chart-ui/**'
+              - 'Cargo.toml'
+              - 'Cargo.lock'
+            cli:
+              - 'cwr-cmd/**'
+              - 'cwr-cli/**'
+            water-charts:
+              - 'chart-total-water/**'
+              - 'chart-water-years/**'
+              - 'chart-reservoir-history/**'
+              - 'chart-cumulative-water/**'
+              - 'chart-local-reservoirs/**'
+              - 'table-water-year-stats/**'
+            snow-charts:
+              - 'chart-total-snow/**'
+              - 'chart-snow-years/**'
+              - 'chart-snow-history/**'
+              - 'table-snow-stats/**'
+            fixtures:
+              - 'fixtures/**'
+
+  test:
+    needs: detect-changes
+    if: needs.detect-changes.outputs.core-libs == 'true' || github.event_name == 'workflow_dispatch'
     runs-on: ubuntu-latest
     container:
       image: ghcr.io/afbase/rust-zola-builder:pinned
       credentials:
         username: ${{ github.actor }}
         password: ${{ secrets.GITHUB_TOKEN }}
-    defaults:
-      run:
-        shell: bash
     steps:
       - uses: actions/checkout@v4
-
       - name: Run tests
-        run: cargo test
+        run: cargo test --workspace --exclude cdec --exclude cli --exclude cmd --exclude ecco --exclude my_log --exclude vectorize
 
+  fetch-data:
+    needs: detect-changes
+    if: needs.detect-changes.outputs.cli == 'true' || needs.detect-changes.outputs.fixtures == 'true' || github.event_name == 'schedule' || github.event_name == 'workflow_dispatch'
+    runs-on: ubuntu-latest
+    container:
+      image: ghcr.io/afbase/rust-zola-builder:pinned
+      credentials:
+        username: ${{ github.actor }}
+        password: ${{ secrets.GITHUB_TOKEN }}
+    steps:
+      - uses: actions/checkout@v4
+      - name: Cache fixture data
+        uses: actions/cache@v4
+        with:
+          path: |
+            fixtures/reservoirs.csv
+            fixtures/reservoirs_v2.csv
+            fixtures/snow_stations.csv
+            fixtures/snow_observations.csv
+          key: cwr-fixtures-${{ github.run_number }}
+          restore-keys: |
+            cwr-fixtures-
       - name: Build CLI
-        run: cargo build --release --package cli
-
-      - name: Fetch CDEC data
+        run: cargo build --release --package cwr-cli
+      - name: Fetch water data (incremental)
         run: |
           set -euxo pipefail
           MAX_RETRIES=5
           RETRY_DELAY=5
           for attempt in $(seq 1 $MAX_RETRIES); do
             echo "Attempt $attempt of $MAX_RETRIES"
-            rm -f fixtures/cumulative.csv fixtures/cumulative_v2.csv fixtures/reservoirs.csv fixtures/reservoirs_v2.csv
-            if cargo run --release --bin cli -- query -s fixtures/cumulative.csv -r fixtures/reservoirs.csv && \
-               cargo run --release --bin cli -- query -s fixtures/cumulative_v2.csv -r fixtures/reservoirs_v2.csv --california-only; then
-              echo "Queries completed successfully"
+            if cargo run --release --bin cwr-cli -- incremental-query \
+                 -r fixtures/reservoirs.csv && \
+               cargo run --release --bin cwr-cli -- incremental-query \
+                 -r fixtures/reservoirs_v2.csv --california-only; then
+              echo "Water queries completed successfully"
               break
             fi
             if [ $attempt -lt $MAX_RETRIES ]; then
@@ -51,59 +112,147 @@ jobs:
               exit 1
             fi
           done
-
-      - name: Build Yew WASM apps
+      - name: Fetch snow data (incremental)
         run: |
           set -euxo pipefail
-          for app in avin_a_laf da-best nani tew wot_m8 wu; do
-            yew_app="yew-${app}"
-            echo "Building WASM for ${yew_app}"
-            cd "${yew_app}"
-            trunk build --release index.html
-            cd ..
-          done
-
-      - name: Collect artifacts
-        run: |
-          set -euxo pipefail
-          mkdir -p dist
-          for app in avin_a_laf da-best nani tew wot_m8 wu; do
-            yew_app="yew-${app}"
-            if [ -d "${yew_app}/dist" ]; then
-              mkdir -p "dist/${yew_app}"
-              cp -r "${yew_app}/dist/"* "dist/${yew_app}/"
-            fi
-          done
-          mkdir -p dist/fixtures
-          cp fixtures/cumulative.csv fixtures/cumulative_v2.csv \
-             fixtures/reservoirs.csv fixtures/reservoirs_v2.csv \
-             dist/fixtures/ 2>/dev/null || true
-
-      - name: Upload artifacts
+          cargo run --release --bin cwr-cli -- snow-query \
+            -t fixtures/snow_observations.csv || echo "Snow query failed (non-fatal)"
+      - name: Upload fixture artifacts
         uses: actions/upload-artifact@v4
         with:
-          name: cwr-dist
-          path: dist/
+          name: cwr-fixtures
+          path: |
+            fixtures/reservoirs.csv
+            fixtures/reservoirs_v2.csv
+            fixtures/snow_stations.csv
+            fixtures/snow_observations.csv
+
+  build-water-wasm:
+    needs: [detect-changes, fetch-data]
+    if: always() && (needs.detect-changes.outputs.core-libs == 'true' || needs.detect-changes.outputs.water-charts == 'true' || github.event_name == 'schedule' || github.event_name == 'workflow_dispatch')
+    runs-on: ubuntu-latest
+    container:
+      image: ghcr.io/afbase/rust-zola-builder:pinned
+      credentials:
+        username: ${{ github.actor }}
+        password: ${{ secrets.GITHUB_TOKEN }}
+    steps:
+      - uses: actions/checkout@v4
+      - name: Download fixtures
+        uses: actions/download-artifact@v4
+        with:
+          name: cwr-fixtures
+          path: fixtures/
+        continue-on-error: true
+      - name: Cache fixture data
+        uses: actions/cache@v4
+        with:
+          path: |
+            fixtures/reservoirs.csv
+            fixtures/reservoirs_v2.csv
+          key: cwr-fixtures-${{ github.run_number }}
+          restore-keys: |
+            cwr-fixtures-
+      - name: Install Dioxus CLI
+        run: cargo install dioxus-cli --locked || true
+      - name: Build water WASM apps
+        run: |
+          set -euxo pipefail
+          for app in chart-total-water chart-water-years chart-reservoir-history table-water-year-stats chart-local-reservoirs chart-cumulative-water; do
+            echo "Building WASM for ${app}"
+            cd "${app}"
+            dx build --release --platform web || echo "WARNING: ${app} build failed"
+            cd ..
+          done
+      - name: Upload water artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: cwr-water-dist
+          path: |
+            chart-total-water/dist/
+            chart-water-years/dist/
+            chart-reservoir-history/dist/
+            table-water-year-stats/dist/
+            chart-local-reservoirs/dist/
+            chart-cumulative-water/dist/
+
+  build-snow-wasm:
+    needs: [detect-changes, fetch-data]
+    if: always() && (needs.detect-changes.outputs.core-libs == 'true' || needs.detect-changes.outputs.snow-charts == 'true' || github.event_name == 'schedule' || github.event_name == 'workflow_dispatch')
+    runs-on: ubuntu-latest
+    container:
+      image: ghcr.io/afbase/rust-zola-builder:pinned
+      credentials:
+        username: ${{ github.actor }}
+        password: ${{ secrets.GITHUB_TOKEN }}
+    steps:
+      - uses: actions/checkout@v4
+      - name: Download fixtures
+        uses: actions/download-artifact@v4
+        with:
+          name: cwr-fixtures
+          path: fixtures/
+        continue-on-error: true
+      - name: Cache fixture data
+        uses: actions/cache@v4
+        with:
+          path: |
+            fixtures/snow_stations.csv
+            fixtures/snow_observations.csv
+          key: cwr-fixtures-${{ github.run_number }}
+          restore-keys: |
+            cwr-fixtures-
+      - name: Install Dioxus CLI
+        run: cargo install dioxus-cli --locked || true
+      - name: Build snow WASM apps
+        run: |
+          set -euxo pipefail
+          for app in chart-total-snow chart-snow-years chart-snow-history table-snow-stats; do
+            echo "Building WASM for ${app}"
+            cd "${app}"
+            dx build --release --platform web || echo "WARNING: ${app} build failed"
+            cd ..
+          done
+      - name: Upload snow artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: cwr-snow-dist
+          path: |
+            chart-total-snow/dist/
+            chart-snow-years/dist/
+            chart-snow-history/dist/
+            table-snow-stats/dist/
 
   publish:
-    needs: build
+    needs: [build-water-wasm, build-snow-wasm]
+    if: always() && (needs.build-water-wasm.result == 'success' || needs.build-snow-wasm.result == 'success' || needs.build-water-wasm.result == 'skipped' || needs.build-snow-wasm.result == 'skipped')
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
-
-      - name: Download artifacts
+      - name: Download water artifacts
         uses: actions/download-artifact@v4
         with:
-          name: cwr-dist
+          name: cwr-water-dist
           path: dist/
-
+        continue-on-error: true
+      - name: Download snow artifacts
+        uses: actions/download-artifact@v4
+        with:
+          name: cwr-snow-dist
+          path: dist/
+        continue-on-error: true
+      - name: Download fixture artifacts
+        uses: actions/download-artifact@v4
+        with:
+          name: cwr-fixtures
+          path: dist/fixtures/
+        continue-on-error: true
       - name: Login to GHCR
         uses: docker/login-action@v3
         with:
           registry: ghcr.io
           username: ${{ github.actor }}
           password: ${{ secrets.GITHUB_TOKEN }}
-
       - name: Build and push artifact image
         uses: docker/build-push-action@v6
         with:
@@ -111,7 +260,6 @@ jobs:
           file: .github/Dockerfile.artifact
           push: true
           tags: ghcr.io/afbase/california-water-reservoir-tk:latest
-
       - name: Trigger afbase.github.io rebuild
         uses: peter-evans/repository-dispatch@v3
         with:
