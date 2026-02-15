@@ -24,6 +24,7 @@ use cwr_chart_ui::js_bridge;
 use cwr_chart_ui::state::AppState;
 use cwr_db::Database;
 use dioxus::prelude::*;
+use wasm_bindgen::JsValue;
 
 /// All reservoir metadata.
 const CAPACITY_CSV: &str = include_str!(concat!(env!("OUT_DIR"), "/capacity.csv"));
@@ -42,6 +43,9 @@ fn main() {
 
 #[component]
 fn App() -> Element {
+    // CRITICAL DEBUG: This fires immediately when component mounts
+    web_sys::console::log_1(&"[CWR CRITICAL] water-years App component mounted".into());
+
     let mut state = use_context_provider(AppState::new);
 
     // Initialize database on mount
@@ -91,13 +95,21 @@ fn App() -> Element {
 
     // Re-render chart whenever reservoir selection, sort mode, or display count changes
     use_effect(move || {
+        web_sys::console::log_1(&"[CWR CRITICAL] use_effect triggered".into());
         log::info!("[CWR Debug Rust] water-years use_effect triggered");
 
-        if (state.loading)() {
+        let loading_state = (state.loading)();
+        web_sys::console::log_1(&format!("[CWR CRITICAL] loading={}", loading_state).into());
+
+        if loading_state {
             log::info!("[CWR Debug Rust] Exiting: still loading");
             return;
         }
-        if (state.error_msg)().is_some() {
+
+        let error_state = (state.error_msg)().is_some();
+        web_sys::console::log_1(&format!("[CWR CRITICAL] has_error={}", error_state).into());
+
+        if error_state {
             log::info!("[CWR Debug Rust] Exiting: error present");
             return;
         }
