@@ -176,6 +176,9 @@ jobs:
       - name: Collect water artifacts
         run: |
           set -euxo pipefail
+          echo "=== Working directory: $(pwd) ==="
+          echo "=== Looking for target/dx ==="
+          find . -path "*/release/web/public/wasm/*.js" 2>/dev/null | head -20 || echo "No JS files found in target/dx"
           mkdir -p dist
           for app in chart-total-water chart-water-years chart-reservoir-history table-water-year-stats chart-local-reservoirs chart-cumulative-water; do
             wasm_dir="target/dx/${app}/release/web/public/wasm"
@@ -184,7 +187,16 @@ jobs:
               cp "$wasm_dir"/*.js "$wasm_dir"/*_bg.wasm "dist/${app}/" 2>/dev/null || true
               echo "Collected ${app}: $(ls dist/${app}/)"
             else
-              echo "WARNING: No wasm output for ${app}"
+              echo "WARNING: No wasm output at ${wasm_dir}"
+              # Try alternative paths
+              alt=$(find . -path "*/${app}*/wasm/${app}.js" 2>/dev/null | head -1)
+              if [ -n "$alt" ]; then
+                alt_dir=$(dirname "$alt")
+                echo "FOUND at alternative path: ${alt_dir}"
+                mkdir -p "dist/${app}"
+                cp "$alt_dir"/*.js "$alt_dir"/*_bg.wasm "dist/${app}/" 2>/dev/null || true
+                echo "Collected ${app}: $(ls dist/${app}/)"
+              fi
             fi
           done
       - name: Upload water artifacts
@@ -236,6 +248,8 @@ jobs:
       - name: Collect snow artifacts
         run: |
           set -euxo pipefail
+          echo "=== Working directory: $(pwd) ==="
+          find . -path "*/release/web/public/wasm/*.js" 2>/dev/null | head -20 || echo "No JS files found"
           mkdir -p dist
           for app in chart-total-snow chart-snow-years chart-snow-history table-snow-stats; do
             wasm_dir="target/dx/${app}/release/web/public/wasm"
@@ -244,7 +258,15 @@ jobs:
               cp "$wasm_dir"/*.js "$wasm_dir"/*_bg.wasm "dist/${app}/" 2>/dev/null || true
               echo "Collected ${app}: $(ls dist/${app}/)"
             else
-              echo "WARNING: No wasm output for ${app}"
+              echo "WARNING: No wasm output at ${wasm_dir}"
+              alt=$(find . -path "*/${app}*/wasm/${app}.js" 2>/dev/null | head -1)
+              if [ -n "$alt" ]; then
+                alt_dir=$(dirname "$alt")
+                echo "FOUND at alternative path: ${alt_dir}"
+                mkdir -p "dist/${app}"
+                cp "$alt_dir"/*.js "$alt_dir"/*_bg.wasm "dist/${app}/" 2>/dev/null || true
+                echo "Collected ${app}: $(ls dist/${app}/)"
+              fi
             fi
           done
       - name: Upload snow artifacts
