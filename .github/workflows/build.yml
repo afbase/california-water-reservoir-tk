@@ -237,7 +237,7 @@ jobs:
 
   publish:
     needs: [build-water-wasm, build-snow-wasm]
-    if: always() && (needs.build-water-wasm.result == 'success' || needs.build-snow-wasm.result == 'success' || needs.build-water-wasm.result == 'skipped' || needs.build-snow-wasm.result == 'skipped')
+    if: always() && (needs.build-water-wasm.result == 'success' || needs.build-snow-wasm.result == 'success')
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
