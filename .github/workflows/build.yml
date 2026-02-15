@@ -61,10 +61,13 @@ jobs:
       credentials:
         username: ${{ github.actor }}
         password: ${{ secrets.GITHUB_TOKEN }}
+    defaults:
+      run:
+        shell: bash
     steps:
       - uses: actions/checkout@v4
       - name: Run tests
-        run: cargo test --workspace --exclude cdec --exclude cli --exclude cmd --exclude ecco --exclude my_log --exclude vectorize
+        run: cargo test --package cwr-cdec --package cwr-db --package cwr-data --package cwr-utils --package cwr-cmd
 
   fetch-data:
     needs: detect-changes
@@ -75,6 +78,9 @@ jobs:
       credentials:
         username: ${{ github.actor }}
         password: ${{ secrets.GITHUB_TOKEN }}
+    defaults:
+      run:
+        shell: bash
     steps:
       - uses: actions/checkout@v4
       - name: Cache fixture data
@@ -136,6 +142,9 @@ jobs:
       credentials:
         username: ${{ github.actor }}
         password: ${{ secrets.GITHUB_TOKEN }}
+    defaults:
+      run:
+        shell: bash
     steps:
       - uses: actions/checkout@v4
       - name: Download fixtures
@@ -185,6 +194,9 @@ jobs:
       credentials:
         username: ${{ github.actor }}
         password: ${{ secrets.GITHUB_TOKEN }}
+    defaults:
+      run:
+        shell: bash
     steps:
       - uses: actions/checkout@v4
       - name: Download fixtures
