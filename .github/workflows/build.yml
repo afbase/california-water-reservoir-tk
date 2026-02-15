@@ -173,16 +173,19 @@ jobs:
             cd "${app}"
             dx build --release --platform web || echo "WARNING: ${app} build failed"
             cd ..
-            assets_dir="target/dx/${app}/release/web/public/assets"
+            public_dir="target/dx/${app}/release/web/public"
+            assets_dir="${public_dir}/assets"
+            wasm_dir="${public_dir}/wasm"
             if [ -d "$assets_dir" ]; then
               mkdir -p "dist/${app}"
-              # Copy JS and WASM, renaming hashed files to clean names
+              # JS is in assets/ with a hash — rename to clean name
               for f in "$assets_dir"/${app}*.js; do
                 [ -f "$f" ] && cp "$f" "dist/${app}/${app}.js"
               done
-              for f in "$assets_dir"/${app}*_bg.wasm; do
-                [ -f "$f" ] && cp "$f" "dist/${app}/${app}_bg.wasm"
-              done
+              # WASM is in wasm/ with clean name
+              if [ -f "$wasm_dir/${app}_bg.wasm" ]; then
+                cp "$wasm_dir/${app}_bg.wasm" "dist/${app}/${app}_bg.wasm"
+              fi
               echo "Collected ${app}: $(ls dist/${app}/)"
             else
               echo "WARNING: No assets output for ${app}"
