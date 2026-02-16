@@ -1,7 +1,8 @@
 //! Build script for chart-water-years.
 //!
-//! Copies reservoir capacity and observation CSV files to OUT_DIR
-//! so they can be embedded via `include_str!` at compile time.
+//! Copies the reservoir capacity CSV to OUT_DIR so it can be embedded
+//! via `include_str!` at compile time. Observations are fetched at
+//! runtime as a gzipped CSV.
 //! This app overlays water years for a selected reservoir to compare
 //! driest, wettest, and most recent years.
 
@@ -12,10 +13,7 @@ use std::path::Path;
 fn main() {
     let out_dir = env::var("OUT_DIR").unwrap();
 
-    let files = vec![
-        ("../fixtures/capacity.csv", "capacity.csv"),
-        ("../fixtures/observations.csv", "observations.csv"),
-    ];
+    let files = vec![("../fixtures/capacity.csv", "capacity.csv")];
 
     for (src_path, dest_name) in &files {
         let src = Path::new(src_path);

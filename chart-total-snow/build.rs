@@ -42,20 +42,18 @@ fn main() {
             .from_path(obs_src)
             .expect("Failed to open snow_observations.csv");
 
-        for result in rdr.records() {
-            if let Ok(record) = result {
-                let station_id = record.get(0).unwrap_or("").trim().to_string();
-                let date = record.get(1).unwrap_or("").trim().to_string();
-                // Column 2 is SWE (snow water equivalent) in inches
-                let swe_str = record.get(2).unwrap_or("").trim();
-                if let Ok(swe) = swe_str.parse::<f64>() {
-                    if !station_id.is_empty() && !date.is_empty() {
-                        station_obs
-                            .entry(station_id)
-                            .or_default()
-                            .insert(date.clone(), swe);
-                        all_dates.insert(date);
-                    }
+        for record in rdr.records().flatten() {
+            let station_id = record.get(0).unwrap_or("").trim().to_string();
+            let date = record.get(1).unwrap_or("").trim().to_string();
+            // Column 2 is SWE (snow water equivalent) in inches
+            let swe_str = record.get(2).unwrap_or("").trim();
+            if let Ok(swe) = swe_str.parse::<f64>() {
+                if !station_id.is_empty() && !date.is_empty() {
+                    station_obs
+                        .entry(station_id)
+                        .or_default()
+                        .insert(date.clone(), swe);
+                    all_dates.insert(date);
                 }
             }
         }

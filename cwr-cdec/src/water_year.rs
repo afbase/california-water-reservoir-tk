@@ -175,16 +175,8 @@ impl NormalizeWaterYears for Vec<WaterYear> {
     /// Sort water years by their wettest peak (highest maximum value), descending.
     fn sort_by_wettest_years(&mut self) {
         self.sort_by(|a, b| {
-            let a_max = a
-                .0
-                .iter()
-                .map(|s| s.get_value())
-                .fold(f64::MIN, f64::max);
-            let b_max = b
-                .0
-                .iter()
-                .map(|s| s.get_value())
-                .fold(f64::MIN, f64::max);
+            let a_max = a.0.iter().map(|s| s.get_value()).fold(f64::MIN, f64::max);
+            let b_max = b.0.iter().map(|s| s.get_value()).fold(f64::MIN, f64::max);
             b_max
                 .partial_cmp(&a_max)
                 .unwrap_or(std::cmp::Ordering::Equal)

@@ -84,7 +84,10 @@ impl Database {
             // Skip non-numeric values (ART, BRT, ---)
             let value: f64 = match value_str.parse::<f64>() {
                 Ok(v) => v,
-                Err(_) => { skipped += 1; continue; }
+                Err(_) => {
+                    skipped += 1;
+                    continue;
+                }
             };
 
             // Skip if station_id or date is empty
@@ -100,7 +103,11 @@ impl Database {
             )?;
             count += 1;
         }
-        log::info!("[CWR Debug] loader: Loaded {} observations, skipped {} non-numeric", count, skipped);
+        log::info!(
+            "[CWR Debug] loader: Loaded {} observations, skipped {} non-numeric",
+            count,
+            skipped
+        );
         Ok(())
     }
 
@@ -135,7 +142,15 @@ impl Database {
                 "INSERT OR REPLACE INTO snow_stations
                  (station_id, name, elevation, river_basin, county, latitude, longitude)
                  VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7)",
-                params![station_id, name, elevation, river_basin, county, latitude, longitude],
+                params![
+                    station_id,
+                    name,
+                    elevation,
+                    river_basin,
+                    county,
+                    latitude,
+                    longitude
+                ],
             )?;
             count += 1;
         }
@@ -191,10 +206,13 @@ impl Database {
             )?;
             count += 1;
         }
-        log::info!("[CWR Debug] loader: Loaded {} snow observations, skipped {} invalid", count, skipped);
+        log::info!(
+            "[CWR Debug] loader: Loaded {} snow observations, skipped {} invalid",
+            count,
+            skipped
+        );
         Ok(())
     }
-
 }
 
 #[cfg(test)]
@@ -350,13 +368,14 @@ GRZ,20220103,,
         let conn = db.conn.borrow();
         // The third row has both values missing, so it should be skipped
         let count: i64 = conn
-            .query_row(
-                "SELECT COUNT(*) FROM snow_observations",
-                [],
-                |row| row.get(0),
-            )
+            .query_row("SELECT COUNT(*) FROM snow_observations", [], |row| {
+                row.get(0)
+            })
             .unwrap();
-        assert_eq!(count, 2, "Should skip rows where both SWE and depth are missing");
+        assert_eq!(
+            count, 2,
+            "Should skip rows where both SWE and depth are missing"
+        );
     }
 
     #[test]
@@ -370,11 +389,9 @@ GRZ,20220101,12.5,
 
         let conn = db.conn.borrow();
         let count: i64 = conn
-            .query_row(
-                "SELECT COUNT(*) FROM snow_observations",
-                [],
-                |row| row.get(0),
-            )
+            .query_row("SELECT COUNT(*) FROM snow_observations", [], |row| {
+                row.get(0)
+            })
             .unwrap();
         assert_eq!(count, 1, "Should load row with partial values");
 
@@ -387,5 +404,4 @@ GRZ,20220101,12.5,
             .unwrap();
         assert!(depth.is_none(), "Depth should be NULL when not provided");
     }
-
 }

@@ -11,9 +11,10 @@
 //! and which had the highest maximum (wettest) for the selected reservoir.
 //!
 //! Data flow:
-//! 1. `build.rs` copies `capacity.csv` and `observations.csv` into `OUT_DIR`.
-//! 2. `include_str!` embeds these CSVs into the WASM binary.
-//! 3. On mount, the CSVs are loaded into an in-memory SQLite database.
+//! 1. `build.rs` copies `capacity.csv` into `OUT_DIR`.
+//! 2. `include_str!` embeds this CSV into the WASM binary.
+//! 3. On mount, the CSV is loaded into an in-memory SQLite database,
+//!    then `observations.csv.gz` is fetched at runtime and decompressed.
 //! 4. When the user selects a reservoir, `query_water_year_stats()` is called
 //!    and the results are passed to `renderDataTable()` for D3.js rendering.
 
@@ -25,11 +26,11 @@ use cwr_chart_ui::state::AppState;
 use cwr_db::Database;
 use dioxus::prelude::*;
 
-
 /// All reservoir metadata.
 const CAPACITY_CSV: &str = include_str!(concat!(env!("OUT_DIR"), "/capacity.csv"));
-/// Daily observation data for all reservoirs.
-const OBSERVATIONS_CSV: &str = include_str!(concat!(env!("OUT_DIR"), "/observations.csv"));
+
+/// Runtime-fetched gzip-compressed observation data (served alongside WASM).
+const OBSERVATIONS_GZ_URL: &str = "./observations.csv.gz";
 
 /// Table container DOM element ID used by D3.js to render into.
 const TABLE_ID: &str = "water-year-stats-table";
@@ -47,52 +48,66 @@ fn App() -> Element {
 
     // Initialize database on mount
     use_effect(move || {
-        match Database::new() {
-            Ok(db) => {
-                if let Err(e) = db.load_reservoirs(CAPACITY_CSV) {
-                    log::error!("Failed to load reservoirs: {}", e);
-                    state
-                        .error_msg
-                        .set(Some(format!("Failed to load reservoir data: {}", e)));
-                    state.loading.set(false);
-                    return;
-                }
-                if !OBSERVATIONS_CSV.is_empty() {
-                    if let Err(e) = db.load_observations(OBSERVATIONS_CSV) {
-                        log::error!("Failed to load observations: {}", e);
+        spawn(async move {
+            match Database::new() {
+                Ok(db) => {
+                    if let Err(e) = db.load_reservoirs(CAPACITY_CSV) {
+                        log::error!("Failed to load reservoirs: {}", e);
                         state
                             .error_msg
-                            .set(Some(format!("Failed to load observations: {}", e)));
+                            .set(Some(format!("Failed to load reservoir data: {}", e)));
                         state.loading.set(false);
                         return;
                     }
-                }
 
-                // Populate reservoir list for the dropdown
-                if let Ok(reservoirs) = db.query_reservoirs() {
-                    let default_station = reservoirs.iter()
-                        .find(|r| r.station_id == "ORO")
-                        .or_else(|| reservoirs.first())
-                        .map(|r| r.station_id.clone())
-                        .unwrap_or_default();
-
-                    if !default_station.is_empty() {
-                        web_sys::console::log_1(&format!("[CWR Debug] table-water-year-stats: Default selection: {}", default_station).into());
-                        state.selected_station.set(default_station);
+                    match js_bridge::fetch_gz_csv(OBSERVATIONS_GZ_URL).await {
+                        Ok(csv_data) => {
+                            if !csv_data.is_empty() {
+                                if let Err(e) = db.load_observations(&csv_data) {
+                                    log::error!("Failed to load observations: {}", e);
+                                    state
+                                        .error_msg
+                                        .set(Some(format!("Failed to load observations: {}", e)));
+                                    state.loading.set(false);
+                                    return;
+                                }
+                            }
+                        }
+                        Err(e) => {
+                            state
+                                .error_msg
+                                .set(Some(format!("Failed to fetch observation data: {}", e)));
+                            state.loading.set(false);
+                            return;
+                        }
                     }
-                    state.reservoirs.set(reservoirs);
-                }
 
-                state.db.set(Some(db));
-                state.loading.set(false);
+                    // Populate reservoir list for the dropdown
+                    if let Ok(reservoirs) = db.query_reservoirs() {
+                        let default_station = reservoirs
+                            .iter()
+                            .find(|r| r.station_id == "ORO")
+                            .or_else(|| reservoirs.first())
+                            .map(|r| r.station_id.clone())
+                            .unwrap_or_default();
+
+                        if !default_station.is_empty() {
+                            state.selected_station.set(default_station);
+                        }
+                        state.reservoirs.set(reservoirs);
+                    }
+
+                    state.db.set(Some(db));
+                    state.loading.set(false);
+                }
+                Err(e) => {
+                    state
+                        .error_msg
+                        .set(Some(format!("Database initialization failed: {}", e)));
+                    state.loading.set(false);
+                }
             }
-            Err(e) => {
-                state
-                    .error_msg
-                    .set(Some(format!("Database initialization failed: {}", e)));
-                state.loading.set(false);
-            }
-        }
+        });
     });
 
     // Re-render table whenever reservoir selection changes
@@ -128,7 +143,10 @@ fn App() -> Element {
         };
 
         if stats.is_empty() {
-            let reservoir_name = state.reservoirs.read().iter()
+            let reservoir_name = state
+                .reservoirs
+                .read()
+                .iter()
                 .find(|r| r.station_id == station)
                 .map(|r| format!("{} ({})", r.dam, r.station_id))
                 .unwrap_or_else(|| station.clone());

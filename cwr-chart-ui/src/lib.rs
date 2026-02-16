@@ -5,6 +5,6 @@
 //! - `state`: Reactive AppState with Dioxus Signals
 //! - `components`: Reusable RSX components (selectors, containers, etc.)
 
+pub mod components;
 pub mod js_bridge;
 pub mod state;
-pub mod components;

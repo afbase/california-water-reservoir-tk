@@ -42,10 +42,7 @@ fn find_max_dates(csv_path: &str) -> anyhow::Result<HashMap<String, NaiveDate>> 
 ///
 /// Cumulative totals are no longer pre-computed here; they are derived
 /// on-the-fly via SQL in the chart applications.
-pub async fn run_incremental(
-    reservoirs_csv: &str,
-    california_only: bool,
-) -> anyhow::Result<()> {
+pub async fn run_incremental(reservoirs_csv: &str, california_only: bool) -> anyhow::Result<()> {
     let max_dates = find_max_dates(reservoirs_csv)?;
     let end_date = Local::now().naive_local().date();
 
@@ -99,7 +96,10 @@ pub async fn run_incremental(
                     if !response.status().is_success() {
                         warn!(
                             "Attempt {}/{}: Bad response for {}: {}",
-                            attempt, max_tries, reservoir.station_id, response.status()
+                            attempt,
+                            max_tries,
+                            reservoir.station_id,
+                            response.status()
                         );
                     } else {
                         match response.text().await {
@@ -221,9 +221,6 @@ pub async fn run_incremental(
         tokio::time::sleep(std::time::Duration::from_millis(500)).await;
     }
 
-    info!(
-        "Incremental update complete. Output: {}",
-        reservoirs_csv
-    );
+    info!("Incremental update complete. Output: {}", reservoirs_csv);
     Ok(())
 }

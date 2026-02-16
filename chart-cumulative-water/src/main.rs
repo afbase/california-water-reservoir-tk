@@ -5,10 +5,11 @@
 //! crate with an equivalent Dioxus 0.7 + D3.js implementation.
 //!
 //! Data flow:
-//! 1. `build.rs` copies `capacity-no-powell-no-mead.csv` and `observations.csv`
-//!    into `OUT_DIR` at compile time.
-//! 2. `include_str!` embeds these CSVs into the WASM binary.
-//! 3. On mount, the CSVs are loaded into an in-memory SQLite database (`cwr-db`).
+//! 1. `build.rs` copies `capacity-no-powell-no-mead.csv` into `OUT_DIR`
+//!    at compile time.
+//! 2. `include_str!` embeds this CSV into the WASM binary.
+//! 3. On mount, the CSV is loaded into an in-memory SQLite database (`cwr-db`),
+//!    then `observations.csv.gz` is fetched at runtime and decompressed.
 //! 4. CA-only totals are derived on-the-fly via SQL `SUM/GROUP BY` with a JOIN
 //!    that excludes Lake Mead (MEA) and Lake Powell (PWL).
 //! 5. The line chart is rendered via the D3.js bridge in `cwr-chart-ui`.
@@ -21,8 +22,9 @@ use dioxus::prelude::*;
 
 /// CA-only reservoir capacity (excludes Mead/Powell).
 const CAPACITY_CSV: &str = include_str!(concat!(env!("OUT_DIR"), "/capacity.csv"));
-/// Daily observation data for all reservoirs.
-const OBSERVATIONS_CSV: &str = include_str!(concat!(env!("OUT_DIR"), "/observations.csv"));
+
+/// Runtime-fetched gzip-compressed observation data (served alongside WASM).
+const OBSERVATIONS_GZ_URL: &str = "./observations.csv.gz";
 
 /// Chart container DOM element ID used by D3.js to render into.
 const CHART_ID: &str = "cumulative-water-chart";
@@ -40,35 +42,55 @@ fn App() -> Element {
 
     // Initialize database on mount
     use_effect(move || {
-        match Database::new() {
-            Ok(db) => {
-                if let Err(e) = db.load_reservoirs(CAPACITY_CSV) {
-                    log::error!("Failed to load CA-only reservoirs: {}", e);
-                    state.error_msg.set(Some(format!("Failed to load reservoir data: {}", e)));
-                    state.loading.set(false);
-                    return;
-                }
-                if !OBSERVATIONS_CSV.is_empty() {
-                    if let Err(e) = db.load_observations(OBSERVATIONS_CSV) {
-                        log::error!("Failed to load observations: {}", e);
-                        state.error_msg.set(Some(format!("Failed to load observations: {}", e)));
+        spawn(async move {
+            match Database::new() {
+                Ok(db) => {
+                    if let Err(e) = db.load_reservoirs(CAPACITY_CSV) {
+                        log::error!("Failed to load CA-only reservoirs: {}", e);
+                        state
+                            .error_msg
+                            .set(Some(format!("Failed to load reservoir data: {}", e)));
                         state.loading.set(false);
                         return;
                     }
-                }
 
-                if let Ok(reservoirs) = db.query_reservoirs() {
-                    state.reservoirs.set(reservoirs);
-                }
+                    match js_bridge::fetch_gz_csv(OBSERVATIONS_GZ_URL).await {
+                        Ok(csv_data) => {
+                            if !csv_data.is_empty() {
+                                if let Err(e) = db.load_observations(&csv_data) {
+                                    log::error!("Failed to load observations: {}", e);
+                                    state
+                                        .error_msg
+                                        .set(Some(format!("Failed to load observations: {}", e)));
+                                    state.loading.set(false);
+                                    return;
+                                }
+                            }
+                        }
+                        Err(e) => {
+                            state
+                                .error_msg
+                                .set(Some(format!("Failed to fetch observation data: {}", e)));
+                            state.loading.set(false);
+                            return;
+                        }
+                    }
 
-                state.db.set(Some(db));
-                state.loading.set(false);
+                    if let Ok(reservoirs) = db.query_reservoirs() {
+                        state.reservoirs.set(reservoirs);
+                    }
+
+                    state.db.set(Some(db));
+                    state.loading.set(false);
+                }
+                Err(e) => {
+                    state
+                        .error_msg
+                        .set(Some(format!("Database initialization failed: {}", e)));
+                    state.loading.set(false);
+                }
             }
-            Err(e) => {
-                state.error_msg.set(Some(format!("Database initialization failed: {}", e)));
-                state.loading.set(false);
-            }
-        }
+        });
     });
 
     // Render chart after data loaded
@@ -107,7 +129,9 @@ fn App() -> Element {
 
         if data.is_empty() {
             log::warn!("No cumulative CA-only water data found");
-            state.error_msg.set(Some("No cumulative water data available for the selected date range.".to_string()));
+            state.error_msg.set(Some(
+                "No cumulative water data available for the selected date range.".to_string(),
+            ));
             return;
         }
 

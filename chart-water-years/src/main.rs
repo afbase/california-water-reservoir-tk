@@ -10,9 +10,10 @@
 //! years (driest, wettest, most recent) are computed dynamically from the data.
 //!
 //! Data flow:
-//! 1. `build.rs` copies `capacity.csv` and `observations.csv` into `OUT_DIR`.
-//! 2. `include_str!` embeds these CSVs into the WASM binary.
-//! 3. On mount, the CSVs are loaded into an in-memory SQLite database.
+//! 1. `build.rs` copies `capacity.csv` into `OUT_DIR`.
+//! 2. `include_str!` embeds this CSV into the WASM binary.
+//! 3. On mount, the CSV is loaded into an in-memory SQLite database,
+//!    then `observations.csv.gz` is fetched at runtime and decompressed.
 //! 4. When the user selects a reservoir and sort mode, the app queries
 //!    `query_water_years()` and `query_water_year_stats()`, then enriches
 //!    the data with `is_most_recent` flags before rendering.
@@ -25,11 +26,11 @@ use cwr_chart_ui::state::AppState;
 use cwr_db::Database;
 use dioxus::prelude::*;
 
-
 /// All reservoir metadata.
 const CAPACITY_CSV: &str = include_str!(concat!(env!("OUT_DIR"), "/capacity.csv"));
-/// Daily observation data for all reservoirs.
-const OBSERVATIONS_CSV: &str = include_str!(concat!(env!("OUT_DIR"), "/observations.csv"));
+
+/// Runtime-fetched gzip-compressed observation data (served alongside WASM).
+const OBSERVATIONS_GZ_URL: &str = "./observations.csv.gz";
 
 /// Chart container DOM element ID used by D3.js to render into.
 const CHART_ID: &str = "water-years-chart";
@@ -43,89 +44,89 @@ fn main() {
 
 #[component]
 fn App() -> Element {
-    // CRITICAL DEBUG: This fires immediately when component mounts
-    web_sys::console::log_1(&"[CWR CRITICAL] water-years App component mounted".into());
-
     let mut state = use_context_provider(AppState::new);
 
     // Initialize database on mount
     use_effect(move || {
-        match Database::new() {
-            Ok(db) => {
-                if let Err(e) = db.load_reservoirs(CAPACITY_CSV) {
-                    log::error!("Failed to load reservoirs: {}", e);
-                    state
-                        .error_msg
-                        .set(Some(format!("Failed to load reservoir data: {}", e)));
-                    state.loading.set(false);
-                    return;
-                }
-                if !OBSERVATIONS_CSV.is_empty() {
-                    if let Err(e) = db.load_observations(OBSERVATIONS_CSV) {
-                        log::error!("Failed to load observations: {}", e);
+        spawn(async move {
+            match Database::new() {
+                Ok(db) => {
+                    if let Err(e) = db.load_reservoirs(CAPACITY_CSV) {
+                        log::error!("Failed to load reservoirs: {}", e);
                         state
                             .error_msg
-                            .set(Some(format!("Failed to load observations: {}", e)));
+                            .set(Some(format!("Failed to load reservoir data: {}", e)));
                         state.loading.set(false);
                         return;
                     }
-                }
 
-                // Populate reservoir list for the dropdown
-                if let Ok(reservoirs) = db.query_reservoirs() {
-                    let default_station = reservoirs.iter()
-                        .find(|r| r.station_id == "ORO")
-                        .or_else(|| reservoirs.first())
-                        .map(|r| r.station_id.clone())
-                        .unwrap_or_default();
-
-                    if !default_station.is_empty() {
-                        web_sys::console::log_1(&format!("[CWR Debug] water-years: Default selection: {}", default_station).into());
-                        state.selected_station.set(default_station);
+                    match js_bridge::fetch_gz_csv(OBSERVATIONS_GZ_URL).await {
+                        Ok(csv_data) => {
+                            if !csv_data.is_empty() {
+                                if let Err(e) = db.load_observations(&csv_data) {
+                                    log::error!("Failed to load observations: {}", e);
+                                    state
+                                        .error_msg
+                                        .set(Some(format!("Failed to load observations: {}", e)));
+                                    state.loading.set(false);
+                                    return;
+                                }
+                            }
+                        }
+                        Err(e) => {
+                            state
+                                .error_msg
+                                .set(Some(format!("Failed to fetch observation data: {}", e)));
+                            state.loading.set(false);
+                            return;
+                        }
                     }
-                    state.reservoirs.set(reservoirs);
-                }
 
-                state.db.set(Some(db));
-                state.loading.set(false);
+                    // Populate reservoir list for the dropdown
+                    if let Ok(reservoirs) = db.query_reservoirs() {
+                        let default_station = reservoirs
+                            .iter()
+                            .find(|r| r.station_id == "ORO")
+                            .or_else(|| reservoirs.first())
+                            .map(|r| r.station_id.clone())
+                            .unwrap_or_default();
+
+                        if !default_station.is_empty() {
+                            state.selected_station.set(default_station);
+                        }
+                        state.reservoirs.set(reservoirs);
+                    }
+
+                    state.db.set(Some(db));
+                    state.loading.set(false);
+                }
+                Err(e) => {
+                    state
+                        .error_msg
+                        .set(Some(format!("Database initialization failed: {}", e)));
+                    state.loading.set(false);
+                }
             }
-            Err(e) => {
-                state
-                    .error_msg
-                    .set(Some(format!("Database initialization failed: {}", e)));
-                state.loading.set(false);
-            }
-        }
+        });
     });
 
     // Re-render chart whenever reservoir selection, sort mode, or display count changes
     use_effect(move || {
-        web_sys::console::log_1(&"[CWR CRITICAL] use_effect triggered".into());
-        web_sys::console::log_1(&"[CWR Debug Rust] water-years use_effect triggered".into());
-
         let loading_state = (state.loading)();
-        web_sys::console::log_1(&format!("[CWR CRITICAL] loading={}", loading_state).into());
 
         if loading_state {
-            web_sys::console::log_1(&"[CWR Debug Rust] Exiting: still loading".into());
             return;
         }
 
         let error_state = (state.error_msg)().is_some();
-        web_sys::console::log_1(&format!("[CWR CRITICAL] has_error={}", error_state).into());
 
         if error_state {
-            web_sys::console::log_1(&"[CWR Debug Rust] Exiting: error present".into());
             return;
         }
 
         let db = match &*state.db.read() {
-            Some(db) => {
-                web_sys::console::log_1(&"[CWR Debug Rust] Database available".into());
-                db.clone()
-            }
+            Some(db) => db.clone(),
             None => {
-                web_sys::console::log_1(&"[CWR Debug Rust] Exiting: no database".into());
                 return;
             }
         };
@@ -133,32 +134,28 @@ fn App() -> Element {
         let station = (state.selected_station)();
         let sort_mode = (state.sort_mode)();
         let display_count = (state.display_count)();
-        web_sys::console::log_1(&format!("[CWR Debug Rust] Selected station: {}, sort: {}, count: {}", station, sort_mode, display_count).into());
 
         if station.is_empty() {
-            web_sys::console::log_1(&"[CWR Debug Rust] Exiting: empty station".into());
             return;
         }
 
         // Initialize D3.js chart scripts
         js_bridge::init_charts();
 
-        web_sys::console::log_1(&format!("[CWR Debug Rust] Querying water years for: {}", station).into());
         // 1. Query all water year data for the selected reservoir
         let water_years = match db.query_water_years(&station) {
-            Ok(wy) => {
-                web_sys::console::log_1(&format!("[CWR Debug Rust] Query returned {} water year records", wy.len()).into());
-                wy
-            }
+            Ok(wy) => wy,
             Err(e) => {
-                web_sys::console::log_1(&format!("[CWR Debug Rust] Water years query failed: {}", e).into());
+                log::error!("Water years query failed: {}", e);
                 return;
             }
         };
 
         if water_years.is_empty() {
-            web_sys::console::log_1(&"[CWR Debug Rust] No water years data, destroying chart".into());
-            let reservoir_name = state.reservoirs.read().iter()
+            let reservoir_name = state
+                .reservoirs
+                .read()
+                .iter()
                 .find(|r| r.station_id == station)
                 .map(|r| format!("{} ({})", r.dam, r.station_id))
                 .unwrap_or_else(|| station.clone());
@@ -174,15 +171,11 @@ fn App() -> Element {
             state.error_msg.set(None);
         }
 
-        web_sys::console::log_1(&"[CWR Debug Rust] Querying water year stats".into());
         // 2. Query water year stats (has is_driest/is_wettest already computed dynamically)
         let stats = match db.query_water_year_stats(&station) {
-            Ok(s) => {
-                web_sys::console::log_1(&format!("[CWR Debug Rust] Stats returned {} years", s.len()).into());
-                s
-            }
+            Ok(s) => s,
             Err(e) => {
-                web_sys::console::log_1(&format!("[CWR Debug Rust] Stats query failed: {}", e).into());
+                log::error!("Stats query failed: {}", e);
                 return;
             }
         };
@@ -283,10 +276,6 @@ fn App() -> Element {
             .unwrap_or(0);
 
         let data_json = serde_json::to_string(&filtered_data).unwrap_or_default();
-        web_sys::console::log_1(&format!(
-            "Sending to renderWaterYearsChart: {}",
-            &data_json[..200.min(data_json.len())]
-        ).into());
         let config_json = serde_json::to_string(&serde_json::json!({
             "title": format!("Water Years: {}", reservoir_name),
             "yAxisLabel": "Acre-Feet (AF)",
@@ -304,9 +293,7 @@ fn App() -> Element {
         }))
         .unwrap_or_default();
 
-        web_sys::console::log_1(&"[CWR Debug Rust] Calling render_water_years_chart".into());
         js_bridge::render_water_years_chart(CHART_ID, &data_json, &config_json);
-        web_sys::console::log_1(&"[CWR Debug Rust] render_water_years_chart returned".into());
     });
 
     rsx! {

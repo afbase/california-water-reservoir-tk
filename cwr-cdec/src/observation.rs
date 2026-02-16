@@ -1,11 +1,7 @@
 use chrono::naive::NaiveDate;
 use csv::{ReaderBuilder, StringRecord};
 use serde::{Deserialize, Serialize};
-use std::{
-    cmp::Ordering,
-    collections::HashMap,
-    hash::Hash,
-};
+use std::{cmp::Ordering, collections::HashMap, hash::Hash};
 
 /// Date format used for CDEC CSV responses: "YYYYMMDD HHMM"
 pub const DATE_FORMAT: &str = "%Y%m%d %H%M";
@@ -67,7 +63,9 @@ impl Observation {
     }
 
     /// Parse a CDEC CSV response body string into Observations.
-    pub fn request_to_observations(request_body: String) -> Result<Vec<Observation>, ObservationError> {
+    pub fn request_to_observations(
+        request_body: String,
+    ) -> Result<Vec<Observation>, ObservationError> {
         let string_records = Observation::request_to_string_records(request_body);
         let result = string_records
             .unwrap()
@@ -103,10 +101,7 @@ impl Observation {
     ) -> HashMap<String, Vec<Observation>> {
         let mut result: HashMap<String, Vec<Observation>> = HashMap::new();
         for obs in vec_observations {
-            result
-                .entry(obs.station_id.clone())
-                .or_default()
-                .push(obs);
+            result.entry(obs.station_id.clone()).or_default().push(obs);
         }
         result
     }

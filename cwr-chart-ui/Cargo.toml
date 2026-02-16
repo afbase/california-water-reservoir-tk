@@ -8,8 +8,11 @@ description = "Shared Dioxus components and D3.js bridge for CWR chart apps"
 cwr-cdec = { path = "../cwr-cdec" }
 cwr-db = { path = "../cwr-db" }
 dioxus = { workspace = true }
+flate2 = { workspace = true }
 js-sys = { workspace = true }
 wasm-bindgen = { workspace = true }
+wasm-bindgen-futures = { workspace = true }
+web-sys = { workspace = true }
 serde = { workspace = true }
 serde_json = { workspace = true }
 log = { workspace = true }

@@ -37,32 +37,16 @@ impl SnowStation {
             .from_reader(csv_object.as_bytes());
         for row in rdr.records() {
             let record = row?;
-            let station_id = String::from(
-                record
-                    .get(0)
-                    .expect("station_id parse fail"),
-            );
-            let name = String::from(
-                record
-                    .get(1)
-                    .expect("name parse fail"),
-            );
+            let station_id = String::from(record.get(0).expect("station_id parse fail"));
+            let name = String::from(record.get(1).expect("name parse fail"));
             let elevation = record
                 .get(2)
                 .unwrap_or("0")
                 .trim()
                 .parse::<i32>()
                 .unwrap_or(0);
-            let river_basin = String::from(
-                record
-                    .get(3)
-                    .expect("river_basin parse fail"),
-            );
-            let county = String::from(
-                record
-                    .get(4)
-                    .expect("county parse fail"),
-            );
+            let river_basin = String::from(record.get(3).expect("river_basin parse fail"));
+            let county = String::from(record.get(4).expect("county parse fail"));
             let latitude = record
                 .get(5)
                 .unwrap_or("0.0")

@@ -3,7 +3,11 @@
 use clap::Parser;
 
 #[derive(Parser)]
-#[command(name = "cwr-cli", version, about = "California Water Reservoir data toolkit")]
+#[command(
+    name = "cwr-cli",
+    version,
+    about = "California Water Reservoir data toolkit"
+)]
 struct Cli {
     #[command(subcommand)]
     command: cwr_cmd::Command,

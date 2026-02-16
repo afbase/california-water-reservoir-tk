@@ -4,15 +4,16 @@
 //! - Alpine Lake (station ID: LGT)
 //! - Lake Lagunitas (station ID: APN)
 //!
-//! This replaces the former `yew-tew` crate with an equivalent Dioxus 0.7
-//! + D3.js implementation. Unlike the other chart apps that let the user
-//! select a reservoir, this app is hardcoded to show two specific local
-//! reservoirs side by side (or stacked).
+//! This replaces the former `yew-tew` crate with an equivalent
+//! Dioxus 0.7 + D3.js implementation. Unlike the other chart apps that
+//! let the user select a reservoir, this app is hardcoded to show two
+//! specific local reservoirs side by side (or stacked).
 //!
 //! Data flow:
-//! 1. `build.rs` copies `capacity.csv` and `observations.csv` into `OUT_DIR`.
-//! 2. `include_str!` embeds these CSVs into the WASM binary.
-//! 3. On mount, the CSVs are loaded into an in-memory SQLite database.
+//! 1. `build.rs` copies `capacity.csv` into `OUT_DIR`.
+//! 2. `include_str!` embeds this CSV into the WASM binary.
+//! 3. On mount, the CSV is loaded into an in-memory SQLite database,
+//!    then `observations.csv.gz` is fetched at runtime and decompressed.
 //! 4. The app queries `query_reservoir_history()` for both LGT and APN
 //!    station IDs and renders a line chart for each.
 
@@ -22,11 +23,11 @@ use cwr_chart_ui::state::AppState;
 use cwr_db::Database;
 use dioxus::prelude::*;
 
-
 /// All reservoir metadata.
 const CAPACITY_CSV: &str = include_str!(concat!(env!("OUT_DIR"), "/capacity.csv"));
-/// Daily observation data for all reservoirs.
-const OBSERVATIONS_CSV: &str = include_str!(concat!(env!("OUT_DIR"), "/observations.csv"));
+
+/// Runtime-fetched gzip-compressed observation data (served alongside WASM).
+const OBSERVATIONS_GZ_URL: &str = "./observations.csv.gz";
 
 /// Chart container DOM element IDs used by D3.js to render into.
 const CHART_LGT_ID: &str = "local-reservoir-lgt-chart";
@@ -53,41 +54,55 @@ fn App() -> Element {
 
     // Initialize database on mount
     use_effect(move || {
-        match Database::new() {
-            Ok(db) => {
-                if let Err(e) = db.load_reservoirs(CAPACITY_CSV) {
-                    log::error!("Failed to load reservoirs: {}", e);
-                    state
-                        .error_msg
-                        .set(Some(format!("Failed to load reservoir data: {}", e)));
-                    state.loading.set(false);
-                    return;
-                }
-                if !OBSERVATIONS_CSV.is_empty() {
-                    if let Err(e) = db.load_observations(OBSERVATIONS_CSV) {
-                        log::error!("Failed to load observations: {}", e);
+        spawn(async move {
+            match Database::new() {
+                Ok(db) => {
+                    if let Err(e) = db.load_reservoirs(CAPACITY_CSV) {
+                        log::error!("Failed to load reservoirs: {}", e);
                         state
                             .error_msg
-                            .set(Some(format!("Failed to load observations: {}", e)));
+                            .set(Some(format!("Failed to load reservoir data: {}", e)));
                         state.loading.set(false);
                         return;
                     }
-                }
 
-                if let Ok(reservoirs) = db.query_reservoirs() {
-                    state.reservoirs.set(reservoirs);
-                }
+                    match js_bridge::fetch_gz_csv(OBSERVATIONS_GZ_URL).await {
+                        Ok(csv_data) => {
+                            if !csv_data.is_empty() {
+                                if let Err(e) = db.load_observations(&csv_data) {
+                                    log::error!("Failed to load observations: {}", e);
+                                    state
+                                        .error_msg
+                                        .set(Some(format!("Failed to load observations: {}", e)));
+                                    state.loading.set(false);
+                                    return;
+                                }
+                            }
+                        }
+                        Err(e) => {
+                            state
+                                .error_msg
+                                .set(Some(format!("Failed to fetch observation data: {}", e)));
+                            state.loading.set(false);
+                            return;
+                        }
+                    }
 
-                state.db.set(Some(db));
-                state.loading.set(false);
+                    if let Ok(reservoirs) = db.query_reservoirs() {
+                        state.reservoirs.set(reservoirs);
+                    }
+
+                    state.db.set(Some(db));
+                    state.loading.set(false);
+                }
+                Err(e) => {
+                    state
+                        .error_msg
+                        .set(Some(format!("Database initialization failed: {}", e)));
+                    state.loading.set(false);
+                }
             }
-            Err(e) => {
-                state
-                    .error_msg
-                    .set(Some(format!("Database initialization failed: {}", e)));
-                state.loading.set(false);
-            }
-        }
+        });
     });
 
     // Render charts after data loaded
@@ -159,10 +174,8 @@ fn App() -> Element {
 
         if !lgt_ok && !apn_ok {
             state.error_msg.set(Some("No observation data available for local reservoirs. These reservoirs may not have data in our database yet.".to_string()));
-        } else {
-            if state.error_msg.peek().is_some() {
-                state.error_msg.set(None);
-            }
+        } else if state.error_msg.peek().is_some() {
+            state.error_msg.set(None);
         }
     });
 
@@ -219,6 +232,7 @@ fn App() -> Element {
 }
 
 /// Render a line chart for a single local reservoir. Returns true if data was found and rendered.
+#[allow(clippy::too_many_arguments)]
 fn render_local_chart(
     db: &Database,
     station_id: &str,
@@ -239,7 +253,6 @@ fn render_local_chart(
 
     if data.is_empty() {
         log::warn!("No observations found for station {}", station_id);
-        web_sys::console::log_1(&format!("[CWR Debug] No data available for local reservoir {} ({})", station_name, station_id).into());
         return false;
     }
 

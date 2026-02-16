@@ -41,19 +41,17 @@ fn main() {
             .from_path(obs_src)
             .expect("Failed to open observations.csv");
 
-        for result in rdr.records() {
-            if let Ok(record) = result {
-                let station_id = record.get(0).unwrap_or("").trim().to_string();
-                let date = record.get(2).unwrap_or("").trim().to_string();
-                let value_str = record.get(3).unwrap_or("").trim();
-                if let Ok(value) = value_str.parse::<f64>() {
-                    if !station_id.is_empty() && !date.is_empty() {
-                        station_obs
-                            .entry(station_id)
-                            .or_default()
-                            .insert(date.clone(), value);
-                        all_dates.insert(date);
-                    }
+        for record in rdr.records().flatten() {
+            let station_id = record.get(0).unwrap_or("").trim().to_string();
+            let date = record.get(2).unwrap_or("").trim().to_string();
+            let value_str = record.get(3).unwrap_or("").trim();
+            if let Ok(value) = value_str.parse::<f64>() {
+                if !station_id.is_empty() && !date.is_empty() {
+                    station_obs
+                        .entry(station_id)
+                        .or_default()
+                        .insert(date.clone(), value);
+                    all_dates.insert(date);
                 }
             }
         }

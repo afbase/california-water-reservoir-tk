@@ -44,10 +44,10 @@
 //! on-the-fly via SQL `GROUP BY date` + `SUM(value)` queries against the
 //! base observation tables.
 
-pub mod schema;
 mod loader;
-mod queries;
 pub mod models;
+mod queries;
+pub mod schema;
 
 use rusqlite::Connection;
 use std::cell::RefCell;
@@ -119,6 +119,9 @@ mod tests {
     fn database_starts_empty() {
         let db = Database::new().unwrap();
         let reservoirs = db.query_reservoirs().unwrap();
-        assert!(reservoirs.is_empty(), "New database should have no reservoirs");
+        assert!(
+            reservoirs.is_empty(),
+            "New database should have no reservoirs"
+        );
     }
 }

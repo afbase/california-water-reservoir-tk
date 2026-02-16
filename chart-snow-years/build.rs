@@ -17,14 +17,6 @@ fn main() {
         .unwrap();
     }
 
-    let obs_src = Path::new("../fixtures/snow_observations.csv");
-    if obs_src.exists() {
-        fs::copy(obs_src, Path::new(&out_dir).join("snow_observations.csv")).unwrap();
-    } else {
-        fs::write(Path::new(&out_dir).join("snow_observations.csv"), "").unwrap();
-    }
-
     println!("cargo:rerun-if-changed=build.rs");
     println!("cargo:rerun-if-changed=../fixtures/snow_stations.csv");
-    println!("cargo:rerun-if-changed=../fixtures/snow_observations.csv");
 }

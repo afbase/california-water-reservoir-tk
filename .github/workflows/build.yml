@@ -136,11 +136,14 @@ jobs:
           else
             echo "WARNING: fixtures/observations.csv does not exist"
           fi
+      - name: Compress water observations
+        run: gzip -kf fixtures/observations.csv
       - uses: actions/upload-artifact@v4
         with:
           name: cwr-water-fixtures
           path: |
             fixtures/observations.csv
+            fixtures/observations.csv.gz
             fixtures/capacity.csv
 
   fetch-snow-data:
@@ -179,12 +182,15 @@ jobs:
           else
             echo "WARNING: fixtures/snow_observations.csv does not exist"
           fi
+      - name: Compress snow observations
+        run: gzip -kf fixtures/snow_observations.csv
       - uses: actions/upload-artifact@v4
         with:
           name: cwr-snow-fixtures
           path: |
             fixtures/snow_stations.csv
             fixtures/snow_observations.csv
+            fixtures/snow_observations.csv.gz
 
   build-water-wasm:
     needs: [detect-changes, fetch-water-data]

@@ -1,7 +1,7 @@
 //! Full query implementation for CDEC water and snow data.
 
-use cwr_cdec::reservoir::Reservoir;
 use chrono::{Local, NaiveDate};
+use cwr_cdec::reservoir::Reservoir;
 use log::info;
 
 /// Run a full query of CDEC water reservoir data.
@@ -9,10 +9,7 @@ use log::info;
 /// Fetches per-reservoir observations from CDEC and writes them to the
 /// reservoirs CSV. Cumulative totals are no longer pre-computed here;
 /// they are derived on-the-fly via SQL in the chart applications.
-pub async fn run_query(
-    reservoirs_csv: &str,
-    california_only: bool,
-) -> anyhow::Result<()> {
+pub async fn run_query(reservoirs_csv: &str, california_only: bool) -> anyhow::Result<()> {
     let reservoirs = if california_only {
         Reservoir::get_reservoir_vector_no_colorado()
     } else {
@@ -53,9 +50,7 @@ pub async fn run_query(
 ///
 /// The API returns CSV with headers:
 /// `STATION_ID,DURATION,SENSOR_NUMBER,SENSOR_TYPE,DATE TIME,OBS DATE,VALUE,DATA_FLAG,UNITS`
-pub async fn run_snow_query(
-    stations_csv: &str,
-) -> anyhow::Result<()> {
+pub async fn run_snow_query(stations_csv: &str) -> anyhow::Result<()> {
     use cwr_cdec::snow_station::SnowStation;
     use std::collections::BTreeMap;
 
@@ -91,7 +86,10 @@ pub async fn run_snow_query(
     let mut all_obs: Vec<String> = Vec::new();
 
     for station in &stations {
-        info!("Fetching snow data for {} ({})", station.name, station.station_id);
+        info!(
+            "Fetching snow data for {} ({})",
+            station.name, station.station_id
+        );
 
         // Fetch SWE (sensor 3) and snow depth (sensor 18) in a single request
         let url = format!(
@@ -179,8 +177,8 @@ pub async fn run_snow_query(
 
             let entry = date_values.entry(date_yyyymmdd).or_insert((None, None));
             match sensor_num {
-                3 => entry.0 = Some(value),   // SWE
-                18 => entry.1 = Some(value),  // Snow depth
+                3 => entry.0 = Some(value),  // SWE
+                18 => entry.1 = Some(value), // Snow depth
                 _ => {}
             }
         }

@@ -13,7 +13,10 @@ static DATA_TABLE_JS: &str = include_str!("../assets/js/data-table.js");
 
 /// Execute arbitrary JS, wrapping in try/catch to avoid panics.
 pub fn call_js(code: &str) {
-    log::info!("[CWR Debug CallJS] Executing {} bytes of JavaScript", code.len());
+    log::info!(
+        "[CWR Debug CallJS] Executing {} bytes of JavaScript",
+        code.len()
+    );
 
     let wrapped = format!(
         "try {{ {} }} catch(e) {{ console.error('CWR JS call failed:', e); console.error('Stack:', e.stack); }}",
@@ -120,9 +123,15 @@ pub fn render_line_chart(container_id: &str, data_json: &str, config_json: &str)
 /// Uses a polling loop to wait for D3.js to load, chart scripts to initialize,
 /// and the container DOM element to exist before rendering.
 pub fn render_multi_line_chart(container_id: &str, data_json: &str, config_json: &str) {
-    log::info!("[CWR Debug Bridge] render_multi_line_chart called for container: {}", container_id);
+    log::info!(
+        "[CWR Debug Bridge] render_multi_line_chart called for container: {}",
+        container_id
+    );
     log::info!("[CWR Debug Bridge] Data length: {} bytes", data_json.len());
-    log::info!("[CWR Debug Bridge] Config length: {} bytes", config_json.len());
+    log::info!(
+        "[CWR Debug Bridge] Config length: {} bytes",
+        config_json.len()
+    );
 
     let escaped_data = data_json.replace('\'', "\\'").replace('\n', "");
     let escaped_config = config_json.replace('\'', "\\'").replace('\n', "");
@@ -173,9 +182,15 @@ pub fn render_multi_line_chart(container_id: &str, data_json: &str, config_json:
 /// Uses a polling loop to wait for D3.js to load, chart scripts to initialize,
 /// and the container DOM element to exist before rendering.
 pub fn render_water_years_chart(container_id: &str, data_json: &str, config_json: &str) {
-    log::info!("[CWR Debug Bridge] render_water_years_chart called for container: {}", container_id);
+    log::info!(
+        "[CWR Debug Bridge] render_water_years_chart called for container: {}",
+        container_id
+    );
     log::info!("[CWR Debug Bridge] Data length: {} bytes", data_json.len());
-    log::info!("[CWR Debug Bridge] Config length: {} bytes", config_json.len());
+    log::info!(
+        "[CWR Debug Bridge] Config length: {} bytes",
+        config_json.len()
+    );
 
     let escaped_data = data_json.replace('\'', "\\'").replace('\n', "");
     let escaped_config = config_json.replace('\'', "\\'").replace('\n', "");
@@ -253,10 +268,49 @@ pub fn render_data_table(container_id: &str, data_json: &str, config_json: &str)
     ));
 }
 
+/// Fetch and decompress a gzip-compressed CSV file at the given URL.
+/// No init step needed — pure Rust decompression via `flate2`.
+pub async fn fetch_gz_csv(url: &str) -> Result<String, String> {
+    use flate2::read::GzDecoder;
+    use std::io::Read;
+    use wasm_bindgen::JsCast;
+    use wasm_bindgen_futures::JsFuture;
+    use web_sys::Response;
+
+    let window = web_sys::window().ok_or("no window")?;
+
+    let resp: Response = JsFuture::from(window.fetch_with_str(url))
+        .await
+        .map_err(|e| format!("{:?}", e))?
+        .dyn_into()
+        .map_err(|_| "response cast failed".to_string())?;
+
+    if !resp.ok() {
+        return Err(format!("HTTP {}: {}", resp.status(), url));
+    }
+
+    let buf = JsFuture::from(resp.array_buffer().map_err(|e| format!("{:?}", e))?)
+        .await
+        .map_err(|e| format!("{:?}", e))?;
+
+    let compressed = js_sys::Uint8Array::new(&buf).to_vec();
+
+    let mut decoder = GzDecoder::new(&compressed[..]);
+    let mut csv_text = String::new();
+    decoder
+        .read_to_string(&mut csv_text)
+        .map_err(|e| e.to_string())?;
+
+    Ok(csv_text)
+}
+
 /// Destroy/clean up a chart in the given container.
 pub fn destroy_chart(container_id: &str) {
-    call_js(&format!(
-        "var el = document.getElementById('{}'); if (el) el.innerHTML = '';",
-        container_id
-    ));
+    if let Some(window) = web_sys::window() {
+        if let Some(document) = window.document() {
+            if let Some(el) = document.get_element_by_id(container_id) {
+                el.set_inner_html("");
+            }
+        }
+    }
 }

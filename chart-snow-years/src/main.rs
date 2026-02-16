@@ -21,11 +21,11 @@ use cwr_chart_ui::state::AppState;
 use cwr_db::Database;
 use dioxus::prelude::*;
 
-
 /// All snow station metadata.
 const SNOW_STATIONS_CSV: &str = include_str!(concat!(env!("OUT_DIR"), "/snow_stations.csv"));
-/// Daily snow observation data for all stations.
-const SNOW_OBSERVATIONS_CSV: &str = include_str!(concat!(env!("OUT_DIR"), "/snow_observations.csv"));
+
+/// Runtime-fetched gzip-compressed snow observation data (served alongside WASM).
+const SNOW_OBSERVATIONS_GZ_URL: &str = "./snow_observations.csv.gz";
 
 /// Chart container DOM element ID used by D3.js to render into.
 const CHART_ID: &str = "snow-years-chart";
@@ -39,120 +39,115 @@ fn main() {
 
 #[component]
 fn App() -> Element {
-    // CRITICAL DEBUG: This fires immediately when component mounts
-    web_sys::console::log_1(&"[CWR CRITICAL] snow-years App component mounted".into());
-
     let mut state = use_context_provider(AppState::new);
 
     // Initialize database on mount
     use_effect(move || {
-        match Database::new() {
-            Ok(db) => {
-                if let Err(e) = db.load_snow_stations(SNOW_STATIONS_CSV) {
-                    log::error!("Failed to load snow stations: {}", e);
-                    state
-                        .error_msg
-                        .set(Some(format!("Failed to load snow station data: {}", e)));
-                    state.loading.set(false);
-                    return;
-                }
-                if !SNOW_OBSERVATIONS_CSV.is_empty() {
-                    if let Err(e) = db.load_snow_observations(SNOW_OBSERVATIONS_CSV) {
-                        log::error!("Failed to load snow observations: {}", e);
+        spawn(async move {
+            match Database::new() {
+                Ok(db) => {
+                    if let Err(e) = db.load_snow_stations(SNOW_STATIONS_CSV) {
+                        log::error!("Failed to load snow stations: {}", e);
                         state
                             .error_msg
-                            .set(Some(format!("Failed to load snow observations: {}", e)));
+                            .set(Some(format!("Failed to load snow station data: {}", e)));
                         state.loading.set(false);
                         return;
                     }
-                }
 
-                // Populate snow station list for the dropdown
-                if let Ok(stations) = db.query_snow_stations() {
-                    let default_station = stations.first()
-                        .map(|s| s.station_id.clone())
-                        .unwrap_or_default();
-
-                    if !default_station.is_empty() {
-                        web_sys::console::log_1(&format!("[CWR Debug] snow-years: Default selection: {}", default_station).into());
-                        state.selected_station.set(default_station);
+                    match js_bridge::fetch_gz_csv(SNOW_OBSERVATIONS_GZ_URL).await {
+                        Ok(csv_data) => {
+                            if !csv_data.is_empty() {
+                                if let Err(e) = db.load_snow_observations(&csv_data) {
+                                    log::error!("Failed to load snow observations: {}", e);
+                                    state.error_msg.set(Some(format!(
+                                        "Failed to load snow observations: {}",
+                                        e
+                                    )));
+                                    state.loading.set(false);
+                                    return;
+                                }
+                            }
+                        }
+                        Err(e) => {
+                            state.error_msg.set(Some(format!(
+                                "Failed to fetch snow observation data: {}",
+                                e
+                            )));
+                            state.loading.set(false);
+                            return;
+                        }
                     }
-                    state.snow_stations.set(stations);
-                }
 
-                state.db.set(Some(db));
-                state.loading.set(false);
+                    // Populate snow station list for the dropdown
+                    if let Ok(stations) = db.query_snow_stations() {
+                        let default_station = stations
+                            .first()
+                            .map(|s| s.station_id.clone())
+                            .unwrap_or_default();
+
+                        if !default_station.is_empty() {
+                            state.selected_station.set(default_station);
+                        }
+                        state.snow_stations.set(stations);
+                    }
+
+                    state.db.set(Some(db));
+                    state.loading.set(false);
+                }
+                Err(e) => {
+                    state
+                        .error_msg
+                        .set(Some(format!("Database initialization failed: {}", e)));
+                    state.loading.set(false);
+                }
             }
-            Err(e) => {
-                state
-                    .error_msg
-                    .set(Some(format!("Database initialization failed: {}", e)));
-                state.loading.set(false);
-            }
-        }
+        });
     });
 
     // Re-render chart whenever station selection, sort mode, or display count changes
     use_effect(move || {
-        web_sys::console::log_1(&"[CWR CRITICAL] use_effect triggered".into());
-        web_sys::console::log_1(&"[CWR Debug Rust] snow-years use_effect triggered".into());
-
         let loading_state = (state.loading)();
-        web_sys::console::log_1(&format!("[CWR CRITICAL] loading={}", loading_state).into());
 
         if loading_state {
-            web_sys::console::log_1(&"[CWR Debug Rust] Exiting: still loading".into());
             return;
         }
 
         let error_state = (state.error_msg)().is_some();
-        web_sys::console::log_1(&format!("[CWR CRITICAL] has_error={}", error_state).into());
 
         if error_state {
-            web_sys::console::log_1(&"[CWR Debug Rust] Exiting: error present".into());
             return;
         }
 
         let db = match &*state.db.read() {
-            Some(db) => {
-                web_sys::console::log_1(&"[CWR Debug Rust] Database available".into());
-                db.clone()
-            }
-            None => {
-                web_sys::console::log_1(&"[CWR Debug Rust] Exiting: no database".into());
-                return;
-            }
+            Some(db) => db.clone(),
+            None => return,
         };
 
         let station = (state.selected_station)();
         let sort_mode = (state.sort_mode)();
         let display_count = (state.display_count)();
-        web_sys::console::log_1(&format!("[CWR Debug Rust] Selected station: {}, sort: {}, count: {}", station, sort_mode, display_count).into());
 
         if station.is_empty() {
-            web_sys::console::log_1(&"[CWR Debug Rust] Exiting: empty station".into());
             return;
         }
 
         // Initialize D3.js chart scripts
         js_bridge::init_charts();
 
-        web_sys::console::log_1(&format!("[CWR Debug Rust] Querying snow years for: {}", station).into());
         // 1. Query all snow year data for the selected station
         let snow_years = match db.query_snow_years(&station) {
-            Ok(sy) => {
-                web_sys::console::log_1(&format!("[CWR Debug Rust] Query returned {} snow year records", sy.len()).into());
-                sy
-            }
-            Err(e) => {
-                web_sys::console::log_1(&format!("[CWR Debug Rust] Snow years query failed: {}", e).into());
+            Ok(sy) => sy,
+            Err(_e) => {
                 return;
             }
         };
 
         if snow_years.is_empty() {
-            web_sys::console::log_1(&"[CWR Debug Rust] No snow years data, destroying chart".into());
-            let station_name = state.snow_stations.read().iter()
+            let station_name = state
+                .snow_stations
+                .read()
+                .iter()
                 .find(|s| s.station_id == station)
                 .map(|s| format!("{} ({})", s.name, s.station_id))
                 .unwrap_or_else(|| station.clone());
@@ -168,15 +163,10 @@ fn App() -> Element {
             state.error_msg.set(None);
         }
 
-        web_sys::console::log_1(&"[CWR Debug Rust] Querying snow year stats".into());
         // 2. Query snow year stats (has is_driest/is_wettest already computed dynamically)
         let stats = match db.query_snow_year_stats(&station) {
-            Ok(s) => {
-                web_sys::console::log_1(&format!("[CWR Debug Rust] Stats returned {} years", s.len()).into());
-                s
-            }
-            Err(e) => {
-                web_sys::console::log_1(&format!("[CWR Debug Rust] Stats query failed: {}", e).into());
+            Ok(s) => s,
+            Err(_e) => {
                 return;
             }
         };
@@ -267,10 +257,6 @@ fn App() -> Element {
             .unwrap_or_else(|| station.clone());
 
         let data_json = serde_json::to_string(&filtered_data).unwrap_or_default();
-        web_sys::console::log_1(&format!(
-            "Sending to renderWaterYearsChart: {}",
-            &data_json[..200.min(data_json.len())]
-        ).into());
         let config_json = serde_json::to_string(&serde_json::json!({
             "title": format!("Snow Years: {}", station_name),
             "yAxisLabel": "Inches (SWE)",
@@ -286,9 +272,7 @@ fn App() -> Element {
         }))
         .unwrap_or_default();
 
-        web_sys::console::log_1(&"[CWR Debug Rust] Calling render_water_years_chart".into());
         js_bridge::render_water_years_chart(CHART_ID, &data_json, &config_json);
-        web_sys::console::log_1(&"[CWR Debug Rust] render_water_years_chart returned".into());
     });
 
     rsx! {

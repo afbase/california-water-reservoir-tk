@@ -32,6 +32,12 @@ pub struct AppState {
     pub display_count: Signal<usize>,
 }
 
+impl Default for AppState {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
 impl AppState {
     /// Create a new AppState with default signal values.
     pub fn new() -> Self {

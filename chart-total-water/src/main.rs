@@ -26,8 +26,8 @@ const CHART_CONTAINER_ID: &str = "total-water-chart";
 /// A parsed (date_yyyymmdd, date_d3, value) triple.
 #[derive(Clone)]
 struct DataPoint {
-    date_raw: String,   // YYYYMMDD for filtering
-    date_d3: String,    // YYYY-MM-DD for D3
+    date_raw: String, // YYYYMMDD for filtering
+    date_d3: String,  // YYYY-MM-DD for D3
     value: f64,
 }
 
@@ -61,22 +61,20 @@ fn parse_total_water_csv(csv_data: &str) -> Vec<DataPoint> {
         .flexible(true)
         .from_reader(csv_data.as_bytes());
 
-    for result in rdr.records() {
-        if let Ok(record) = result {
-            let date = record.get(0).unwrap_or("").trim();
-            let value_str = record.get(1).unwrap_or("").trim();
+    for record in rdr.records().flatten() {
+        let date = record.get(0).unwrap_or("").trim();
+        let value_str = record.get(1).unwrap_or("").trim();
 
-            if date.is_empty() {
-                continue;
-            }
+        if date.is_empty() {
+            continue;
+        }
 
-            if let Ok(value) = value_str.parse::<f64>() {
-                data.push(DataPoint {
-                    date_raw: date.to_string(),
-                    date_d3: format_date_for_d3(date),
-                    value,
-                });
-            }
+        if let Ok(value) = value_str.parse::<f64>() {
+            data.push(DataPoint {
+                date_raw: date.to_string(),
+                date_d3: format_date_for_d3(date),
+                value,
+            });
         }
     }
 
@@ -94,7 +92,9 @@ fn App() -> Element {
         let data = parse_total_water_csv(TOTAL_WATER_CSV);
 
         if data.is_empty() {
-            state.error_msg.set(Some("No water data available.".to_string()));
+            state
+                .error_msg
+                .set(Some("No water data available.".to_string()));
             state.loading.set(false);
             return;
         }
@@ -135,7 +135,9 @@ fn App() -> Element {
         // doesn't interfere with Dioxus signal tracking.
         let data: Vec<DataPoint> = all_data.read().clone();
         if data.is_empty() {
-            state.error_msg.set(Some("No total water data available for the selected date range.".to_string()));
+            state.error_msg.set(Some(
+                "No total water data available for the selected date range.".to_string(),
+            ));
             return;
         }
 
@@ -149,7 +151,9 @@ fn App() -> Element {
             .collect();
 
         if filtered.is_empty() {
-            state.error_msg.set(Some("No total water data available for the selected date range.".to_string()));
+            state.error_msg.set(Some(
+                "No total water data available for the selected date range.".to_string(),
+            ));
             return;
         }
         // Clear any previous error when data IS available

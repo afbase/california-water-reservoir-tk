@@ -44,7 +44,10 @@ impl Database {
                 })
             })?
             .collect::<Result<Vec<_>, _>>()?;
-        log::info!("[CWR Debug] query: query_total_water returned {} records", rows.len());
+        log::info!(
+            "[CWR Debug] query: query_total_water returned {} records",
+            rows.len()
+        );
         Ok(rows)
     }
 
@@ -76,7 +79,10 @@ impl Database {
                 })
             })?
             .collect::<Result<Vec<_>, _>>()?;
-        log::info!("[CWR Debug] query: query_total_water_ca_only returned {} records", rows.len());
+        log::info!(
+            "[CWR Debug] query: query_total_water_ca_only returned {} records",
+            rows.len()
+        );
         Ok(rows)
     }
 
@@ -104,7 +110,10 @@ impl Database {
                 })
             })?
             .collect::<Result<Vec<_>, _>>()?;
-        log::info!("[CWR Debug] query: query_reservoir_history returned {} records", rows.len());
+        log::info!(
+            "[CWR Debug] query: query_reservoir_history returned {} records",
+            rows.len()
+        );
         Ok(rows)
     }
 
@@ -133,7 +142,10 @@ impl Database {
                 })
             })?
             .collect::<Result<Vec<_>, _>>()?;
-        log::info!("[CWR Debug] query: query_all_reservoir_histories returned {} records", rows.len());
+        log::info!(
+            "[CWR Debug] query: query_all_reservoir_histories returned {} records",
+            rows.len()
+        );
         Ok(rows)
     }
 
@@ -145,10 +157,7 @@ impl Database {
     /// same x-axis for the water years comparison chart.
     ///
     /// Only complete or partial water years with data are returned.
-    pub fn query_water_years(
-        &self,
-        station_id: &str,
-    ) -> anyhow::Result<Vec<WaterYearData>> {
+    pub fn query_water_years(&self, station_id: &str) -> anyhow::Result<Vec<WaterYearData>> {
         let conn = self.conn.borrow();
         let mut stmt = conn.prepare(
             "SELECT date, value FROM observations
@@ -172,7 +181,10 @@ impl Database {
                 });
             }
         }
-        log::info!("[CWR Debug] query: query_water_years returned {} records", results.len());
+        log::info!(
+            "[CWR Debug] query: query_water_years returned {} records",
+            results.len()
+        );
         Ok(results)
     }
 
@@ -185,10 +197,7 @@ impl Database {
     ///
     /// This replaces the old hard-coded driest/wettest year approach with
     /// a data-driven computation.
-    pub fn query_water_year_stats(
-        &self,
-        station_id: &str,
-    ) -> anyhow::Result<Vec<WaterYearStats>> {
+    pub fn query_water_year_stats(&self, station_id: &str) -> anyhow::Result<Vec<WaterYearStats>> {
         // First get all water year data
         let water_years = self.query_water_years(station_id)?;
 
@@ -199,9 +208,7 @@ impl Database {
         for wy in &water_years {
             let entry = year_stats
                 .entry(wy.year)
-                .or_insert_with(|| {
-                    (wy.date.clone(), wy.value, wy.date.clone(), wy.value)
-                });
+                .or_insert_with(|| (wy.date.clone(), wy.value, wy.date.clone(), wy.value));
             // Update minimum
             if wy.value < entry.1 {
                 entry.0 = wy.date.clone();
@@ -233,8 +240,8 @@ impl Database {
 
         let results: Vec<WaterYearStats> = year_stats
             .into_iter()
-            .map(|(year, (date_lowest, lowest_value, date_highest, highest_value))| {
-                WaterYearStats {
+            .map(
+                |(year, (date_lowest, lowest_value, date_highest, highest_value))| WaterYearStats {
                     year,
                     date_lowest,
                     lowest_value,
@@ -242,11 +249,14 @@ impl Database {
                     highest_value,
                     is_driest: year == driest_year,
                     is_wettest: year == wettest_year,
-                }
-            })
+                },
+            )
             .collect();
 
-        log::info!("[CWR Debug] query: query_water_year_stats returned {} records", results.len());
+        log::info!(
+            "[CWR Debug] query: query_water_year_stats returned {} records",
+            results.len()
+        );
         Ok(results)
     }
 
@@ -270,7 +280,10 @@ impl Database {
                 })
             })?
             .collect::<Result<Vec<_>, _>>()?;
-        log::info!("[CWR Debug] query: query_reservoirs returned {} records", rows.len());
+        log::info!(
+            "[CWR Debug] query: query_reservoirs returned {} records",
+            rows.len()
+        );
         Ok(rows)
     }
 
@@ -280,17 +293,15 @@ impl Database {
     /// in YYYYMMDD format.
     pub fn query_date_range(&self) -> anyhow::Result<(String, String)> {
         let conn = self.conn.borrow();
-        let (min_date, max_date) = conn.query_row(
-            "SELECT MIN(date), MAX(date) FROM observations",
-            [],
-            |row| {
-                Ok((
-                    row.get::<_, String>(0)?,
-                    row.get::<_, String>(1)?,
-                ))
-            },
-        )?;
-        log::info!("[CWR Debug] query: query_date_range returned ({}, {})", min_date, max_date);
+        let (min_date, max_date) =
+            conn.query_row("SELECT MIN(date), MAX(date) FROM observations", [], |row| {
+                Ok((row.get::<_, String>(0)?, row.get::<_, String>(1)?))
+            })?;
+        log::info!(
+            "[CWR Debug] query: query_date_range returned ({}, {})",
+            min_date,
+            max_date
+        );
         Ok((min_date, max_date))
     }
 
@@ -323,7 +334,10 @@ impl Database {
                 })
             })?
             .collect::<Result<Vec<_>, _>>()?;
-        log::info!("[CWR Debug] query: query_total_snow returned {} records", rows.len());
+        log::info!(
+            "[CWR Debug] query: query_total_snow returned {} records",
+            rows.len()
+        );
         Ok(rows)
     }
 
@@ -353,7 +367,10 @@ impl Database {
                 })
             })?
             .collect::<Result<Vec<_>, _>>()?;
-        log::info!("[CWR Debug] query: query_snow_station_history returned {} records", rows.len());
+        log::info!(
+            "[CWR Debug] query: query_snow_station_history returned {} records",
+            rows.len()
+        );
         Ok(rows)
     }
 
@@ -361,10 +378,7 @@ impl Database {
     ///
     /// Same water year convention as [`query_water_years`](Self::query_water_years)
     /// but uses snow water equivalent (SWE) values from `snow_observations`.
-    pub fn query_snow_years(
-        &self,
-        station_id: &str,
-    ) -> anyhow::Result<Vec<WaterYearData>> {
+    pub fn query_snow_years(&self, station_id: &str) -> anyhow::Result<Vec<WaterYearData>> {
         let conn = self.conn.borrow();
         let mut stmt = conn.prepare(
             "SELECT date, snow_water_equivalent FROM snow_observations
@@ -388,7 +402,10 @@ impl Database {
                 });
             }
         }
-        log::info!("[CWR Debug] query: query_snow_years returned {} records", results.len());
+        log::info!(
+            "[CWR Debug] query: query_snow_years returned {} records",
+            results.len()
+        );
         Ok(results)
     }
 
@@ -396,10 +413,7 @@ impl Database {
     ///
     /// Same approach as [`query_water_year_stats`](Self::query_water_year_stats)
     /// but uses snow SWE values. Dynamically determines driest/wettest years.
-    pub fn query_snow_year_stats(
-        &self,
-        station_id: &str,
-    ) -> anyhow::Result<Vec<WaterYearStats>> {
+    pub fn query_snow_year_stats(&self, station_id: &str) -> anyhow::Result<Vec<WaterYearStats>> {
         let snow_years = self.query_snow_years(station_id)?;
 
         let mut year_stats: std::collections::BTreeMap<i32, (String, f64, String, f64)> =
@@ -408,9 +422,7 @@ impl Database {
         for sy in &snow_years {
             let entry = year_stats
                 .entry(sy.year)
-                .or_insert_with(|| {
-                    (sy.date.clone(), sy.value, sy.date.clone(), sy.value)
-                });
+                .or_insert_with(|| (sy.date.clone(), sy.value, sy.date.clone(), sy.value));
             if sy.value < entry.1 {
                 entry.0 = sy.date.clone();
                 entry.1 = sy.value;
@@ -439,8 +451,8 @@ impl Database {
 
         let results: Vec<WaterYearStats> = year_stats
             .into_iter()
-            .map(|(year, (date_lowest, lowest_value, date_highest, highest_value))| {
-                WaterYearStats {
+            .map(
+                |(year, (date_lowest, lowest_value, date_highest, highest_value))| WaterYearStats {
                     year,
                     date_lowest,
                     lowest_value,
@@ -448,11 +460,14 @@ impl Database {
                     highest_value,
                     is_driest: year == driest_year,
                     is_wettest: year == wettest_year,
-                }
-            })
+                },
+            )
             .collect();
 
-        log::info!("[CWR Debug] query: query_snow_year_stats returned {} records", results.len());
+        log::info!(
+            "[CWR Debug] query: query_snow_year_stats returned {} records",
+            results.len()
+        );
         Ok(results)
     }
 
@@ -476,7 +491,10 @@ impl Database {
                 })
             })?
             .collect::<Result<Vec<_>, _>>()?;
-        log::info!("[CWR Debug] query: query_snow_stations returned {} records", rows.len());
+        log::info!(
+            "[CWR Debug] query: query_snow_stations returned {} records",
+            rows.len()
+        );
         Ok(rows)
     }
 
@@ -489,12 +507,7 @@ impl Database {
         let (min_date, max_date) = conn.query_row(
             "SELECT MIN(date), MAX(date) FROM snow_observations",
             [],
-            |row| {
-                Ok((
-                    row.get::<_, String>(0)?,
-                    row.get::<_, String>(1)?,
-                ))
-            },
+            |row| Ok((row.get::<_, String>(0)?, row.get::<_, String>(1)?)),
         )?;
         Ok((min_date, max_date))
     }
@@ -539,7 +552,7 @@ fn date_to_water_year_day(date_str: &str) -> Option<(i32, i32)> {
     let day_of_year = (date - wy_start).num_days() as i32;
 
     // Sanity check: day_of_year should be between 0 and 365 (leap years)
-    if day_of_year < 0 || day_of_year > 365 {
+    if !(0..=365).contains(&day_of_year) {
         return None;
     }
 
@@ -706,7 +719,9 @@ HNT,20220601,3.0,9.0
     fn query_total_water_ca_only() {
         let db = sample_water_db();
         // Both SHA and ORO are CA reservoirs (not MEA or PWL), so totals match query_total_water
-        let results = db.query_total_water_ca_only("20220101", "20220601").unwrap();
+        let results = db
+            .query_total_water_ca_only("20220101", "20220601")
+            .unwrap();
         assert_eq!(results.len(), 3);
         // 20220101: SHA(2500000) + ORO(1500000) = 4000000
         assert!((results[0].value - 4000000.0).abs() < 0.01);
@@ -733,7 +748,9 @@ PWL,D,20220101,8000000
         // All three stations: 2500000 + 10000000 + 8000000 = 20500000
         assert!((all[0].value - 20500000.0).abs() < 0.01);
 
-        let ca_only = db.query_total_water_ca_only("20220101", "20220101").unwrap();
+        let ca_only = db
+            .query_total_water_ca_only("20220101", "20220101")
+            .unwrap();
         // Only SHA: 2500000
         assert_eq!(ca_only.len(), 1);
         assert!((ca_only[0].value - 2500000.0).abs() < 0.01);
@@ -830,7 +847,10 @@ PWL,D,20220101,8000000
         assert!(!wy_2022.is_wettest);
 
         // WY 2023 has highest max (4000000) so it is wettest
-        assert!(wy_2023.is_wettest, "WY 2023 should be wettest (max 4000000)");
+        assert!(
+            wy_2023.is_wettest,
+            "WY 2023 should be wettest (max 4000000)"
+        );
         assert!(!wy_2023.is_driest);
     }
 
@@ -892,7 +912,7 @@ PWL,D,20220101,8000000
         assert_eq!(results.len(), 3);
         assert!((results[0].value - 15.0).abs() < 0.01); // Jan 1
         assert!((results[1].value - 25.0).abs() < 0.01); // Mar 1
-        assert!((results[2].value - 5.0).abs() < 0.01);  // Jun 1
+        assert!((results[2].value - 5.0).abs() < 0.01); // Jun 1
     }
 
     #[test]

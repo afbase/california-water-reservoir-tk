@@ -5,8 +5,8 @@
 
 use clap::Subcommand;
 
-pub mod query;
 pub mod incremental;
+pub mod query;
 
 #[derive(Subcommand)]
 pub enum Command {
@@ -45,19 +45,11 @@ pub async fn run(command: Command) -> anyhow::Result<()> {
         Command::Query {
             reservoirs_csv,
             california_only,
-        } => {
-            query::run_query(&reservoirs_csv, california_only).await
-        }
+        } => query::run_query(&reservoirs_csv, california_only).await,
         Command::IncrementalQuery {
             reservoirs_csv,
             california_only,
-        } => {
-            incremental::run_incremental(&reservoirs_csv, california_only).await
-        }
-        Command::SnowQuery {
-            stations_csv,
-        } => {
-            query::run_snow_query(&stations_csv).await
-        }
+        } => incremental::run_incremental(&reservoirs_csv, california_only).await,
+        Command::SnowQuery { stations_csv } => query::run_snow_query(&stations_csv).await,
     }
 }
