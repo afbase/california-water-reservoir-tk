@@ -11,8 +11,9 @@
 //! Data flow:
 //! 1. `build.rs` copies `capacity.csv` into `OUT_DIR`.
 //! 2. `include_str!` embeds this CSV into the WASM binary.
-//! 3. On mount, the CSV is loaded into an in-memory SQLite database,
-//!    then `observations.csv.gz` is fetched at runtime and decompressed.
+//! 3. On mount, the CSV is loaded into an in-memory SQLite database. The
+//!    selected reservoir's per-station observation file is then fetched on
+//!    demand (and whenever the selection changes) via `fetch_observations_br`.
 //! 4. When the user selects a reservoir and date range, the app queries
 //!    `query_all_reservoir_histories()` and renders a multi-line chart.
 
@@ -23,12 +24,10 @@ use cwr_chart_ui::js_bridge;
 use cwr_chart_ui::state::AppState;
 use cwr_db::Database;
 use dioxus::prelude::*;
+use std::collections::HashSet;
 
 /// All reservoir metadata including Mead/Powell.
 const CAPACITY_CSV: &str = include_str!(concat!(env!("OUT_DIR"), "/capacity.csv"));
-
-/// Runtime-fetched gzip-compressed observation data (served alongside WASM).
-const OBSERVATIONS_GZ_URL: &str = "./observations.csv.gz";
 
 /// Chart container DOM element ID used by D3.js to render into.
 const CHART_ID: &str = "reservoir-history-chart";
@@ -43,8 +42,12 @@ fn main() {
 #[component]
 fn App() -> Element {
     let mut state = use_context_provider(AppState::new);
+    // Tracks which stations have already been fetched into the DB, so switching
+    // back to a previously viewed reservoir does not refetch its data.
+    let mut loaded_stations = use_signal(HashSet::<String>::new);
 
-    // Initialize database on mount
+    // Initialize database + reservoir metadata on mount (no observations yet;
+    // those are fetched per-station when a reservoir is selected).
     use_effect(move || {
         spawn(async move {
             match Database::new() {
@@ -56,28 +59,6 @@ fn App() -> Element {
                             .set(Some(format!("Failed to load reservoir data: {}", e)));
                         state.loading.set(false);
                         return;
-                    }
-
-                    match js_bridge::fetch_gz_csv(OBSERVATIONS_GZ_URL).await {
-                        Ok(csv_data) => {
-                            if !csv_data.is_empty() {
-                                if let Err(e) = db.load_observations(&csv_data) {
-                                    log::error!("Failed to load observations: {}", e);
-                                    state
-                                        .error_msg
-                                        .set(Some(format!("Failed to load observations: {}", e)));
-                                    state.loading.set(false);
-                                    return;
-                                }
-                            }
-                        }
-                        Err(e) => {
-                            state
-                                .error_msg
-                                .set(Some(format!("Failed to fetch observation data: {}", e)));
-                            state.loading.set(false);
-                            return;
-                        }
                     }
 
                     // Populate reservoir list for the dropdown
@@ -95,36 +76,76 @@ fn App() -> Element {
                         state.reservoirs.set(reservoirs);
                     }
 
-                    // Set default date range from the available data
-                    if let Ok((min_date, max_date)) = db.query_date_range() {
-                        // Convert YYYYMMDD to YYYY-MM-DD for HTML date inputs
-                        if min_date.len() == 8 {
-                            let formatted_min = format!(
-                                "{}-{}-{}",
-                                &min_date[0..4],
-                                &min_date[4..6],
-                                &min_date[6..8]
-                            );
-                            state.start_date.set(formatted_min);
-                        }
-                        if max_date.len() == 8 {
-                            let formatted_max = format!(
-                                "{}-{}-{}",
-                                &max_date[0..4],
-                                &max_date[4..6],
-                                &max_date[6..8]
-                            );
-                            state.end_date.set(formatted_max);
-                        }
-                    }
-
                     state.db.set(Some(db));
-                    state.loading.set(false);
                 }
                 Err(e) => {
                     state
                         .error_msg
                         .set(Some(format!("Database initialization failed: {}", e)));
+                    state.loading.set(false);
+                }
+            }
+        });
+    });
+
+    // Fetch the selected station's observations whenever the selection changes.
+    use_effect(move || {
+        let station = (state.selected_station)();
+        let db = match &*state.db.read() {
+            Some(db) => db.clone(),
+            None => return,
+        };
+        if station.is_empty() {
+            return;
+        }
+        // Skip stations we've already fetched (peek so this effect does not
+        // re-trigger itself when the loaded set is updated below).
+        if loaded_stations.peek().contains(&station) {
+            return;
+        }
+
+        state.loading.set(true);
+        spawn(async move {
+            match js_bridge::fetch_observations_br(&station).await {
+                Ok(csv) => {
+                    if let Err(e) = db.load_observations(&csv) {
+                        log::error!("Failed to load observations for {}: {}", station, e);
+                        state
+                            .error_msg
+                            .set(Some(format!("Failed to load observations: {}", e)));
+                        state.loading.set(false);
+                        return;
+                    }
+                    loaded_stations.write().insert(station.clone());
+
+                    // Seed the date range defaults from the loaded data (only if unset).
+                    if state.start_date.peek().is_empty() || state.end_date.peek().is_empty() {
+                        if let Ok((min_date, max_date)) = db.query_date_range() {
+                            if min_date.len() == 8 {
+                                state.start_date.set(format!(
+                                    "{}-{}-{}",
+                                    &min_date[0..4],
+                                    &min_date[4..6],
+                                    &min_date[6..8]
+                                ));
+                            }
+                            if max_date.len() == 8 {
+                                state.end_date.set(format!(
+                                    "{}-{}-{}",
+                                    &max_date[0..4],
+                                    &max_date[4..6],
+                                    &max_date[6..8]
+                                ));
+                            }
+                        }
+                    }
+
+                    state.loading.set(false);
+                }
+                Err(e) => {
+                    state
+                        .error_msg
+                        .set(Some(format!("Failed to fetch observation data: {}", e)));
                     state.loading.set(false);
                 }
             }

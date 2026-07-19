@@ -3,6 +3,8 @@
 //! This crate handles transforming raw observation data into forms
 //! suitable for charting and analysis.
 
+pub mod codec;
+
 /// Linear interpolation for filling gaps in observation data.
 pub mod interpolation {
     use chrono::NaiveDate;
@@ -138,7 +140,7 @@ pub mod water_level {
     pub const COLORADO_RIVER_CA_SHARE: f64 = 0.27;
 
     /// Station IDs for Lake Mead and Lake Powell
-    pub const LAKE_MEAD_ID: &str = "MED";
+    pub const LAKE_MEAD_ID: &str = "MEA";
     pub const LAKE_POWELL_ID: &str = "PWL";
 
     /// Check if a station is on the Colorado River (Mead or Powell)

@@ -6,6 +6,7 @@ description = "Shared Dioxus components and D3.js bridge for CWR chart apps"
 
 [dependencies]
 cwr-cdec = { path = "../cwr-cdec" }
+cwr-data = { path = "../cwr-data" }
 cwr-db = { path = "../cwr-db" }
 dioxus = { workspace = true }
 flate2 = { workspace = true }

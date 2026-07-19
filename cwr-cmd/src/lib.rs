@@ -7,6 +7,7 @@ use clap::Subcommand;
 
 pub mod incremental;
 pub mod query;
+pub mod split;
 
 #[derive(Subcommand)]
 pub enum Command {
@@ -38,6 +39,18 @@ pub enum Command {
         #[arg(short = 't', long)]
         stations_csv: String,
     },
+
+    /// Split a monolithic observations CSV into per-station, delta-encoded,
+    /// brotli-compressed files (`observations_<ID>.csv.br`) plus a manifest.
+    SplitObservations {
+        /// Path to the monolithic observations CSV to read.
+        #[arg(short = 'i', long)]
+        input: String,
+
+        /// Directory to write per-station `.csv.br` files and the manifest into.
+        #[arg(short = 'o', long)]
+        output_dir: String,
+    },
 }
 
 pub async fn run(command: Command) -> anyhow::Result<()> {
@@ -51,5 +64,8 @@ pub async fn run(command: Command) -> anyhow::Result<()> {
             california_only,
         } => incremental::run_incremental(&reservoirs_csv, california_only).await,
         Command::SnowQuery { stations_csv } => query::run_snow_query(&stations_csv).await,
+        Command::SplitObservations { input, output_dir } => {
+            split::run_split(&input, &output_dir)
+        }
     }
 }

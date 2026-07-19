@@ -13,8 +13,9 @@
 //! Data flow:
 //! 1. `build.rs` copies `capacity.csv` into `OUT_DIR`.
 //! 2. `include_str!` embeds this CSV into the WASM binary.
-//! 3. On mount, the CSV is loaded into an in-memory SQLite database,
-//!    then `observations.csv.gz` is fetched at runtime and decompressed.
+//! 3. On mount, the CSV is loaded into an in-memory SQLite database. The
+//!    selected reservoir's per-station observation file is then fetched on
+//!    demand (and whenever the selection changes) via `fetch_observations_br`.
 //! 4. When the user selects a reservoir, `query_water_year_stats()` is called
 //!    and the results are passed to `renderDataTable()` for D3.js rendering.
 
@@ -25,12 +26,10 @@ use cwr_chart_ui::js_bridge;
 use cwr_chart_ui::state::AppState;
 use cwr_db::Database;
 use dioxus::prelude::*;
+use std::collections::HashSet;
 
 /// All reservoir metadata.
 const CAPACITY_CSV: &str = include_str!(concat!(env!("OUT_DIR"), "/capacity.csv"));
-
-/// Runtime-fetched gzip-compressed observation data (served alongside WASM).
-const OBSERVATIONS_GZ_URL: &str = "./observations.csv.gz";
 
 /// Table container DOM element ID used by D3.js to render into.
 const TABLE_ID: &str = "water-year-stats-table";
@@ -45,8 +44,12 @@ fn main() {
 #[component]
 fn App() -> Element {
     let mut state = use_context_provider(AppState::new);
+    // Tracks which stations have already been fetched into the DB, so switching
+    // back to a previously viewed reservoir does not refetch its data.
+    let mut loaded_stations = use_signal(HashSet::<String>::new);
 
-    // Initialize database on mount
+    // Initialize database + reservoir metadata on mount (no observations yet;
+    // those are fetched per-station when a reservoir is selected).
     use_effect(move || {
         spawn(async move {
             match Database::new() {
@@ -58,28 +61,6 @@ fn App() -> Element {
                             .set(Some(format!("Failed to load reservoir data: {}", e)));
                         state.loading.set(false);
                         return;
-                    }
-
-                    match js_bridge::fetch_gz_csv(OBSERVATIONS_GZ_URL).await {
-                        Ok(csv_data) => {
-                            if !csv_data.is_empty() {
-                                if let Err(e) = db.load_observations(&csv_data) {
-                                    log::error!("Failed to load observations: {}", e);
-                                    state
-                                        .error_msg
-                                        .set(Some(format!("Failed to load observations: {}", e)));
-                                    state.loading.set(false);
-                                    return;
-                                }
-                            }
-                        }
-                        Err(e) => {
-                            state
-                                .error_msg
-                                .set(Some(format!("Failed to fetch observation data: {}", e)));
-                            state.loading.set(false);
-                            return;
-                        }
                     }
 
                     // Populate reservoir list for the dropdown
@@ -98,12 +79,52 @@ fn App() -> Element {
                     }
 
                     state.db.set(Some(db));
-                    state.loading.set(false);
                 }
                 Err(e) => {
                     state
                         .error_msg
                         .set(Some(format!("Database initialization failed: {}", e)));
+                    state.loading.set(false);
+                }
+            }
+        });
+    });
+
+    // Fetch the selected station's observations whenever the selection changes.
+    use_effect(move || {
+        let station = (state.selected_station)();
+        let db = match &*state.db.read() {
+            Some(db) => db.clone(),
+            None => return,
+        };
+        if station.is_empty() {
+            return;
+        }
+        // Skip stations we've already fetched (peek so this effect does not
+        // re-trigger itself when the loaded set is updated below).
+        if loaded_stations.peek().contains(&station) {
+            return;
+        }
+
+        state.loading.set(true);
+        spawn(async move {
+            match js_bridge::fetch_observations_br(&station).await {
+                Ok(csv) => {
+                    if let Err(e) = db.load_observations(&csv) {
+                        log::error!("Failed to load observations for {}: {}", station, e);
+                        state
+                            .error_msg
+                            .set(Some(format!("Failed to load observations: {}", e)));
+                        state.loading.set(false);
+                        return;
+                    }
+                    loaded_stations.write().insert(station.clone());
+                    state.loading.set(false);
+                }
+                Err(e) => {
+                    state
+                        .error_msg
+                        .set(Some(format!("Failed to fetch observation data: {}", e)));
                     state.loading.set(false);
                 }
             }

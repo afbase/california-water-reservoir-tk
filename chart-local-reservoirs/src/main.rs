@@ -12,8 +12,9 @@
 //! Data flow:
 //! 1. `build.rs` copies `capacity.csv` into `OUT_DIR`.
 //! 2. `include_str!` embeds this CSV into the WASM binary.
-//! 3. On mount, the CSV is loaded into an in-memory SQLite database,
-//!    then `observations.csv.gz` is fetched at runtime and decompressed.
+//! 3. On mount, the CSV is loaded into an in-memory SQLite database, then the
+//!    two local reservoirs' per-station observation files (LGT + APN) are
+//!    fetched via `fetch_observations_br` and loaded into the DB.
 //! 4. The app queries `query_reservoir_history()` for both LGT and APN
 //!    station IDs and renders a line chart for each.
 
@@ -25,9 +26,6 @@ use dioxus::prelude::*;
 
 /// All reservoir metadata.
 const CAPACITY_CSV: &str = include_str!(concat!(env!("OUT_DIR"), "/capacity.csv"));
-
-/// Runtime-fetched gzip-compressed observation data (served alongside WASM).
-const OBSERVATIONS_GZ_URL: &str = "./observations.csv.gz";
 
 /// Chart container DOM element IDs used by D3.js to render into.
 const CHART_LGT_ID: &str = "local-reservoir-lgt-chart";
@@ -66,25 +64,24 @@ fn App() -> Element {
                         return;
                     }
 
-                    match js_bridge::fetch_gz_csv(OBSERVATIONS_GZ_URL).await {
-                        Ok(csv_data) => {
-                            if !csv_data.is_empty() {
-                                if let Err(e) = db.load_observations(&csv_data) {
-                                    log::error!("Failed to load observations: {}", e);
-                                    state
-                                        .error_msg
-                                        .set(Some(format!("Failed to load observations: {}", e)));
-                                    state.loading.set(false);
-                                    return;
+                    // Fetch only the two local reservoirs' per-station files.
+                    // A failure for one station is non-fatal so the other chart
+                    // can still render; the render effect surfaces the error if
+                    // neither reservoir ends up with data.
+                    for station in [STATION_LGT, STATION_APN] {
+                        match js_bridge::fetch_observations_br(station).await {
+                            Ok(csv) => {
+                                if let Err(e) = db.load_observations(&csv) {
+                                    log::warn!(
+                                        "Failed to load observations for {}: {}",
+                                        station,
+                                        e
+                                    );
                                 }
                             }
-                        }
-                        Err(e) => {
-                            state
-                                .error_msg
-                                .set(Some(format!("Failed to fetch observation data: {}", e)));
-                            state.loading.set(false);
-                            return;
+                            Err(e) => {
+                                log::warn!("Failed to fetch observations for {}: {}", station, e);
+                            }
                         }
                     }
 

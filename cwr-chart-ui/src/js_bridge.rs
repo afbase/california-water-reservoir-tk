@@ -304,6 +304,51 @@ pub async fn fetch_gz_csv(url: &str) -> Result<String, String> {
     Ok(csv_text)
 }
 
+/// Fetch a URL and return its raw bytes.
+async fn fetch_bytes(url: &str) -> Result<Vec<u8>, String> {
+    use wasm_bindgen::JsCast;
+    use wasm_bindgen_futures::JsFuture;
+    use web_sys::Response;
+
+    let window = web_sys::window().ok_or("no window")?;
+
+    let resp: Response = JsFuture::from(window.fetch_with_str(url))
+        .await
+        .map_err(|e| format!("{:?}", e))?
+        .dyn_into()
+        .map_err(|_| "response cast failed".to_string())?;
+
+    if !resp.ok() {
+        return Err(format!("HTTP {}: {}", resp.status(), url));
+    }
+
+    let buf = JsFuture::from(resp.array_buffer().map_err(|e| format!("{:?}", e))?)
+        .await
+        .map_err(|e| format!("{:?}", e))?;
+
+    Ok(js_sys::Uint8Array::new(&buf).to_vec())
+}
+
+/// Base path where per-station observation files and the manifest are served.
+pub const CWR_DATA_BASE: &str = "/cwr-data";
+
+/// Fetch one station's per-station observation file (`observations_<ID>.csv.br`),
+/// decompress it, and reconstruct the 4-column CSV that
+/// [`cwr_db::Database::load_observations`] accepts.
+pub async fn fetch_observations_br(station_id: &str) -> Result<String, String> {
+    let url = format!("{CWR_DATA_BASE}/observations_{station_id}.csv.br");
+    let bytes = fetch_bytes(&url).await?;
+    cwr_data::codec::decode_station_file(station_id, &bytes)
+}
+
+/// Fetch and parse the station manifest — the JSON array of station IDs that
+/// have a per-station data file available.
+pub async fn fetch_observations_manifest() -> Result<Vec<String>, String> {
+    let url = format!("{CWR_DATA_BASE}/observations_manifest.json");
+    let bytes = fetch_bytes(&url).await?;
+    serde_json::from_slice::<Vec<String>>(&bytes).map_err(|e| format!("manifest parse: {e}"))
+}
+
 /// Destroy/clean up a chart in the given container.
 pub fn destroy_chart(container_id: &str) {
     if let Some(window) = web_sys::window() {

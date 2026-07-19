@@ -15,6 +15,9 @@ wasm-bindgen = { workspace = true }
 serde = { workspace = true }
 serde_json = { workspace = true }
 log = { workspace = true }
+# Used to fetch every station's per-station observation file concurrently
+# (`join_all`) before loading them into the DB.
+futures = "0.3"
 
 [build-dependencies]
 csv = { workspace = true }

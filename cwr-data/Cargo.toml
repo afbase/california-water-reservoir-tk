@@ -9,3 +9,4 @@ cwr-cdec = { path = "../cwr-cdec" }
 chrono = { workspace = true }
 serde = { workspace = true }
 log = { workspace = true }
+brotli = "7"

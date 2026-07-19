@@ -86,6 +86,60 @@ impl Database {
         Ok(rows)
     }
 
+    /// Get a *smoothed* daily total for California-only reservoirs (excludes
+    /// Lake Mead = MEA, Lake Powell = PWL) over a date range.
+    ///
+    /// Unlike [`query_total_water_ca_only`](Self::query_total_water_ca_only),
+    /// which naively `SUM`s only the stations that happen to report on each date
+    /// — producing spikes because stations report on different cadences (some
+    /// daily, some monthly) — this **forward-fills** each station's last-known
+    /// storage across every date, then sums. That is the client-side smoothing
+    /// the cumulative chart needs. Every station reads all its observations
+    /// chronologically (including those before `start_date`) so its last value
+    /// carries correctly into the requested range.
+    pub fn query_total_water_ca_only_smoothed(
+        &self,
+        start_date: &str,
+        end_date: &str,
+    ) -> anyhow::Result<Vec<DateValue>> {
+        use std::collections::HashMap;
+        let conn = self.conn.borrow();
+        let mut stmt = conn.prepare(
+            "SELECT o.date, o.station_id, o.value
+             FROM observations o
+             INNER JOIN reservoirs r ON o.station_id = r.station_id
+             WHERE r.station_id NOT IN ('MEA', 'PWL')
+             ORDER BY o.date, o.station_id",
+        )?;
+        let rows: Vec<(String, String, f64)> = stmt
+            .query_map([], |row| Ok((row.get(0)?, row.get(1)?, row.get(2)?)))?
+            .collect::<Result<Vec<_>, _>>()?;
+
+        // Walk dates in order, updating each station's last-known value, and
+        // emit the forward-filled sum for dates within [start, end].
+        let mut last: HashMap<String, f64> = HashMap::new();
+        let mut out = Vec::new();
+        let mut i = 0;
+        while i < rows.len() {
+            let date = rows[i].0.clone();
+            while i < rows.len() && rows[i].0 == date {
+                last.insert(rows[i].1.clone(), rows[i].2);
+                i += 1;
+            }
+            if date.as_str() >= start_date && date.as_str() <= end_date {
+                out.push(DateValue {
+                    date,
+                    value: last.values().sum(),
+                });
+            }
+        }
+        log::info!(
+            "[CWR Debug] query: query_total_water_ca_only_smoothed returned {} records",
+            out.len()
+        );
+        Ok(out)
+    }
+
     /// Get observation history for a specific reservoir station.
     ///
     /// Returns storage values in acre-feet (AF) for the given station
@@ -754,6 +808,27 @@ PWL,D,20220101,8000000
         // Only SHA: 2500000
         assert_eq!(ca_only.len(), 1);
         assert!((ca_only[0].value - 2500000.0).abs() < 0.01);
+    }
+
+    #[test]
+    fn query_total_water_ca_only_smoothed_forward_fills() {
+        let db = sample_water_db();
+        // Naive: on 20220301 only SHA reports, so its total is 3,000,000.
+        let naive = db
+            .query_total_water_ca_only("20220101", "20220601")
+            .unwrap();
+        assert!((naive[1].value - 3_000_000.0).abs() < 0.01);
+
+        // Smoothed: ORO's 20220101 reading (1,500,000) is forward-filled to
+        // 20220301, so the total becomes 3,000,000 + 1,500,000 = 4,500,000.
+        let smoothed = db
+            .query_total_water_ca_only_smoothed("20220101", "20220601")
+            .unwrap();
+        assert_eq!(smoothed.len(), 3);
+        assert_eq!(smoothed[0].date, "20220101");
+        assert!((smoothed[0].value - 4_000_000.0).abs() < 0.01);
+        assert_eq!(smoothed[1].date, "20220301");
+        assert!((smoothed[1].value - 4_500_000.0).abs() < 0.01);
     }
 
     #[test]

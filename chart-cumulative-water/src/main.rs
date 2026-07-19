@@ -9,22 +9,24 @@
 //!    at compile time.
 //! 2. `include_str!` embeds this CSV into the WASM binary.
 //! 3. On mount, the CSV is loaded into an in-memory SQLite database (`cwr-db`),
-//!    then `observations.csv.gz` is fetched at runtime and decompressed.
-//! 4. CA-only totals are derived on-the-fly via SQL `SUM/GROUP BY` with a JOIN
-//!    that excludes Lake Mead (MEA) and Lake Powell (PWL).
-//! 5. The line chart is rendered via the D3.js bridge in `cwr-chart-ui`.
+//!    then the per-station observation manifest is fetched and every station's
+//!    `observations_<ID>.csv.br` file is fetched concurrently and loaded.
+//! 4. CA-only totals are derived via a forward-filled, smoothed query that
+//!    excludes Lake Mead (MEA) and Lake Powell (PWL).
+//! 5. A `DateRangePicker` filters the range; the smoothed series is downsampled
+//!    to ~2000 points and rendered via the D3.js bridge in `cwr-chart-ui`.
 
-use cwr_chart_ui::components::{ChartContainer, ChartHeader, ErrorDisplay, LoadingSpinner};
+use cwr_chart_ui::components::{
+    ChartContainer, ChartHeader, DateRangePicker, ErrorDisplay, LoadingSpinner,
+};
 use cwr_chart_ui::js_bridge;
 use cwr_chart_ui::state::AppState;
+use cwr_db::models::DateValue;
 use cwr_db::Database;
 use dioxus::prelude::*;
 
 /// CA-only reservoir capacity (excludes Mead/Powell).
 const CAPACITY_CSV: &str = include_str!(concat!(env!("OUT_DIR"), "/capacity.csv"));
-
-/// Runtime-fetched gzip-compressed observation data (served alongside WASM).
-const OBSERVATIONS_GZ_URL: &str = "./observations.csv.gz";
 
 /// Chart container DOM element ID used by D3.js to render into.
 const CHART_ID: &str = "cumulative-water-chart";
@@ -40,7 +42,9 @@ fn main() {
 fn App() -> Element {
     let mut state = use_context_provider(AppState::new);
 
-    // Initialize database on mount
+    // Initialize database on mount, then load EVERY station's observations.
+    // The cumulative chart needs all CA reservoirs, so we fetch the manifest
+    // and pull each per-station file concurrently before loading into the DB.
     use_effect(move || {
         spawn(async move {
             match Database::new() {
@@ -54,30 +58,69 @@ fn App() -> Element {
                         return;
                     }
 
-                    match js_bridge::fetch_gz_csv(OBSERVATIONS_GZ_URL).await {
-                        Ok(csv_data) => {
-                            if !csv_data.is_empty() {
-                                if let Err(e) = db.load_observations(&csv_data) {
-                                    log::error!("Failed to load observations: {}", e);
-                                    state
-                                        .error_msg
-                                        .set(Some(format!("Failed to load observations: {}", e)));
-                                    state.loading.set(false);
-                                    return;
-                                }
-                            }
-                        }
+                    // Which stations have per-station data files available?
+                    let station_ids = match js_bridge::fetch_observations_manifest().await {
+                        Ok(ids) => ids,
                         Err(e) => {
-                            state
-                                .error_msg
-                                .set(Some(format!("Failed to fetch observation data: {}", e)));
+                            state.error_msg.set(Some(format!(
+                                "Failed to fetch observation manifest: {}",
+                                e
+                            )));
                             state.loading.set(false);
                             return;
+                        }
+                    };
+
+                    // Fetch all per-station files CONCURRENTLY (network-bound),
+                    // then load them into the DB sequentially since DB access is
+                    // single-threaded. Loading PWL/MEA is harmless — the smoothed
+                    // query excludes them via the reservoirs join.
+                    let results = futures::future::join_all(
+                        station_ids
+                            .iter()
+                            .map(|id| js_bridge::fetch_observations_br(id)),
+                    )
+                    .await;
+
+                    for (id, result) in station_ids.iter().zip(results) {
+                        match result {
+                            Ok(csv) => {
+                                if let Err(e) = db.load_observations(&csv) {
+                                    log::warn!(
+                                        "Failed to load observations for {}: {}",
+                                        id,
+                                        e
+                                    );
+                                }
+                            }
+                            Err(e) => {
+                                log::warn!("Failed to fetch observations for {}: {}", id, e);
+                            }
                         }
                     }
 
                     if let Ok(reservoirs) = db.query_reservoirs() {
                         state.reservoirs.set(reservoirs);
+                    }
+
+                    // Seed the date-range picker defaults from the loaded data.
+                    if let Ok((min_date, max_date)) = db.query_date_range() {
+                        if min_date.len() == 8 {
+                            state.start_date.set(format!(
+                                "{}-{}-{}",
+                                &min_date[0..4],
+                                &min_date[4..6],
+                                &min_date[6..8]
+                            ));
+                        }
+                        if max_date.len() == 8 {
+                            state.end_date.set(format!(
+                                "{}-{}-{}",
+                                &max_date[0..4],
+                                &max_date[4..6],
+                                &max_date[6..8]
+                            ));
+                        }
                     }
 
                     state.db.set(Some(db));
@@ -93,12 +136,13 @@ fn App() -> Element {
         });
     });
 
-    // Render chart after data loaded
+    // Re-render chart whenever the date range changes (or loading finishes).
     use_effect(move || {
-        if (state.loading)() {
-            return;
-        }
-        if (state.error_msg)().is_some() {
+        let loading = (state.loading)();
+        let start_html = (state.start_date)();
+        let end_html = (state.end_date)();
+
+        if loading || start_html.is_empty() || end_html.is_empty() {
             return;
         }
 
@@ -110,16 +154,12 @@ fn App() -> Element {
         // Initialize the D3.js chart scripts
         js_bridge::init_charts();
 
-        // Query the full date range of cumulative CA-only data
-        let (start, end) = match db.query_date_range() {
-            Ok(range) => range,
-            Err(e) => {
-                log::warn!("No date range available: {}", e);
-                return;
-            }
-        };
+        // Convert YYYY-MM-DD (HTML date inputs) back to YYYYMMDD for the query.
+        let start = start_html.replace('-', "");
+        let end = end_html.replace('-', "");
 
-        let data = match db.query_total_water_ca_only(&start, &end) {
+        // Forward-filled/smoothed CA-only totals (excludes MEA/PWL).
+        let data = match db.query_total_water_ca_only_smoothed(&start, &end) {
             Ok(d) => d,
             Err(e) => {
                 log::error!("Failed to query cumulative CA-only water: {}", e);
@@ -134,8 +174,30 @@ fn App() -> Element {
             ));
             return;
         }
+        // Clear any previous error when data IS available.
+        if state.error_msg.peek().is_some() {
+            state.error_msg.set(None);
+        }
 
-        let data_json = serde_json::to_string(&data).unwrap_or_default();
+        // Downsample to ~2000 points for crisp, performant rendering.
+        let display_data: Vec<&DateValue> = if data.len() > 2000 {
+            let step = data.len() as f64 / 2000.0;
+            let mut result = Vec::with_capacity(2001);
+            let mut idx = 0.0;
+            while (idx as usize) < data.len() {
+                result.push(&data[idx as usize]);
+                idx += step;
+            }
+            // Always keep the final point so the line reaches the latest date.
+            if result.last().map(|d| &d.date) != data.last().map(|d| &d.date) {
+                result.push(data.last().unwrap());
+            }
+            result
+        } else {
+            data.iter().collect()
+        };
+
+        let data_json = serde_json::to_string(&display_data).unwrap_or_default();
         let config_json = serde_json::to_string(&serde_json::json!({
             "title": "Cumulative California Water Storage",
             "yAxisLabel": "Acre-Feet (AF)",
@@ -158,15 +220,29 @@ fn App() -> Element {
                 unit_description: "Acre-Feet (AF) - 1 acre-foot = ~326,000 gallons, enough for 1-2 households per year".to_string(),
             }
 
+            // Shown above the chart (non-exclusively) so the date picker stays
+            // usable even if a chosen range yields no data.
             if let Some(err) = (state.error_msg)() {
                 ErrorDisplay { message: err }
-            } else if (state.loading)() {
+            }
+
+            if (state.loading)() {
                 LoadingSpinner {}
             } else {
                 ChartContainer {
                     id: CHART_ID.to_string(),
                     loading: false,
                     min_height: 450,
+                }
+
+                // Date range picker for filtering the chart
+                div {
+                    style: "margin-top: 12px; padding-top: 8px; border-top: 1px solid #e0e0e0;",
+                    p {
+                        style: "font-size: 12px; color: #666; margin: 0 0 4px 0;",
+                        "Adjust the date range to filter the data:"
+                    }
+                    DateRangePicker {}
                 }
             }
 
