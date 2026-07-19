@@ -235,19 +235,17 @@ fn App() -> Element {
             .map(|r| r.capacity)
             .unwrap_or(0);
 
-        // Wrap single reservoir data as StationDateValue-like structure for multi-line chart
-        let station_data: Vec<serde_json::Value> = data
+        // multi-line-chart.js expects an array of series: [{station_id, name, data:[{date,value},...]}]
+        let points: Vec<serde_json::Value> = data
             .iter()
-            .map(|dv| {
-                serde_json::json!({
-                    "station_id": station,
-                    "date": dv.date,
-                    "value": dv.value,
-                })
-            })
+            .map(|dv| serde_json::json!({ "date": dv.date, "value": dv.value }))
             .collect();
-
-        let data_json = serde_json::to_string(&station_data).unwrap_or_default();
+        let series = serde_json::json!([{
+            "station_id": station,
+            "name": reservoir_name.clone(),
+            "data": points,
+        }]);
+        let data_json = serde_json::to_string(&series).unwrap_or_default();
         let config_json = serde_json::to_string(&serde_json::json!({
             "title": format!("Water Levels: {}", reservoir_name),
             "yAxisLabel": "Acre-Feet (AF)",

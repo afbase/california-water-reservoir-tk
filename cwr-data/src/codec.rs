@@ -109,6 +109,50 @@ pub fn decode_station_file(station_id: &str, compressed: &[u8]) -> Result<String
     reconstruct_csv(station_id, &text)
 }
 
+/// Decode a delta+brotli file into `(YYYYMMDD, value)` pairs.
+///
+/// Unlike [`decode_station_file`], this does not wrap rows as per-station CSV
+/// lines — it returns bare date/value pairs. Used for the precomputed
+/// `observations_cumulative.csv.br` (statewide daily totals), which the
+/// cumulative chart fetches as a single file instead of downloading every
+/// per-station file.
+pub fn decode_dated_series(compressed: &[u8]) -> Result<Vec<(String, i64)>, String> {
+    let text = brotli_decompress(compressed)?;
+    let mut out = Vec::new();
+    let mut day = 0i32;
+    let mut val = 0i64;
+    let mut first = true;
+    for line in text.lines() {
+        let line = line.trim();
+        if line.is_empty() {
+            continue;
+        }
+        let (a, b) = line
+            .split_once(',')
+            .ok_or_else(|| format!("malformed delta row: {line:?}"))?;
+        let a: i32 = a
+            .trim()
+            .parse()
+            .map_err(|_| format!("bad daynum field: {a:?}"))?;
+        let b: i64 = b
+            .trim()
+            .parse()
+            .map_err(|_| format!("bad value field: {b:?}"))?;
+        if first {
+            day = a;
+            val = b;
+            first = false;
+        } else {
+            day += a;
+            val += b;
+        }
+        let date = NaiveDate::from_num_days_from_ce_opt(day)
+            .ok_or_else(|| format!("daynum out of range: {day}"))?;
+        out.push((date.format("%Y%m%d").to_string(), val));
+    }
+    Ok(out)
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -158,5 +202,24 @@ mod tests {
     #[test]
     fn reconstruct_rejects_garbage() {
         assert!(reconstruct_csv("X", "not-a-row").is_err());
+    }
+
+    #[test]
+    fn dated_series_roundtrips() {
+        let series = vec![
+            (dn(2020, 1, 1), 500_000i64),
+            (dn(2020, 1, 15), 480_000),
+            (dn(2020, 2, 1), 520_000),
+        ];
+        let compressed = brotli_compress(encode_delta(&series).as_bytes()).unwrap();
+        let decoded = decode_dated_series(&compressed).unwrap();
+        assert_eq!(
+            decoded,
+            vec![
+                ("20200101".to_string(), 500_000),
+                ("20200115".to_string(), 480_000),
+                ("20200201".to_string(), 520_000),
+            ]
+        );
     }
 }

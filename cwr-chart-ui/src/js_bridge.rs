@@ -349,6 +349,16 @@ pub async fn fetch_observations_manifest() -> Result<Vec<String>, String> {
     serde_json::from_slice::<Vec<String>>(&bytes).map_err(|e| format!("manifest parse: {e}"))
 }
 
+/// Fetch the precomputed California-only cumulative daily total series
+/// (`observations_cumulative.csv.br`) as `(YYYYMMDD, acre-feet)` pairs. The
+/// cumulative chart fetches this single precomputed file instead of downloading
+/// every per-station file.
+pub async fn fetch_cumulative_series() -> Result<Vec<(String, i64)>, String> {
+    let url = format!("{CWR_DATA_BASE}/observations_cumulative.csv.br");
+    let bytes = fetch_bytes(&url).await?;
+    cwr_data::codec::decode_dated_series(&bytes)
+}
+
 /// Destroy/clean up a chart in the given container.
 pub fn destroy_chart(container_id: &str) {
     if let Some(window) = web_sys::window() {

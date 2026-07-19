@@ -19,6 +19,13 @@ use cwr_data::codec;
 use std::collections::BTreeMap;
 use std::path::Path;
 
+/// Physically-implausible storage cap in acre-feet. The largest reservoir in the
+/// dataset is Lake Mead (~26M AF), so any reading beyond this is a CDEC data
+/// error (e.g. station `ELC` once reported 14.2 *billion* AF; `JNC` 207M). Such
+/// rows — and negatives — are dropped so they can't corrupt per-station charts
+/// or the cumulative total.
+const MAX_PLAUSIBLE_AF: i64 = 30_000_000;
+
 /// Parse a date field into a day number (days from CE), or `None`.
 ///
 /// The monolithic CSV mixes two date formats: clean `YYYYMMDD` (older monthly
@@ -65,10 +72,15 @@ pub fn run_split(input: &str, output_dir: &str) -> Result<()> {
         let Ok(v) = value.parse::<f64>() else {
             continue;
         };
+        let vi = v.round() as i64;
+        // Drop physically-implausible readings (CDEC data errors).
+        if !(0..=MAX_PLAUSIBLE_AF).contains(&vi) {
+            continue;
+        }
         stations
             .entry(station.to_string())
             .or_default()
-            .insert(daynum, v.round() as i64);
+            .insert(daynum, vi);
         rows_kept += 1;
     }
 
@@ -91,16 +103,65 @@ pub fn run_split(input: &str, output_dir: &str) -> Result<()> {
         manifest.push(station.clone());
     }
 
+    // Precompute the smoothed California-only cumulative daily total into a
+    // single observations_cumulative.csv.br so the cumulative chart can fetch
+    // ONE file instead of every per-station file.
+    let cumulative = compute_cumulative_ca_only(&stations);
+    let cumulative_written = if cumulative.is_empty() {
+        false
+    } else {
+        let text = codec::encode_delta(&cumulative);
+        let compressed =
+            codec::brotli_compress(text.as_bytes()).context("compressing cumulative series")?;
+        let path = Path::new(output_dir).join("observations_cumulative.csv.br");
+        std::fs::write(&path, &compressed)
+            .with_context(|| format!("writing {}", path.display()))?;
+        true
+    };
+
     let manifest_path = Path::new(output_dir).join("observations_manifest.json");
     std::fs::write(&manifest_path, serde_json::to_string(&manifest)?)
         .with_context(|| format!("writing {}", manifest_path.display()))?;
 
     println!(
-        "split-observations: read {rows_read} rows, kept {rows_kept}, wrote {} stations ({} KiB brotli) + manifest to {output_dir}",
+        "split-observations: read {rows_read} rows, kept {rows_kept}, wrote {} stations ({} KiB brotli){} + manifest to {output_dir}",
         manifest.len(),
-        total_bytes / 1024
+        total_bytes / 1024,
+        if cumulative_written { " + cumulative" } else { "" }
     );
     Ok(())
+}
+
+/// Station IDs excluded from the California-only cumulative total (Colorado
+/// River reservoirs). Mirrors `cwr_db::query_total_water_ca_only_smoothed`.
+const CUMULATIVE_EXCLUDE: &[&str] = &["MEA", "PWL"];
+
+/// Forward-fill each California reservoir's last-known storage across every
+/// observed date and sum per day, producing a smoothed statewide daily total
+/// series as sorted `(daynum, total)` pairs. This is the same forward-fill the
+/// runtime `query_total_water_ca_only_smoothed` performs, done once at build
+/// time so the browser fetches a single precomputed file.
+fn compute_cumulative_ca_only(stations: &BTreeMap<String, BTreeMap<i32, i64>>) -> Vec<(i32, i64)> {
+    use std::collections::HashMap;
+    // day -> [(station, value)] reported that day (CA-only).
+    let mut by_day: BTreeMap<i32, Vec<(&str, i64)>> = BTreeMap::new();
+    for (station, series) in stations {
+        if CUMULATIVE_EXCLUDE.contains(&station.as_str()) {
+            continue;
+        }
+        for (&day, &val) in series {
+            by_day.entry(day).or_default().push((station.as_str(), val));
+        }
+    }
+    let mut last: HashMap<&str, i64> = HashMap::new();
+    let mut out: Vec<(i32, i64)> = Vec::with_capacity(by_day.len());
+    for (day, updates) in by_day {
+        for (station, val) in updates {
+            last.insert(station, val);
+        }
+        out.push((day, last.values().sum()));
+    }
+    out
 }
 
 #[cfg(test)]

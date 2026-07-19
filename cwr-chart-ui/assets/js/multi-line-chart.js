@@ -10,6 +10,7 @@
 //     station_id: "SHA",
 //     name: "Shasta Lake",
 //     data: [{ date: "YYYY-MM-DD", value: <number> }, ...]
+//     // Note: dates may be "YYYY-MM-DD" or "YYYYMMDD".
 //   },
 //   ...
 // ]
@@ -87,7 +88,13 @@ function renderMultiLineChart(containerId, seriesJson, configJson) {
         .range(colorPalette);
 
     // Parse dates for every series
-    var parseDate = d3.timeParse("%Y-%m-%d");
+    var _pDash = d3.timeParse("%Y-%m-%d");
+    var _pPlain = d3.timeParse("%Y%m%d");
+    var parseDate = function(s) {
+        if (s == null) return null;
+        s = String(s);
+        return s.indexOf("-") >= 0 ? _pDash(s) : _pPlain(s);
+    };
     var globalXMin = null, globalXMax = null, globalYMax = 0;
 
     series.forEach(function(s) {

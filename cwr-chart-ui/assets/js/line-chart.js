@@ -4,6 +4,7 @@
 // Called from Rust/WASM via js_sys::eval(). No ES modules.
 //
 // Data format (JSON array): [{ date: "YYYY-MM-DD", value: <number> }, ...]
+// Note: dates may be "YYYY-MM-DD" or "YYYYMMDD".
 // Config format (JSON object): {
 //   title: string,
 //   yAxisLabel: string,       // e.g. "Acre-Feet (AF)"
@@ -47,7 +48,13 @@ function renderLineChart(containerId, dataJson, configJson) {
         .attr("transform", "translate(" + margin.left + "," + margin.top + ")");
 
     // Parse dates and values
-    var parseDate = d3.timeParse("%Y-%m-%d");
+    var _pDash = d3.timeParse("%Y-%m-%d");
+    var _pPlain = d3.timeParse("%Y%m%d");
+    var parseDate = function(s) {
+        if (s == null) return null;
+        s = String(s);
+        return s.indexOf("-") >= 0 ? _pDash(s) : _pPlain(s);
+    };
     data.forEach(function(d) {
         d._date  = parseDate(d.date);
         d._value = +d.value;
@@ -119,7 +126,7 @@ function renderLineChart(containerId, dataJson, configJson) {
     g.select(".grid .domain").remove();
 
     // --- Line ---
-    var lineColor = config.color || "steelblue";
+    var lineColor = config.color || config.lineColor || "steelblue";
 
     var line = d3.line()
         .defined(function(d) { return !isNaN(d._value); })

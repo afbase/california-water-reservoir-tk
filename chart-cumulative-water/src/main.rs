@@ -1,32 +1,22 @@
 //! Cumulative California Water Storage (CA-only, excludes Lake Mead and Lake Powell)
 //!
 //! Displays a single line chart of the total water stored across all
-//! California-only reservoirs over time. This replaces the former `yew-da-best`
-//! crate with an equivalent Dioxus 0.7 + D3.js implementation.
+//! California-only reservoirs over time.
 //!
 //! Data flow:
-//! 1. `build.rs` copies `capacity-no-powell-no-mead.csv` into `OUT_DIR`
-//!    at compile time.
-//! 2. `include_str!` embeds this CSV into the WASM binary.
-//! 3. On mount, the CSV is loaded into an in-memory SQLite database (`cwr-db`),
-//!    then the per-station observation manifest is fetched and every station's
-//!    `observations_<ID>.csv.br` file is fetched concurrently and loaded.
-//! 4. CA-only totals are derived via a forward-filled, smoothed query that
-//!    excludes Lake Mead (MEA) and Lake Powell (PWL).
-//! 5. A `DateRangePicker` filters the range; the smoothed series is downsampled
-//!    to ~2000 points and rendered via the D3.js bridge in `cwr-chart-ui`.
+//! 1. CI precomputes a smoothed (forward-filled) CA-only daily total and ships
+//!    it as a single `observations_cumulative.csv.br` under `/cwr-data/`.
+//! 2. On mount the app fetches that one file (delta + brotli) and decodes it to
+//!    `(YYYYMMDD, acre-feet)` pairs — no per-station downloads, no in-browser DB.
+//! 3. A `DateRangePicker` filters the range; the series is downsampled to ~2000
+//!    points and rendered via the D3.js line chart in `cwr-chart-ui`.
 
 use cwr_chart_ui::components::{
     ChartContainer, ChartHeader, DateRangePicker, ErrorDisplay, LoadingSpinner,
 };
 use cwr_chart_ui::js_bridge;
 use cwr_chart_ui::state::AppState;
-use cwr_db::models::DateValue;
-use cwr_db::Database;
 use dioxus::prelude::*;
-
-/// CA-only reservoir capacity (excludes Mead/Powell).
-const CAPACITY_CSV: &str = include_str!(concat!(env!("OUT_DIR"), "/capacity.csv"));
 
 /// Chart container DOM element ID used by D3.js to render into.
 const CHART_ID: &str = "cumulative-water-chart";
@@ -38,173 +28,109 @@ fn main() {
         .launch(App);
 }
 
+/// Convert a `YYYYMMDD` date to the `YYYY-MM-DD` form used by HTML date inputs.
+fn to_html_date(yyyymmdd: &str) -> String {
+    if yyyymmdd.len() == 8 {
+        format!(
+            "{}-{}-{}",
+            &yyyymmdd[0..4],
+            &yyyymmdd[4..6],
+            &yyyymmdd[6..8]
+        )
+    } else {
+        yyyymmdd.to_string()
+    }
+}
+
 #[component]
 fn App() -> Element {
     let mut state = use_context_provider(AppState::new);
+    // Precomputed CA-only daily totals as (YYYYMMDD, acre-feet) pairs.
+    let mut series = use_signal(Vec::<(String, i64)>::new);
 
-    // Initialize database on mount, then load EVERY station's observations.
-    // The cumulative chart needs all CA reservoirs, so we fetch the manifest
-    // and pull each per-station file concurrently before loading into the DB.
+    // Fetch the single precomputed cumulative file on mount.
     use_effect(move || {
         spawn(async move {
-            match Database::new() {
-                Ok(db) => {
-                    if let Err(e) = db.load_reservoirs(CAPACITY_CSV) {
-                        log::error!("Failed to load CA-only reservoirs: {}", e);
-                        state
-                            .error_msg
-                            .set(Some(format!("Failed to load reservoir data: {}", e)));
-                        state.loading.set(false);
-                        return;
+            match js_bridge::fetch_cumulative_series().await {
+                Ok(points) => {
+                    // Seed the date-range picker from the data extent.
+                    if let (Some(first), Some(last)) = (points.first(), points.last()) {
+                        state.start_date.set(to_html_date(&first.0));
+                        state.end_date.set(to_html_date(&last.0));
                     }
-
-                    // Which stations have per-station data files available?
-                    let station_ids = match js_bridge::fetch_observations_manifest().await {
-                        Ok(ids) => ids,
-                        Err(e) => {
-                            state.error_msg.set(Some(format!(
-                                "Failed to fetch observation manifest: {}",
-                                e
-                            )));
-                            state.loading.set(false);
-                            return;
-                        }
-                    };
-
-                    // Fetch all per-station files CONCURRENTLY (network-bound),
-                    // then load them into the DB sequentially since DB access is
-                    // single-threaded. Loading PWL/MEA is harmless — the smoothed
-                    // query excludes them via the reservoirs join.
-                    let results = futures::future::join_all(
-                        station_ids
-                            .iter()
-                            .map(|id| js_bridge::fetch_observations_br(id)),
-                    )
-                    .await;
-
-                    for (id, result) in station_ids.iter().zip(results) {
-                        match result {
-                            Ok(csv) => {
-                                if let Err(e) = db.load_observations(&csv) {
-                                    log::warn!(
-                                        "Failed to load observations for {}: {}",
-                                        id,
-                                        e
-                                    );
-                                }
-                            }
-                            Err(e) => {
-                                log::warn!("Failed to fetch observations for {}: {}", id, e);
-                            }
-                        }
-                    }
-
-                    if let Ok(reservoirs) = db.query_reservoirs() {
-                        state.reservoirs.set(reservoirs);
-                    }
-
-                    // Seed the date-range picker defaults from the loaded data.
-                    if let Ok((min_date, max_date)) = db.query_date_range() {
-                        if min_date.len() == 8 {
-                            state.start_date.set(format!(
-                                "{}-{}-{}",
-                                &min_date[0..4],
-                                &min_date[4..6],
-                                &min_date[6..8]
-                            ));
-                        }
-                        if max_date.len() == 8 {
-                            state.end_date.set(format!(
-                                "{}-{}-{}",
-                                &max_date[0..4],
-                                &max_date[4..6],
-                                &max_date[6..8]
-                            ));
-                        }
-                    }
-
-                    state.db.set(Some(db));
+                    series.set(points);
                     state.loading.set(false);
                 }
                 Err(e) => {
                     state
                         .error_msg
-                        .set(Some(format!("Database initialization failed: {}", e)));
+                        .set(Some(format!("Failed to load cumulative data: {}", e)));
                     state.loading.set(false);
                 }
             }
         });
     });
 
-    // Re-render chart whenever the date range changes (or loading finishes).
+    // Re-render whenever the data or the selected date range changes.
     use_effect(move || {
         let loading = (state.loading)();
         let start_html = (state.start_date)();
         let end_html = (state.end_date)();
+        let points = series.read();
 
-        if loading || start_html.is_empty() || end_html.is_empty() {
+        if loading || start_html.is_empty() || end_html.is_empty() || points.is_empty() {
             return;
         }
 
-        let db = match &*state.db.read() {
-            Some(db) => db.clone(),
-            None => return,
-        };
-
-        // Initialize the D3.js chart scripts
         js_bridge::init_charts();
 
-        // Convert YYYY-MM-DD (HTML date inputs) back to YYYYMMDD for the query.
+        // HTML date inputs are YYYY-MM-DD; our data keys are YYYYMMDD.
         let start = start_html.replace('-', "");
         let end = end_html.replace('-', "");
 
-        // Forward-filled/smoothed CA-only totals (excludes MEA/PWL).
-        let data = match db.query_total_water_ca_only_smoothed(&start, &end) {
-            Ok(d) => d,
-            Err(e) => {
-                log::error!("Failed to query cumulative CA-only water: {}", e);
-                return;
-            }
-        };
+        let filtered: Vec<&(String, i64)> = points
+            .iter()
+            .filter(|(d, _)| d.as_str() >= start.as_str() && d.as_str() <= end.as_str())
+            .collect();
 
-        if data.is_empty() {
-            log::warn!("No cumulative CA-only water data found");
+        if filtered.is_empty() {
             state.error_msg.set(Some(
                 "No cumulative water data available for the selected date range.".to_string(),
             ));
             return;
         }
-        // Clear any previous error when data IS available.
         if state.error_msg.peek().is_some() {
             state.error_msg.set(None);
         }
 
         // Downsample to ~2000 points for crisp, performant rendering.
-        let display_data: Vec<&DateValue> = if data.len() > 2000 {
-            let step = data.len() as f64 / 2000.0;
-            let mut result = Vec::with_capacity(2001);
+        let display: Vec<&(String, i64)> = if filtered.len() > 2000 {
+            let step = filtered.len() as f64 / 2000.0;
+            let mut r = Vec::with_capacity(2001);
             let mut idx = 0.0;
-            while (idx as usize) < data.len() {
-                result.push(&data[idx as usize]);
+            while (idx as usize) < filtered.len() {
+                r.push(filtered[idx as usize]);
                 idx += step;
             }
             // Always keep the final point so the line reaches the latest date.
-            if result.last().map(|d| &d.date) != data.last().map(|d| &d.date) {
-                result.push(data.last().unwrap());
+            if r.last().map(|p| &p.0) != filtered.last().map(|p| &p.0) {
+                r.push(*filtered.last().unwrap());
             }
-            result
+            r
         } else {
-            data.iter().collect()
+            filtered
         };
 
-        let data_json = serde_json::to_string(&display_data).unwrap_or_default();
+        let data: Vec<serde_json::Value> = display
+            .iter()
+            .map(|(date, value)| serde_json::json!({ "date": date, "value": value }))
+            .collect();
+        let data_json = serde_json::to_string(&data).unwrap_or_default();
         let config_json = serde_json::to_string(&serde_json::json!({
             "title": "Cumulative California Water Storage",
             "yAxisLabel": "Acre-Feet (AF)",
-            "lineColor": "#2196F3",
-            "tooltipFormat": "date_value",
-            "dateFormat": "YYYYMMDD",
-            "valueLabel": "Total Storage (AF)"
+            "yUnit": "AF",
+            "color": "#2196F3",
         }))
         .unwrap_or_default();
 
