@@ -54,7 +54,7 @@ jobs:
 
   test:
     needs: detect-changes
-    if: needs.detect-changes.outputs.core-libs == 'true' || github.event_name == 'workflow_dispatch'
+    if: needs.detect-changes.outputs.core-libs == 'true' || needs.detect-changes.outputs.cli == 'true' || github.event_name == 'workflow_dispatch'
     runs-on: ubuntu-latest
     container:
       image: ghcr.io/afbase/rust-zola-builder:pinned
@@ -91,6 +91,11 @@ jobs:
     needs: [detect-changes, build-cli-image]
     if: always()
     runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      max-parallel: 12
+      matrix:
+        shard: [0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11]
     container:
       image: ghcr.io/afbase/cwr-cli:latest
       credentials:
@@ -103,21 +108,15 @@ jobs:
       - uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7.0.0
         with:
           sparse-checkout: fixtures
-      - name: Cache water fixtures
-        uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
-        with:
-          path: fixtures/observations.csv
-          key: cwr-water-fixtures-${{ github.run_number }}
-          restore-keys: cwr-water-fixtures-
-      - name: Fetch water data (incremental)
+      - name: Fetch water data (incremental, shard ${{ matrix.shard }}/12)
         run: |
           set -euxo pipefail
           MAX_RETRIES=5
           RETRY_DELAY=5
           for attempt in $(seq 1 $MAX_RETRIES); do
-            echo "Attempt $attempt of $MAX_RETRIES"
-            if cwr-cli incremental-query -r fixtures/observations.csv; then
-              echo "Water queries completed successfully"
+            echo "Attempt $attempt of $MAX_RETRIES (shard ${{ matrix.shard }} of 12)"
+            if cwr-cli incremental-query --baseline fixtures/observations.csv -r fixtures/shard_${{ matrix.shard }}.csv --shard ${{ matrix.shard }} --shards 12; then
+              echo "Water queries completed successfully for shard ${{ matrix.shard }}"
               break
             fi
             if [ $attempt -lt $MAX_RETRIES ]; then
@@ -128,16 +127,69 @@ jobs:
               exit 1
             fi
           done
-      - name: Validate water data
+      - name: Validate shard data
         run: |
-          if [ -f fixtures/observations.csv ]; then
-            lines=$(wc -l < fixtures/observations.csv)
-            echo "fixtures/observations.csv: $lines lines"
+          if [ -f fixtures/shard_${{ matrix.shard }}.csv ]; then
+            lines=$(wc -l < fixtures/shard_${{ matrix.shard }}.csv)
+            echo "fixtures/shard_${{ matrix.shard }}.csv: $lines lines"
           else
-            echo "WARNING: fixtures/observations.csv does not exist"
+            echo "WARNING: fixtures/shard_${{ matrix.shard }}.csv does not exist"
           fi
-      - name: Split observations into per-station files
-        run: cwr-cli split-observations --input fixtures/observations.csv --output-dir fixtures/cwr-data
+      - uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        with:
+          name: cwr-water-shard-${{ matrix.shard }}
+          path: fixtures/shard_${{ matrix.shard }}.csv
+
+  merge-water-data:
+    needs: [detect-changes, fetch-water-data]
+    if: always()
+    runs-on: ubuntu-latest
+    container:
+      image: ghcr.io/afbase/cwr-cli:latest
+      credentials:
+        username: ${{ github.actor }}
+        password: ${{ secrets.GITHUB_TOKEN }}
+    defaults:
+      run:
+        shell: bash
+    steps:
+      - uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7.0.0
+        with:
+          sparse-checkout: fixtures
+      - name: Download all shard artifacts
+        uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8.0.1
+        with:
+          pattern: cwr-water-shard-*
+          merge-multiple: true
+          path: fixtures/shards/
+      - name: Merge baseline with shard deltas
+        run: |
+          set -euxo pipefail
+          echo "=== Baseline (committed floor) ==="
+          wc -l fixtures/observations.csv
+          shopt -s nullglob
+          shard_files=(fixtures/shards/shard_*.csv)
+          echo "=== Found ${#shard_files[@]} shard delta file(s) ==="
+          # Baseline is always the floor; append any shard deltas on top.
+          cp fixtures/observations.csv fixtures/merged_observations.csv
+          if [ ${#shard_files[@]} -gt 0 ]; then
+            for f in "${shard_files[@]}"; do
+              echo "  ${f}: $(wc -l < "${f}") lines"
+              cat "${f}" >> fixtures/merged_observations.csv
+            done
+          else
+            echo "WARNING: no shard delta files found; merging baseline only"
+          fi
+          echo "=== Merged output ==="
+          wc -l fixtures/merged_observations.csv
+      - name: Split observations with coverage gate (min 90%)
+        run: |
+          set -euxo pipefail
+          cwr-cli split-observations --input fixtures/merged_observations.csv --output-dir fixtures/cwr-data --min-coverage 0.9
+      - name: Promote merged file to canonical name
+        run: |
+          set -euxo pipefail
+          cp fixtures/merged_observations.csv fixtures/observations.csv
       - uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
         with:
           name: cwr-water-fixtures
@@ -193,8 +245,8 @@ jobs:
             fixtures/snow_observations.csv.gz
 
   build-water-wasm:
-    needs: [detect-changes, fetch-water-data]
-    if: always() && (needs.fetch-water-data.result == 'success' || needs.detect-changes.outputs.core-libs == 'true' || needs.detect-changes.outputs.water-charts == 'true' || github.event_name == 'schedule' || github.event_name == 'workflow_dispatch')
+    needs: [detect-changes, merge-water-data]
+    if: always() && (needs.merge-water-data.result == 'success' || needs.detect-changes.outputs.core-libs == 'true' || needs.detect-changes.outputs.water-charts == 'true' || github.event_name == 'schedule' || github.event_name == 'workflow_dispatch')
     runs-on: ubuntu-latest
     container:
       image: ghcr.io/afbase/rust-zola-builder:pinned
@@ -365,8 +417,8 @@ jobs:
           path: dist/
 
   publish:
-    needs: [build-water-wasm, build-snow-wasm]
-    if: always() && (needs.build-water-wasm.result == 'success' || needs.build-snow-wasm.result == 'success')
+    needs: [merge-water-data, build-water-wasm, build-snow-wasm]
+    if: always() && needs.merge-water-data.result == 'success' && (needs.build-water-wasm.result == 'success' || needs.build-snow-wasm.result == 'success')
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7.0.0

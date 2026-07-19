@@ -43,7 +43,11 @@ fn parse_daynum(s: &str) -> Option<i32> {
 }
 
 /// Split `input` into per-station brotli files + manifest under `output_dir`.
-pub fn run_split(input: &str, output_dir: &str) -> Result<()> {
+///
+/// When `min_coverage` is `Some(min)` (a fraction in `0.0..=1.0`), the number of
+/// stations written must be at least `ceil(min * full_reservoir_count)` or the
+/// call returns an error so the process exits non-zero.
+pub fn run_split(input: &str, output_dir: &str, min_coverage: Option<f64>) -> Result<()> {
     // station -> (daynum -> value). BTreeMap keeps dates sorted and dedups
     // duplicate dates (last write wins, mirroring `INSERT OR REPLACE`).
     let mut stations: BTreeMap<String, BTreeMap<i32, i64>> = BTreeMap::new();
@@ -129,6 +133,28 @@ pub fn run_split(input: &str, output_dir: &str) -> Result<()> {
         total_bytes / 1024,
         if cumulative_written { " + cumulative" } else { "" }
     );
+
+    if let Some(min) = min_coverage {
+        let expected = cwr_cdec::reservoir::Reservoir::get_reservoir_vector().len();
+        let needed = (min * expected as f64).ceil() as usize;
+        let written = manifest.len();
+        let pct = if expected == 0 {
+            0.0
+        } else {
+            written as f64 / expected as f64 * 100.0
+        };
+        println!(
+            "coverage: {written}/{expected} stations = {pct:.1}% (min required {needed} = {:.1}%)",
+            min * 100.0
+        );
+        if written < needed {
+            anyhow::bail!(
+                "coverage gate failed: wrote {written}/{expected} stations, need at least {needed} ({:.1}%)",
+                min * 100.0
+            );
+        }
+    }
+
     Ok(())
 }
 
@@ -180,5 +206,46 @@ mod tests {
         assert_eq!(parse_daynum(" 20260215 0000 "), Some(dn(2026, 2, 15)));
         assert_eq!(parse_daynum("ART"), None);
         assert_eq!(parse_daynum("2026"), None);
+    }
+
+    /// Create a unique temp dir, write a tiny 2-station input CSV into it, and
+    /// return `(dir, input_path)`.
+    fn tiny_input() -> (std::path::PathBuf, String) {
+        use std::sync::atomic::{AtomicU32, Ordering};
+        static COUNTER: AtomicU32 = AtomicU32::new(0);
+        let n = COUNTER.fetch_add(1, Ordering::Relaxed);
+        let dir = std::env::temp_dir().join(format!(
+            "cwr_split_test_{}_{}",
+            std::process::id(),
+            n
+        ));
+        std::fs::create_dir_all(&dir).unwrap();
+        let input = dir.join("input.csv");
+        // Two stations, a couple of numeric daily readings each.
+        std::fs::write(
+            &input,
+            "SHA,D,20260101,1000000\nSHA,D,20260102,1000500\nORO,D,20260101,900000\n",
+        )
+        .unwrap();
+        (dir.clone(), input.to_string_lossy().into_owned())
+    }
+
+    #[test]
+    fn min_coverage_none_succeeds() {
+        let (dir, input) = tiny_input();
+        let out = dir.join("out");
+        let res = run_split(&input, out.to_str().unwrap(), None);
+        assert!(res.is_ok(), "expected Ok with no coverage gate: {res:?}");
+        std::fs::remove_dir_all(&dir).ok();
+    }
+
+    #[test]
+    fn min_coverage_gate_fails_with_few_stations() {
+        let (dir, input) = tiny_input();
+        let out = dir.join("out");
+        // Two stations is far below 90% of the full 217-reservoir list.
+        let res = run_split(&input, out.to_str().unwrap(), Some(0.9));
+        assert!(res.is_err(), "expected Err when coverage below threshold");
+        std::fs::remove_dir_all(&dir).ok();
     }
 }

@@ -38,12 +38,41 @@ fn find_max_dates(csv_path: &str) -> anyhow::Result<HashMap<String, NaiveDate>> 
     Ok(max_dates)
 }
 
+/// Indices of `0..total` assigned to `shard` under an `index % shards == shard`
+/// partition. Mirrors the filter applied in the fetch loop; split out so the
+/// partition math can be unit-tested without I/O.
+#[cfg(test)]
+fn shard_indices(total: usize, shards: usize, shard: usize) -> Vec<usize> {
+    (0..total).filter(|i| i % shards == shard).collect()
+}
+
 /// Run incremental update: only fetch data newer than what's in the existing CSV.
+///
+/// `baseline` is the CSV from which per-station max-dates (resume points) are
+/// read; when `None` it defaults to `reservoirs_csv`, preserving the original
+/// single-file behavior. Newly-fetched rows are always appended to
+/// `reservoirs_csv`. Only reservoirs whose position in the vector satisfies
+/// `index % shards == shard` are processed, allowing the run to be sharded
+/// across parallel jobs.
 ///
 /// Cumulative totals are no longer pre-computed here; they are derived
 /// on-the-fly via SQL in the chart applications.
-pub async fn run_incremental(reservoirs_csv: &str, california_only: bool) -> anyhow::Result<()> {
-    let max_dates = find_max_dates(reservoirs_csv)?;
+pub async fn run_incremental(
+    reservoirs_csv: &str,
+    california_only: bool,
+    baseline: Option<&str>,
+    shards: usize,
+    shard: usize,
+) -> anyhow::Result<()> {
+    if shards == 0 {
+        anyhow::bail!("--shards must be >= 1 (got 0)");
+    }
+    if shard >= shards {
+        anyhow::bail!("--shard ({shard}) must be < --shards ({shards})");
+    }
+
+    let baseline_path = baseline.unwrap_or(reservoirs_csv);
+    let max_dates = find_max_dates(baseline_path)?;
     let end_date = Local::now().naive_local().date();
 
     let reservoirs = if california_only {
@@ -56,7 +85,11 @@ pub async fn run_incremental(reservoirs_csv: &str, california_only: bool) -> any
         .timeout(std::time::Duration::from_secs(60))
         .build()?;
 
-    for reservoir in &reservoirs {
+    for (index, reservoir) in reservoirs.iter().enumerate() {
+        // Only process reservoirs belonging to this shard.
+        if index % shards != shard {
+            continue;
+        }
         let start_date = match max_dates.get(&reservoir.station_id) {
             Some(last_date) => {
                 // Start from the day after the last known date
@@ -223,4 +256,33 @@ pub async fn run_incremental(reservoirs_csv: &str, california_only: bool) -> any
 
     info!("Incremental update complete. Output: {}", reservoirs_csv);
     Ok(())
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use std::collections::HashSet;
+
+    #[test]
+    fn shards_form_complete_nonoverlapping_partition() {
+        let total = cwr_cdec::reservoir::Reservoir::get_reservoir_vector().len();
+        let shards = 12;
+
+        let mut union: HashSet<usize> = HashSet::new();
+        let mut count = 0usize;
+        for shard in 0..shards {
+            for idx in shard_indices(total, shards, shard) {
+                // No index appears in two shards.
+                assert!(union.insert(idx), "index {idx} assigned to multiple shards");
+                count += 1;
+            }
+        }
+
+        // Union covers exactly every reservoir index, once.
+        assert_eq!(count, total, "partition size must equal reservoir count");
+        assert_eq!(union.len(), total);
+        for i in 0..total {
+            assert!(union.contains(&i), "index {i} missing from partition");
+        }
+    }
 }
