@@ -10,10 +10,10 @@
 //! standard in California water resource management and allows overlaying
 //! different years on the same x-axis for comparison.
 
+use crate::Database;
 use crate::models::{
     DateValue, ReservoirInfo, SnowStationInfo, StationDateValue, WaterYearData, WaterYearStats,
 };
-use crate::Database;
 use rusqlite::params;
 
 impl Database {
@@ -282,13 +282,13 @@ impl Database {
         // Find the global driest (lowest min) and wettest (highest max) years
         let driest_year = year_stats
             .iter()
-            .min_by(|a, b| a.1 .1.partial_cmp(&b.1 .1).unwrap())
+            .min_by(|a, b| a.1.1.partial_cmp(&b.1.1).unwrap())
             .map(|(y, _)| *y)
             .unwrap();
 
         let wettest_year = year_stats
             .iter()
-            .max_by(|a, b| a.1 .3.partial_cmp(&b.1 .3).unwrap())
+            .max_by(|a, b| a.1.3.partial_cmp(&b.1.3).unwrap())
             .map(|(y, _)| *y)
             .unwrap();
 
@@ -493,13 +493,13 @@ impl Database {
 
         let driest_year = year_stats
             .iter()
-            .min_by(|a, b| a.1 .1.partial_cmp(&b.1 .1).unwrap())
+            .min_by(|a, b| a.1.1.partial_cmp(&b.1.1).unwrap())
             .map(|(y, _)| *y)
             .unwrap();
 
         let wettest_year = year_stats
             .iter()
-            .max_by(|a, b| a.1 .3.partial_cmp(&b.1 .3).unwrap())
+            .max_by(|a, b| a.1.3.partial_cmp(&b.1.3).unwrap())
             .map(|(y, _)| *y)
             .unwrap();
 

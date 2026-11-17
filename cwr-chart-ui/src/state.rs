@@ -3,8 +3,8 @@
 //! `AppState` bundles all reactive signals into a single struct provided via
 //! `use_context_provider`. Child components retrieve it with `use_context::<AppState>()`.
 
-use cwr_db::models::{ReservoirInfo, SnowStationInfo};
 use cwr_db::Database;
+use cwr_db::models::{ReservoirInfo, SnowStationInfo};
 use dioxus::prelude::*;
 
 /// Shared application state for all CWR chart apps.

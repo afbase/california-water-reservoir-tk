@@ -18,8 +18,9 @@
 //!    `query_all_reservoir_histories()` and renders a multi-line chart.
 
 use cwr_chart_ui::components::{
-    ChartContainer, ChartHeader, DateRangePicker, ErrorDisplay, LoadingSpinner, ReservoirSelector,
+    ChartCard, ChartContainer, DateRangePicker, ErrorDisplay, LoadingSpinner, ReservoirSelector,
 };
+use cwr_chart_ui::dates::{compact_to_iso, iso_to_compact};
 use cwr_chart_ui::js_bridge;
 use cwr_chart_ui::state::AppState;
 use cwr_db::Database;
@@ -119,24 +120,14 @@ fn App() -> Element {
                     loaded_stations.write().insert(station.clone());
 
                     // Seed the date range defaults from the loaded data (only if unset).
-                    if state.start_date.peek().is_empty() || state.end_date.peek().is_empty() {
-                        if let Ok((min_date, max_date)) = db.query_date_range() {
-                            if min_date.len() == 8 {
-                                state.start_date.set(format!(
-                                    "{}-{}-{}",
-                                    &min_date[0..4],
-                                    &min_date[4..6],
-                                    &min_date[6..8]
-                                ));
-                            }
-                            if max_date.len() == 8 {
-                                state.end_date.set(format!(
-                                    "{}-{}-{}",
-                                    &max_date[0..4],
-                                    &max_date[4..6],
-                                    &max_date[6..8]
-                                ));
-                            }
+                    if (state.start_date.peek().is_empty() || state.end_date.peek().is_empty())
+                        && let Ok((min_date, max_date)) = db.query_date_range()
+                    {
+                        if min_date.len() == 8 {
+                            state.start_date.set(compact_to_iso(&min_date));
+                        }
+                        if max_date.len() == 8 {
+                            state.end_date.set(compact_to_iso(&max_date));
                         }
                     }
 
@@ -160,12 +151,6 @@ fn App() -> Element {
             return;
         }
 
-        let error_state = (state.error_msg)().is_some();
-
-        if error_state {
-            return;
-        }
-
         let db = match &*state.db.read() {
             Some(db) => db.clone(),
             None => {
@@ -182,11 +167,8 @@ fn App() -> Element {
         }
 
         // Convert YYYY-MM-DD back to YYYYMMDD for DB queries
-        let start_date = start_date_html.replace('-', "");
-        let end_date = end_date_html.replace('-', "");
-
-        // Initialize D3.js chart scripts
-        js_bridge::init_charts();
+        let start_date = iso_to_compact(&start_date_html);
+        let end_date = iso_to_compact(&end_date_html);
 
         // Query the selected reservoir's history within the date range
         let data = match db.query_reservoir_history(&station, &start_date, &end_date) {
@@ -249,11 +231,8 @@ fn App() -> Element {
         let config_json = serde_json::to_string(&serde_json::json!({
             "title": format!("Water Levels: {}", reservoir_name),
             "yAxisLabel": "Acre-Feet (AF)",
-            "dateFormat": "YYYYMMDD",
-            "tooltipFormat": "station_date_value",
-            "valueLabel": "Storage (AF)",
+            "yUnit": "AF",
             "capacity": capacity,
-            "showCapacityLine": capacity > 0,
         }))
         .unwrap_or_default();
 
@@ -261,30 +240,26 @@ fn App() -> Element {
     });
 
     rsx! {
-        div {
-            style: "padding: 16px; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;",
+        ChartCard {
+            title: "Historical Water Levels by Reservoir",
+            unit_description: "Acre-Feet (AF) - 1 acre-foot = ~326,000 gallons, enough for 1-2 households per year",
 
-            ChartHeader {
-                title: "Historical Water Levels by Reservoir".to_string(),
-                unit_description: "Acre-Feet (AF) - 1 acre-foot = ~326,000 gallons, enough for 1-2 households per year".to_string(),
-            }
-
+            // Errors are shown alongside the controls (not instead of them) so
+            // the reader can always pick a different station or range.
             if let Some(err) = (state.error_msg)() {
                 ErrorDisplay { message: err }
-            } else if (state.loading)() {
+            }
+
+            if (state.loading)() {
                 LoadingSpinner {}
             } else {
                 div {
-                    style: "display: flex; flex-wrap: wrap; gap: 12px; align-items: flex-end; margin-bottom: 8px;",
+                    class: "cwr-controls",
                     ReservoirSelector {}
                     DateRangePicker {}
                 }
 
-                ChartContainer {
-                    id: CHART_ID.to_string(),
-                    loading: false,
-                    min_height: 450,
-                }
+                ChartContainer { id: CHART_ID, min_height: 450 }
             }
         }
     }

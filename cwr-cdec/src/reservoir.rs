@@ -115,7 +115,10 @@ impl Reservoir {
         for attempt in 1..=max_tries {
             let url = format!(
                 "http://cdec.water.ca.gov/dynamicapp/req/CSVDataServlet?Stations={}&SensorNums=15&dur_code={}&Start={}&End={}",
-                self.station_id.as_str(), duration_type, start_date_str, end_date_str
+                self.station_id.as_str(),
+                duration_type,
+                start_date_str,
+                end_date_str
             );
 
             match client.get(&url).send().await {
@@ -237,13 +240,19 @@ impl Reservoir {
         let end_date_str = end_date.format(YEAR_FORMAT);
         let monthly_url = format!(
             "http://cdec.water.ca.gov/dynamicapp/req/CSVDataServlet?Stations={}&SensorNums=15&dur_code={}&Start={}&End={}",
-            self.station_id.as_str(), monthly_rate, start_date_str, end_date_str
+            self.station_id.as_str(),
+            monthly_rate,
+            start_date_str,
+            end_date_str
         );
         let monthly_response = client.get(monthly_url).send().await.unwrap();
         let monthly_response_body = monthly_response.text().await.unwrap();
         let daily_url = format!(
             "http://cdec.water.ca.gov/dynamicapp/req/CSVDataServlet?Stations={}&SensorNums=15&dur_code={}&Start={}&End={}",
-            self.station_id.as_str(), daily_rate, start_date_str, end_date_str
+            self.station_id.as_str(),
+            daily_rate,
+            start_date_str,
+            end_date_str
         );
         let daily_response = client.get(daily_url).send().await.unwrap();
         let daily_response_body = daily_response.text().await.unwrap();

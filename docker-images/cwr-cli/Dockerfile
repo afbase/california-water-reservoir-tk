@@ -2,7 +2,7 @@ FROM ghcr.io/afbase/rust-zola-builder:pinned AS builder
 
 WORKDIR /build
 COPY . .
-RUN cargo build --release --package cwr-cli
+RUN cargo build --release --locked --package cwr-cli
 
 FROM debian:bookworm-slim
 RUN apt-get update && apt-get install -y --no-install-recommends \

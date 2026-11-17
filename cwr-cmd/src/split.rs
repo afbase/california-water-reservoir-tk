@@ -33,7 +33,11 @@ const MAX_PLAUSIBLE_AF: i64 = 30_000_000;
 /// suffix leaked through `incremental-query`). We normalize both by taking the
 /// leading run of digits and using its first 8.
 fn parse_daynum(s: &str) -> Option<i32> {
-    let digits: String = s.trim().chars().take_while(|c| c.is_ascii_digit()).collect();
+    let digits: String = s
+        .trim()
+        .chars()
+        .take_while(|c| c.is_ascii_digit())
+        .collect();
     if digits.len() < 8 {
         return None;
     }
@@ -131,7 +135,11 @@ pub fn run_split(input: &str, output_dir: &str, min_coverage: Option<f64>) -> Re
         "split-observations: read {rows_read} rows, kept {rows_kept}, wrote {} stations ({} KiB brotli){} + manifest to {output_dir}",
         manifest.len(),
         total_bytes / 1024,
-        if cumulative_written { " + cumulative" } else { "" }
+        if cumulative_written {
+            " + cumulative"
+        } else {
+            ""
+        }
     );
 
     if let Some(min) = min_coverage {
@@ -214,11 +222,7 @@ mod tests {
         use std::sync::atomic::{AtomicU32, Ordering};
         static COUNTER: AtomicU32 = AtomicU32::new(0);
         let n = COUNTER.fetch_add(1, Ordering::Relaxed);
-        let dir = std::env::temp_dir().join(format!(
-            "cwr_split_test_{}_{}",
-            std::process::id(),
-            n
-        ));
+        let dir = std::env::temp_dir().join(format!("cwr_split_test_{}_{}", std::process::id(), n));
         std::fs::create_dir_all(&dir).unwrap();
         let input = dir.join("input.csv");
         // Two stations, a couple of numeric daily readings each.

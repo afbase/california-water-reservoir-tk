@@ -4,7 +4,6 @@ members = [
     "cwr-cdec",
     "cwr-data",
     "cwr-db",
-    "cwr-utils",
     "cwr-chart-ui",
     # CLI
     "cwr-cmd",
@@ -22,43 +21,73 @@ members = [
     "chart-snow-history",
     "table-snow-stats",
 ]
-resolver = "2"
+resolver = "3"
 
 [workspace.package]
-version = "2.0.0"
-edition = "2021"
+version = "2.1.0"
+edition = "2024"
+rust-version = "1.88"
+license = "MIT"
+repository = "https://github.com/afbase/california-water-reservoir-tk"
 
+[workspace.lints.rust]
+unsafe_code = "forbid"
+
+[workspace.lints.clippy]
+all = { level = "warn", priority = -1 }
+
+# Native binaries (cwr-cli).
 [profile.release]
 opt-level = 3
-overflow-checks = false
-incremental = true
-panic = "unwind"
-strip = "symbols"
+lto = "thin"
+codegen-units = 1
+
+# Profile `dx build --release --platform web` uses for the chart apps,
+# optimized for download size. Do NOT enable `strip` here: it removes the
+# custom sections wasm-bindgen needs and the build fails ("the
+# `__wasm_bindgen_unstable` custom section is missing"). wasm-bindgen and
+# wasm-opt drop debug info from the final bundle anyway.
+[profile.wasm-release]
+inherits = "release"
+opt-level = "s"
+lto = true
+strip = false
 
 [workspace.dependencies]
-# Core
-chrono = { version = "0.4.39", features = ["serde"] }
-csv = "1.3.1"
-serde = { version = "1.0", features = ["derive"] }
-serde_json = "1.0"
-anyhow = "1.0"
-flate2 = "1"
-log = "0.4"
+# Workspace crates
+cwr-cdec = { path = "cwr-cdec" }
+cwr-chart-ui = { path = "cwr-chart-ui" }
+cwr-cmd = { path = "cwr-cmd" }
+cwr-data = { path = "cwr-data" }
+cwr-db = { path = "cwr-db" }
 
-# Dioxus + WASM
-dioxus = { version = "0.7.1", features = ["web"] }
-dioxus-logger = "0.7.3"
-js-sys = "0.3"
-wasm-bindgen = "0.2"
-wasm-bindgen-futures = "0.4"
-web-sys = { version = "0.3", features = [
+# Core
+anyhow = "1.0.104"
+brotli = "9.1"
+chrono = { version = "0.4.45", features = ["serde"] }
+csv = "1.4"
+flate2 = "1.1"
+log = "0.4.35"
+serde = { version = "1.0.229", features = ["derive"] }
+serde_json = "1.0.154"
+
+# Dioxus + WASM (keep the dioxus minor in step with the dioxus-cli in the builder image)
+dioxus = { version = "0.7.10", features = ["web"] }
+dioxus-logger = "0.7.10"
+js-sys = "0.3.107"
+# Held at 0.38: newer releases fail to link for wasm32-unknown-unknown
+# (undefined `rust_sqlite_wasm_host_*` symbols) as of 0.43.
+rusqlite = { version = "0.38", features = ["bundled"] }
+wasm-bindgen = "0.2.130"
+wasm-bindgen-futures = "0.4.80"
+web-sys = { version = "0.3.107", features = [
     "console",
     "Window", "Document", "Element",
     "Request", "Response", "Headers",
 ] }
-rusqlite = { version = "0.38", features = ["bundled"] }
 
 # CLI / Native
-clap = { version = "4.5", features = ["derive"] }
-reqwest = { version = "0.12", features = ["json"] }
-tokio = { version = "1.42", features = ["full", "tracing"] }
+clap = { version = "4.6", features = ["derive"] }
+env_logger = "0.11.11"
+reqwest = { version = "0.13", features = ["json"] }
+tokio = { version = "1.54", features = ["full", "tracing"] }

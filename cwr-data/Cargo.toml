@@ -2,11 +2,15 @@
 name = "cwr-data"
 version.workspace = true
 edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+repository.workspace = true
 description = "Data processing and interpolation for water/snow observations"
 
 [dependencies]
-cwr-cdec = { path = "../cwr-cdec" }
 chrono = { workspace = true }
 serde = { workspace = true }
-log = { workspace = true }
-brotli = "7"
+brotli = { workspace = true }
+
+[lints]
+workspace = true

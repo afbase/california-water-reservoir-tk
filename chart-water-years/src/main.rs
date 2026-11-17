@@ -20,7 +20,7 @@
 //!    the data with `is_most_recent` flags before rendering.
 
 use cwr_chart_ui::components::{
-    ChartContainer, ChartHeader, ErrorDisplay, LoadingSpinner, ReservoirSelector, SortSelector,
+    ChartCard, ChartContainer, ErrorDisplay, LoadingSpinner, ReservoirSelector, SortSelector,
 };
 use cwr_chart_ui::js_bridge;
 use cwr_chart_ui::state::AppState;
@@ -139,12 +139,6 @@ fn App() -> Element {
             return;
         }
 
-        let error_state = (state.error_msg)().is_some();
-
-        if error_state {
-            return;
-        }
-
         let db = match &*state.db.read() {
             Some(db) => db.clone(),
             None => {
@@ -159,9 +153,6 @@ fn App() -> Element {
         if station.is_empty() {
             return;
         }
-
-        // Initialize D3.js chart scripts
-        js_bridge::init_charts();
 
         // 1. Query all water year data for the selected reservoir
         let water_years = match db.query_water_years(&station) {
@@ -240,7 +231,7 @@ fn App() -> Element {
             }
             _ => {
                 // "most_recent" - sort by year descending
-                sorted_stats.sort_by(|a, b| b.year.cmp(&a.year));
+                sorted_stats.sort_by_key(|s| std::cmp::Reverse(s.year));
             }
         }
 
@@ -300,17 +291,8 @@ fn App() -> Element {
         let config_json = serde_json::to_string(&serde_json::json!({
             "title": format!("Water Years: {}", reservoir_name),
             "yAxisLabel": "Acre-Feet (AF)",
-            "valueLabel": "Storage (AF)",
+            "yUnit": "AF",
             "capacity": capacity,
-            "showCapacityLine": capacity > 0,
-            "driestYear": driest_year,
-            "wettestYear": wettest_year,
-            "mostRecentYear": most_recent_year,
-            "driestColor": "#FF5722",
-            "wettestColor": "#2196F3",
-            "mostRecentColor": "#4CAF50",
-            "defaultColor": "#BDBDBD",
-            "tooltipFormat": "water_year",
         }))
         .unwrap_or_default();
 
@@ -318,71 +300,26 @@ fn App() -> Element {
     });
 
     rsx! {
-        div {
-            style: "padding: 16px; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;",
+        ChartCard {
+            title: "Water Years Comparison",
+            unit_description: "Acre-Feet (AF) - 1 acre-foot = ~326,000 gallons, enough for 1-2 households per year",
 
-            ChartHeader {
-                title: "Water Years Comparison".to_string(),
-                unit_description: "Acre-Feet (AF) - 1 acre-foot = ~326,000 gallons, enough for 1-2 households per year".to_string(),
-            }
-
+            // Errors are shown alongside the controls (not instead of them) so
+            // the reader can always pick a different station or range.
             if let Some(err) = (state.error_msg)() {
                 ErrorDisplay { message: err }
-            } else if (state.loading)() {
+            }
+
+            if (state.loading)() {
                 LoadingSpinner {}
             } else {
                 div {
-                    style: "display: flex; flex-wrap: wrap; gap: 12px; align-items: flex-end; margin-bottom: 8px;",
+                    class: "cwr-controls",
                     ReservoirSelector {}
                     SortSelector {}
                 }
 
-                ChartContainer {
-                    id: CHART_ID.to_string(),
-                    loading: false,
-                    min_height: 450,
-                }
-
-                // Legend showing driest/wettest/most recent color coding
-                WaterYearLegend {}
-            }
-        }
-    }
-}
-
-/// Legend component explaining the color coding for highlighted water years.
-#[component]
-fn WaterYearLegend() -> Element {
-    rsx! {
-        div {
-            style: "margin-top: 12px; padding: 8px 12px; background: #FAFAFA; border-radius: 4px; border: 1px solid #E0E0E0; font-size: 12px; display: flex; gap: 16px; flex-wrap: wrap;",
-            div {
-                style: "display: flex; align-items: center; gap: 4px;",
-                span {
-                    style: "display: inline-block; width: 16px; height: 3px; background: #FF5722;",
-                }
-                "Driest Year (lowest minimum storage)"
-            }
-            div {
-                style: "display: flex; align-items: center; gap: 4px;",
-                span {
-                    style: "display: inline-block; width: 16px; height: 3px; background: #2196F3;",
-                }
-                "Wettest Year (highest maximum storage)"
-            }
-            div {
-                style: "display: flex; align-items: center; gap: 4px;",
-                span {
-                    style: "display: inline-block; width: 16px; height: 3px; background: #4CAF50;",
-                }
-                "Most Recent Water Year"
-            }
-            div {
-                style: "display: flex; align-items: center; gap: 4px;",
-                span {
-                    style: "display: inline-block; width: 16px; height: 3px; background: #BDBDBD;",
-                }
-                "Other Years"
+                ChartContainer { id: CHART_ID, min_height: 450 }
             }
         }
     }

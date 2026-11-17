@@ -12,9 +12,11 @@
 //!    points and rendered via the D3.js line chart in `cwr-chart-ui`.
 
 use cwr_chart_ui::components::{
-    ChartContainer, ChartHeader, DateRangePicker, ErrorDisplay, LoadingSpinner,
+    Callout, ChartCard, ChartContainer, DateRangePicker, ErrorDisplay, LoadingSpinner,
 };
+use cwr_chart_ui::dates::{compact_to_iso, iso_to_compact};
 use cwr_chart_ui::js_bridge;
+use cwr_chart_ui::series::{MAX_CHART_POINTS, downsample};
 use cwr_chart_ui::state::AppState;
 use dioxus::prelude::*;
 
@@ -26,20 +28,6 @@ fn main() {
     dioxus::LaunchBuilder::new()
         .with_cfg(dioxus::web::Config::new().rootname("cumulative-water-root"))
         .launch(App);
-}
-
-/// Convert a `YYYYMMDD` date to the `YYYY-MM-DD` form used by HTML date inputs.
-fn to_html_date(yyyymmdd: &str) -> String {
-    if yyyymmdd.len() == 8 {
-        format!(
-            "{}-{}-{}",
-            &yyyymmdd[0..4],
-            &yyyymmdd[4..6],
-            &yyyymmdd[6..8]
-        )
-    } else {
-        yyyymmdd.to_string()
-    }
 }
 
 #[component]
@@ -55,8 +43,8 @@ fn App() -> Element {
                 Ok(points) => {
                     // Seed the date-range picker from the data extent.
                     if let (Some(first), Some(last)) = (points.first(), points.last()) {
-                        state.start_date.set(to_html_date(&first.0));
-                        state.end_date.set(to_html_date(&last.0));
+                        state.start_date.set(compact_to_iso(&first.0));
+                        state.end_date.set(compact_to_iso(&last.0));
                     }
                     series.set(points);
                     state.loading.set(false);
@@ -82,15 +70,14 @@ fn App() -> Element {
             return;
         }
 
-        js_bridge::init_charts();
-
         // HTML date inputs are YYYY-MM-DD; our data keys are YYYYMMDD.
-        let start = start_html.replace('-', "");
-        let end = end_html.replace('-', "");
+        let start = iso_to_compact(&start_html);
+        let end = iso_to_compact(&end_html);
 
-        let filtered: Vec<&(String, i64)> = points
+        let filtered: Vec<(String, i64)> = points
             .iter()
             .filter(|(d, _)| d.as_str() >= start.as_str() && d.as_str() <= end.as_str())
+            .cloned()
             .collect();
 
         if filtered.is_empty() {
@@ -103,34 +90,15 @@ fn App() -> Element {
             state.error_msg.set(None);
         }
 
-        // Downsample to ~2000 points for crisp, performant rendering.
-        let display: Vec<&(String, i64)> = if filtered.len() > 2000 {
-            let step = filtered.len() as f64 / 2000.0;
-            let mut r = Vec::with_capacity(2001);
-            let mut idx = 0.0;
-            while (idx as usize) < filtered.len() {
-                r.push(filtered[idx as usize]);
-                idx += step;
-            }
-            // Always keep the final point so the line reaches the latest date.
-            if r.last().map(|p| &p.0) != filtered.last().map(|p| &p.0) {
-                r.push(*filtered.last().unwrap());
-            }
-            r
-        } else {
-            filtered
-        };
-
-        let data: Vec<serde_json::Value> = display
-            .iter()
+        let data: Vec<serde_json::Value> = downsample(&filtered, MAX_CHART_POINTS)
+            .into_iter()
             .map(|(date, value)| serde_json::json!({ "date": date, "value": value }))
             .collect();
         let data_json = serde_json::to_string(&data).unwrap_or_default();
         let config_json = serde_json::to_string(&serde_json::json!({
-            "title": "Cumulative California Water Storage",
+            "title": serde_json::Value::Null,
             "yAxisLabel": "Acre-Feet (AF)",
             "yUnit": "AF",
-            "color": "#2196F3",
         }))
         .unwrap_or_default();
 
@@ -138,13 +106,9 @@ fn App() -> Element {
     });
 
     rsx! {
-        div {
-            style: "padding: 16px; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;",
-
-            ChartHeader {
-                title: "Cumulative California Water Storage".to_string(),
-                unit_description: "Acre-Feet (AF) - 1 acre-foot = ~326,000 gallons, enough for 1-2 households per year".to_string(),
-            }
+        ChartCard {
+            title: "Cumulative California Water Storage",
+            unit_description: "Acre-Feet (AF) - 1 acre-foot = ~326,000 gallons, enough for 1-2 households per year",
 
             // Shown above the chart (non-exclusively) so the date picker stays
             // usable even if a chosen range yields no data.
@@ -155,26 +119,15 @@ fn App() -> Element {
             if (state.loading)() {
                 LoadingSpinner {}
             } else {
-                ChartContainer {
-                    id: CHART_ID.to_string(),
-                    loading: false,
-                    min_height: 450,
-                }
+                ChartContainer { id: CHART_ID, min_height: 400 }
 
-                // Date range picker for filtering the chart
                 div {
-                    style: "margin-top: 12px; padding-top: 8px; border-top: 1px solid #e0e0e0;",
-                    p {
-                        style: "font-size: 12px; color: #666; margin: 0 0 4px 0;",
-                        "Adjust the date range to filter the data:"
-                    }
+                    class: "cwr-controls cwr-controls-footer",
                     DateRangePicker {}
                 }
             }
 
-            // Footer note about excluded reservoirs
-            div {
-                style: "margin-top: 12px; padding: 8px 12px; background: #FFF3E0; border-radius: 4px; font-size: 12px; color: #E65100; border: 1px solid #FFE0B2;",
+            Callout {
                 strong { "Note: " }
                 "This chart excludes Lake Mead and Lake Powell (Colorado River) to show California-only storage."
             }

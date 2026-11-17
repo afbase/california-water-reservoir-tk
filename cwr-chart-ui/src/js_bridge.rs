@@ -1,320 +1,161 @@
-//! Typed wrappers around JS interop via `js_sys::eval()`.
+//! Bridge between the Dioxus apps and the D3.js chart scripts.
 //!
-//! D3.js chart functions are split across `assets/js/*.js` and loaded at runtime.
-//! They are evaluated as globals (no ES modules) and exposed via `window.*`.
-//! This module provides safe Rust wrappers that serialize data and call those globals.
+//! The chart scripts (`assets/js/*.js`) and the theme stylesheet
+//! (`assets/css/theme.css`) are embedded at compile time. [`init_charts`]
+//! installs them into the page exactly once — even when several chart apps
+//! share a page — and the `render_*` functions queue a draw call that runs as
+//! soon as D3, the scripts and the target container element all exist.
 
-// Embed all D3 chart JS files at compile time
-static TOOLTIP_JS: &str = include_str!("../assets/js/tooltip.js");
-static LINE_CHART_JS: &str = include_str!("../assets/js/line-chart.js");
-static MULTI_LINE_CHART_JS: &str = include_str!("../assets/js/multi-line-chart.js");
-static WATER_YEARS_CHART_JS: &str = include_str!("../assets/js/water-years-chart.js");
-static DATA_TABLE_JS: &str = include_str!("../assets/js/data-table.js");
+use wasm_bindgen::JsCast;
+use wasm_bindgen_futures::JsFuture;
+use web_sys::Response;
 
-/// Execute arbitrary JS, wrapping in try/catch to avoid panics.
-pub fn call_js(code: &str) {
-    log::info!(
-        "[CWR Debug CallJS] Executing {} bytes of JavaScript",
-        code.len()
+/// Chart scripts in load order (`chart-base.js` defines `window.CWR`).
+const CHART_SCRIPTS: [&str; 5] = [
+    include_str!("../assets/js/chart-base.js"),
+    include_str!("../assets/js/line-chart.js"),
+    include_str!("../assets/js/multi-line-chart.js"),
+    include_str!("../assets/js/water-years-chart.js"),
+    include_str!("../assets/js/data-table.js"),
+];
+
+const THEME_CSS: &str = include_str!("../assets/css/theme.css");
+
+/// Page-level bootstrap. `__CSS__` / `__SCRIPTS__` are replaced with JSON
+/// string literals. It is idempotent: the first chart app on the page wins and
+/// later ones reuse its `window.__cwrBoot`.
+///
+/// `__cwrBoot.draw(id, fn)` runs `fn` once the scripts are loaded and the
+/// element `id` is in the DOM, giving up (with a console error) after 30s so a
+/// blocked D3 download cannot leave a timer spinning forever.
+const BOOTSTRAP_JS: &str = r##"
+(function () {
+    if (window.__cwrBoot) return;
+
+    var style = document.createElement("style");
+    style.id = "cwr-theme";
+    style.textContent = __CSS__;
+    document.head.appendChild(style);
+
+    var INTERVAL_MS = 100, MAX_TRIES = 300;
+
+    function poll(isReady, onReady, what) {
+        if (isReady()) return onReady();
+        var tries = 0;
+        var timer = setInterval(function () {
+            if (isReady()) {
+                clearInterval(timer);
+                onReady();
+            } else if (++tries >= MAX_TRIES) {
+                clearInterval(timer);
+                console.error("[CWR] timed out waiting for " + what);
+            }
+        }, INTERVAL_MS);
+    }
+
+    var boot = (window.__cwrBoot = {
+        ready: false,
+        pending: [],
+        draw: function (id, fn) {
+            var run = function () {
+                poll(
+                    function () { return !!document.getElementById(id); },
+                    function () {
+                        try { fn(window.CWR); } catch (e) { console.error("[CWR] render failed for #" + id, e); }
+                    },
+                    "#" + id
+                );
+            };
+            if (boot.ready) run(); else boot.pending.push(run);
+        }
+    });
+
+    poll(
+        function () { return typeof d3 !== "undefined"; },
+        function () {
+            (0, eval)(__SCRIPTS__);
+            boot.ready = true;
+            boot.pending.splice(0).forEach(function (run) { run(); });
+        },
+        "D3.js"
     );
+})();
+"##;
 
-    let wrapped = format!(
-        "try {{ {} }} catch(e) {{ console.error('CWR JS call failed:', e); console.error('Stack:', e.stack); }}",
-        code
-    );
-
-    match js_sys::eval(&wrapped) {
-        Ok(_) => log::info!("[CWR Debug CallJS] eval() succeeded"),
-        Err(e) => log::error!("[CWR Debug CallJS] eval() failed: {:?}", e),
+/// Evaluate JS, logging (rather than panicking on) any exception.
+fn eval(code: &str) {
+    if let Err(e) = js_sys::eval(code) {
+        log::error!("[CWR] JS evaluation failed: {e:?}");
     }
 }
 
-/// Load and evaluate all chart JS scripts. Call once at app startup.
-pub fn load_chart_scripts() {
-    let all_js = [
-        TOOLTIP_JS,
-        LINE_CHART_JS,
-        MULTI_LINE_CHART_JS,
-        WATER_YEARS_CHART_JS,
-        DATA_TABLE_JS,
-    ]
-    .join("\n");
-    let _ = js_sys::eval(&all_js);
+/// Encode a Rust string as a JS string literal.
+fn js_string(s: &str) -> String {
+    serde_json::to_string(s).unwrap_or_else(|_| "\"\"".to_string())
 }
 
-/// Initialize chart scripts with a wait-for-D3 polling loop.
+/// Install the theme stylesheet and chart scripts into the page.
 ///
-/// The chart JS files define functions like `renderLineChart(...)` via
-/// `function` declarations. To ensure they become globally accessible
-/// (not block-scoped inside the setInterval callback), we evaluate them
-/// at global scope via a separate `eval()` call once D3 is ready,
-/// and then explicitly promote each function to `window.*`.
+/// Safe to call any number of times, from any number of chart apps; only the
+/// first call per page does any work. [`crate::components::ChartCard`] calls
+/// this on mount, so apps normally never need to.
 pub fn init_charts() {
-    let all_js = [
-        TOOLTIP_JS,
-        LINE_CHART_JS,
-        MULTI_LINE_CHART_JS,
-        WATER_YEARS_CHART_JS,
-        DATA_TABLE_JS,
-    ]
-    .join("\n");
-
-    // Store the scripts on window so the polling callback can eval them
-    // at global scope (not block-scoped inside setInterval).
-    let store_js = format!(
-        "window.__cwrChartScripts = {};",
-        serde_json::to_string(&all_js).unwrap_or_default()
-    );
-    let _ = js_sys::eval(&store_js);
-
-    let init_js = r#"
-        (function() {
-            var waitForD3 = setInterval(function() {
-                if (typeof d3 !== 'undefined') {
-                    clearInterval(waitForD3);
-                    // Eval at global scope via indirect eval
-                    (0, eval)(window.__cwrChartScripts);
-                    delete window.__cwrChartScripts;
-                    // Promote function declarations to window explicitly
-                    if (typeof renderLineChart !== 'undefined') window.renderLineChart = renderLineChart;
-                    if (typeof destroyLineChart !== 'undefined') window.destroyLineChart = destroyLineChart;
-                    if (typeof renderMultiLineChart !== 'undefined') window.renderMultiLineChart = renderMultiLineChart;
-                    if (typeof renderWaterYearsChart !== 'undefined') window.renderWaterYearsChart = renderWaterYearsChart;
-                    if (typeof renderDataTable !== 'undefined') window.renderDataTable = renderDataTable;
-                    if (typeof initTooltip !== 'undefined') window.initTooltip = initTooltip;
-                    if (typeof showTooltip !== 'undefined') window.showTooltip = showTooltip;
-                    if (typeof hideTooltip !== 'undefined') window.hideTooltip = hideTooltip;
-                    window.__cwrChartsReady = true;
-                    console.log('CWR charts initialized');
-                }
-            }, 100);
-        })();
-    "#;
-    let _ = js_sys::eval(init_js);
+    thread_local! {
+        static DONE: std::cell::Cell<bool> = const { std::cell::Cell::new(false) };
+    }
+    if DONE.replace(true) {
+        return;
+    }
+    let bootstrap = BOOTSTRAP_JS
+        .replace("__CSS__", &js_string(THEME_CSS))
+        .replace("__SCRIPTS__", &js_string(&CHART_SCRIPTS.join("\n")));
+    eval(&bootstrap);
 }
 
-/// Render a single line chart (total water, cumulative water, local reservoirs).
+/// Queue `window.CWR.<function>(container_id, data, config)`.
 ///
-/// Uses a polling loop to wait for D3.js to load, chart scripts to initialize,
-/// and the container DOM element to exist before rendering.
+/// `data_json` and `config_json` must be valid JSON; they are spliced into the
+/// call as object literals, so no string escaping is involved.
+fn render(function: &str, container_id: &str, data_json: &str, config_json: &str) {
+    init_charts();
+    let id = js_string(container_id);
+    eval(&format!(
+        "window.__cwrBoot.draw({id}, function (CWR) {{ CWR.{function}({id}, {data_json}, {config_json}); }});"
+    ));
+}
+
+/// Render a single-series line chart (total water/snow, cumulative water, local reservoirs).
 pub fn render_line_chart(container_id: &str, data_json: &str, config_json: &str) {
-    let escaped_data = data_json.replace('\'', "\\'").replace('\n', "");
-    let escaped_config = config_json.replace('\'', "\\'").replace('\n', "");
-    call_js(&format!(
-        r#"
-        (function() {{
-            var poll = setInterval(function() {{
-                if (window.__cwrChartsReady &&
-                    typeof window.renderLineChart !== 'undefined' &&
-                    document.getElementById('{container_id}')) {{
-                    clearInterval(poll);
-                    try {{
-                        window.renderLineChart('{container_id}', '{escaped_data}', '{escaped_config}');
-                    }} catch(e) {{ console.error('[CWR] renderLineChart error:', e); }}
-                }}
-            }}, 100);
-        }})();
-        "#,
-    ));
+    render("renderLineChart", container_id, data_json, config_json);
 }
 
-/// Render a multi-line chart (reservoir history, snow history).
-///
-/// Uses a polling loop to wait for D3.js to load, chart scripts to initialize,
-/// and the container DOM element to exist before rendering.
+/// Render a multi-series line chart (reservoir history, snow history).
 pub fn render_multi_line_chart(container_id: &str, data_json: &str, config_json: &str) {
-    log::info!(
-        "[CWR Debug Bridge] render_multi_line_chart called for container: {}",
-        container_id
-    );
-    log::info!("[CWR Debug Bridge] Data length: {} bytes", data_json.len());
-    log::info!(
-        "[CWR Debug Bridge] Config length: {} bytes",
-        config_json.len()
-    );
-
-    let escaped_data = data_json.replace('\'', "\\'").replace('\n', "");
-    let escaped_config = config_json.replace('\'', "\\'").replace('\n', "");
-
-    log::info!("[CWR Debug Bridge] Calling call_js");
-    call_js(&format!(
-        r#"
-        (function() {{
-            console.log('[CWR Debug JS] Polling started for multi-line-chart');
-            console.log('[CWR Debug JS] Container ID:', '{container_id}');
-
-            var pollCount = 0;
-            var poll = setInterval(function() {{
-                pollCount++;
-                console.log('[CWR Debug JS] Poll attempt #' + pollCount);
-                console.log('[CWR Debug JS] chartsReady:', !!window.__cwrChartsReady);
-                console.log('[CWR Debug JS] functionAvailable:', typeof window.renderMultiLineChart !== 'undefined');
-                console.log('[CWR Debug JS] domExists:', !!document.getElementById('{container_id}'));
-
-                if (window.__cwrChartsReady &&
-                    typeof window.renderMultiLineChart !== 'undefined' &&
-                    document.getElementById('{container_id}')) {{
-                    clearInterval(poll);
-                    console.log('[CWR Debug JS] All conditions met, calling renderMultiLineChart');
-                    try {{
-                        window.renderMultiLineChart('{container_id}', '{escaped_data}', '{escaped_config}');
-                        console.log('[CWR Debug JS] renderMultiLineChart returned successfully');
-                    }} catch(e) {{
-                        console.error('[CWR Debug JS] renderMultiLineChart error:', e);
-                        console.error('[CWR Debug JS] Stack:', e.stack);
-                    }}
-                }}
-
-                // Stop polling after 50 attempts (5 seconds)
-                if (pollCount > 50) {{
-                    clearInterval(poll);
-                    console.error('[CWR Debug JS] Polling timeout after 50 attempts');
-                }}
-            }}, 100);
-        }})();
-        "#,
-    ));
-    log::info!("[CWR Debug Bridge] call_js returned");
+    render("renderMultiLineChart", container_id, data_json, config_json);
 }
 
-/// Render a water years overlay chart.
-///
-/// Uses a polling loop to wait for D3.js to load, chart scripts to initialize,
-/// and the container DOM element to exist before rendering.
+/// Render a water-years overlay chart.
 pub fn render_water_years_chart(container_id: &str, data_json: &str, config_json: &str) {
-    log::info!(
-        "[CWR Debug Bridge] render_water_years_chart called for container: {}",
-        container_id
+    render(
+        "renderWaterYearsChart",
+        container_id,
+        data_json,
+        config_json,
     );
-    log::info!("[CWR Debug Bridge] Data length: {} bytes", data_json.len());
-    log::info!(
-        "[CWR Debug Bridge] Config length: {} bytes",
-        config_json.len()
-    );
-
-    let escaped_data = data_json.replace('\'', "\\'").replace('\n', "");
-    let escaped_config = config_json.replace('\'', "\\'").replace('\n', "");
-
-    log::info!("[CWR Debug Bridge] Calling call_js");
-    call_js(&format!(
-        r#"
-        (function() {{
-            console.log('[CWR Debug JS] Polling started for water-years-chart');
-            console.log('[CWR Debug JS] Container ID:', '{container_id}');
-
-            var pollCount = 0;
-            var poll = setInterval(function() {{
-                pollCount++;
-                console.log('[CWR Debug JS] Poll attempt #' + pollCount);
-                console.log('[CWR Debug JS] chartsReady:', !!window.__cwrChartsReady);
-                console.log('[CWR Debug JS] functionAvailable:', typeof window.renderWaterYearsChart !== 'undefined');
-                console.log('[CWR Debug JS] domExists:', !!document.getElementById('{container_id}'));
-
-                if (window.__cwrChartsReady &&
-                    typeof window.renderWaterYearsChart !== 'undefined' &&
-                    document.getElementById('{container_id}')) {{
-                    clearInterval(poll);
-                    console.log('[CWR Debug JS] All conditions met, calling renderWaterYearsChart');
-                    try {{
-                        window.renderWaterYearsChart('{container_id}', '{escaped_data}', '{escaped_config}');
-                        console.log('[CWR Debug JS] renderWaterYearsChart returned successfully');
-                    }} catch(e) {{
-                        console.error('[CWR Debug JS] renderWaterYearsChart error:', e);
-                        console.error('[CWR Debug JS] Stack:', e.stack);
-                    }}
-                }}
-
-                // Stop polling after 50 attempts (5 seconds)
-                if (pollCount > 50) {{
-                    clearInterval(poll);
-                    console.error('[CWR Debug JS] Polling timeout after 50 attempts');
-                }}
-            }}, 100);
-        }})();
-        "#,
-    ));
-    log::info!("[CWR Debug Bridge] call_js returned");
 }
 
 /// Render a sortable data table.
-///
-/// Uses a polling loop to wait for D3.js to load, chart scripts to initialize,
-/// and the container DOM element to exist before rendering.
 pub fn render_data_table(container_id: &str, data_json: &str, config_json: &str) {
-    let escaped_data = data_json.replace('\'', "\\'").replace('\n', "");
-    let escaped_config = config_json.replace('\'', "\\'").replace('\n', "");
-    call_js(&format!(
-        r#"
-        (function() {{
-            console.log('[CWR Debug] Initiating polling for data-table');
-            var poll = setInterval(function() {{
-                console.log('[CWR Debug] Poll attempt:', {{
-                    chartsReady: !!window.__cwrChartsReady,
-                    functionAvailable: typeof window.renderDataTable !== 'undefined',
-                    domExists: !!document.getElementById('{container_id}'),
-                    timestamp: Date.now()
-                }});
-                if (window.__cwrChartsReady &&
-                    typeof window.renderDataTable !== 'undefined' &&
-                    document.getElementById('{container_id}')) {{
-                    clearInterval(poll);
-                    try {{
-                        window.renderDataTable('{container_id}', '{escaped_data}', '{escaped_config}');
-                    }} catch(e) {{ console.error('[CWR] renderDataTable error:', e); }}
-                }}
-            }}, 100);
-        }})();
-        "#,
-    ));
-}
-
-/// Fetch and decompress a gzip-compressed CSV file at the given URL.
-/// No init step needed — pure Rust decompression via `flate2`.
-pub async fn fetch_gz_csv(url: &str) -> Result<String, String> {
-    use flate2::read::GzDecoder;
-    use std::io::Read;
-    use wasm_bindgen::JsCast;
-    use wasm_bindgen_futures::JsFuture;
-    use web_sys::Response;
-
-    let window = web_sys::window().ok_or("no window")?;
-
-    let resp: Response = JsFuture::from(window.fetch_with_str(url))
-        .await
-        .map_err(|e| format!("{:?}", e))?
-        .dyn_into()
-        .map_err(|_| "response cast failed".to_string())?;
-
-    if !resp.ok() {
-        return Err(format!("HTTP {}: {}", resp.status(), url));
-    }
-
-    let buf = JsFuture::from(resp.array_buffer().map_err(|e| format!("{:?}", e))?)
-        .await
-        .map_err(|e| format!("{:?}", e))?;
-
-    let compressed = js_sys::Uint8Array::new(&buf).to_vec();
-
-    let mut decoder = GzDecoder::new(&compressed[..]);
-    let mut csv_text = String::new();
-    decoder
-        .read_to_string(&mut csv_text)
-        .map_err(|e| e.to_string())?;
-
-    Ok(csv_text)
+    render("renderDataTable", container_id, data_json, config_json);
 }
 
 /// Fetch a URL and return its raw bytes.
 async fn fetch_bytes(url: &str) -> Result<Vec<u8>, String> {
-    use wasm_bindgen::JsCast;
-    use wasm_bindgen_futures::JsFuture;
-    use web_sys::Response;
-
     let window = web_sys::window().ok_or("no window")?;
 
     let resp: Response = JsFuture::from(window.fetch_with_str(url))
         .await
-        .map_err(|e| format!("{:?}", e))?
+        .map_err(|e| format!("{e:?}"))?
         .dyn_into()
         .map_err(|_| "response cast failed".to_string())?;
 
@@ -322,11 +163,24 @@ async fn fetch_bytes(url: &str) -> Result<Vec<u8>, String> {
         return Err(format!("HTTP {}: {}", resp.status(), url));
     }
 
-    let buf = JsFuture::from(resp.array_buffer().map_err(|e| format!("{:?}", e))?)
+    let buf = JsFuture::from(resp.array_buffer().map_err(|e| format!("{e:?}"))?)
         .await
-        .map_err(|e| format!("{:?}", e))?;
+        .map_err(|e| format!("{e:?}"))?;
 
     Ok(js_sys::Uint8Array::new(&buf).to_vec())
+}
+
+/// Fetch and decompress a gzip-compressed CSV file at the given URL.
+pub async fn fetch_gz_csv(url: &str) -> Result<String, String> {
+    use flate2::read::GzDecoder;
+    use std::io::Read;
+
+    let compressed = fetch_bytes(url).await?;
+    let mut csv_text = String::new();
+    GzDecoder::new(&compressed[..])
+        .read_to_string(&mut csv_text)
+        .map_err(|e| e.to_string())?;
+    Ok(csv_text)
 }
 
 /// Base path where per-station observation files and the manifest are served.
@@ -361,11 +215,10 @@ pub async fn fetch_cumulative_series() -> Result<Vec<(String, i64)>, String> {
 
 /// Destroy/clean up a chart in the given container.
 pub fn destroy_chart(container_id: &str) {
-    if let Some(window) = web_sys::window() {
-        if let Some(document) = window.document() {
-            if let Some(el) = document.get_element_by_id(container_id) {
-                el.set_inner_html("");
-            }
-        }
+    if let Some(window) = web_sys::window()
+        && let Some(document) = window.document()
+        && let Some(el) = document.get_element_by_id(container_id)
+    {
+        el.set_inner_html("");
     }
 }

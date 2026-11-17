@@ -11,22 +11,12 @@ pub fn SnowStationSelector() -> Element {
     let stations = state.snow_stations.read().clone();
     let selected = (state.selected_station)();
 
-    let on_change = move |evt: Event<FormData>| {
-        let value = evt.value();
-        state.selected_station.set(value);
-    };
-
     rsx! {
-        div {
-            style: "margin: 8px 0;",
-            label {
-                r#for: "snow-station-select",
-                style: "font-weight: bold; margin-right: 8px;",
-                "Snow Station: "
-            }
+        label {
+            class: "cwr-field",
+            "Snow station"
             select {
-                id: "snow-station-select",
-                onchange: on_change,
+                onchange: move |evt| state.selected_station.set(evt.value()),
                 for station in stations.iter() {
                     option {
                         value: "{station.station_id}",

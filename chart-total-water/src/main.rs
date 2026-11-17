@@ -10,8 +10,12 @@
 //! 3. On mount: parse the CSV into a vec of (date, value) pairs.
 //! 4. On date range change: filter the data and re-render via D3.js.
 
-use cwr_chart_ui::components::{ChartContainer, ChartHeader, ErrorDisplay, LoadingSpinner};
+use cwr_chart_ui::components::{
+    ChartCard, ChartContainer, DateRangePicker, ErrorDisplay, LoadingSpinner,
+};
+use cwr_chart_ui::dates::{compact_to_iso, iso_to_compact};
 use cwr_chart_ui::js_bridge;
+use cwr_chart_ui::series::{MAX_CHART_POINTS, downsample};
 use cwr_chart_ui::state::AppState;
 use dioxus::prelude::*;
 
@@ -38,20 +42,6 @@ fn main() {
         .launch(App);
 }
 
-/// Convert a date string from YYYYMMDD to YYYY-MM-DD format for D3.js consumption.
-fn format_date_for_d3(date: &str) -> String {
-    if date.len() == 8 {
-        format!("{}-{}-{}", &date[0..4], &date[4..6], &date[6..8])
-    } else {
-        date.to_string()
-    }
-}
-
-/// Convert a YYYY-MM-DD date back to YYYYMMDD for comparison.
-fn format_date_for_db(date: &str) -> String {
-    date.replace('-', "")
-}
-
 /// Parse the pre-aggregated total_water.csv into data points.
 fn parse_total_water_csv(csv_data: &str) -> Vec<DataPoint> {
     let mut data = Vec::new();
@@ -72,7 +62,7 @@ fn parse_total_water_csv(csv_data: &str) -> Vec<DataPoint> {
         if let Ok(value) = value_str.parse::<f64>() {
             data.push(DataPoint {
                 date_raw: date.to_string(),
-                date_d3: format_date_for_d3(date),
+                date_d3: compact_to_iso(date),
                 value,
             });
         }
@@ -103,21 +93,17 @@ fn App() -> Element {
         let max_date = data.last().map(|d| d.date_raw.clone()).unwrap_or_default();
 
         // Load reservoir metadata for the selector
-        if let Ok(db) = cwr_db::Database::new() {
-            if db.load_reservoirs(CAPACITY_CSV).is_ok() {
-                if let Ok(reservoirs) = db.query_reservoirs() {
-                    state.reservoirs.set(reservoirs);
-                }
-            }
+        if let Ok(db) = cwr_db::Database::new()
+            && db.load_reservoirs(CAPACITY_CSV).is_ok()
+            && let Ok(reservoirs) = db.query_reservoirs()
+        {
+            state.reservoirs.set(reservoirs);
         }
 
         all_data.set(data);
-        state.start_date.set(format_date_for_d3(&min_date));
-        state.end_date.set(format_date_for_d3(&max_date));
+        state.start_date.set(compact_to_iso(&min_date));
+        state.end_date.set(compact_to_iso(&max_date));
         state.loading.set(false);
-
-        // Initialize D3 chart scripts (one-time)
-        js_bridge::init_charts();
     });
 
     // ─── Effect 2: Filter data by date range and render chart ───
@@ -142,11 +128,11 @@ fn App() -> Element {
         }
 
         // Filter by date range (compare YYYYMMDD strings)
-        let start_raw = format_date_for_db(&start);
-        let end_raw = format_date_for_db(&end);
+        let start_raw = iso_to_compact(&start);
+        let end_raw = iso_to_compact(&end);
 
-        let filtered: Vec<&DataPoint> = data
-            .iter()
+        let filtered: Vec<DataPoint> = data
+            .into_iter()
             .filter(|d| d.date_raw >= start_raw && d.date_raw <= end_raw)
             .collect();
 
@@ -161,25 +147,8 @@ fn App() -> Element {
             state.error_msg.set(None);
         }
 
-        // Downsample to ~2000 points for crisp rendering
-        let display_data: Vec<&DataPoint> = if filtered.len() > 2000 {
-            let step = filtered.len() as f64 / 2000.0;
-            let mut result = Vec::with_capacity(2000);
-            let mut idx = 0.0;
-            while (idx as usize) < filtered.len() {
-                result.push(filtered[idx as usize]);
-                idx += step;
-            }
-            if result.last().map(|d| &d.date_raw) != filtered.last().map(|d| &d.date_raw) {
-                result.push(filtered.last().unwrap());
-            }
-            result
-        } else {
-            filtered
-        };
-
-        let d3_data: Vec<serde_json::Value> = display_data
-            .iter()
+        let d3_data: Vec<serde_json::Value> = downsample(&filtered, MAX_CHART_POINTS)
+            .into_iter()
             .map(|d| {
                 serde_json::json!({
                     "date": d.date_d3,
@@ -190,62 +159,36 @@ fn App() -> Element {
 
         let data_json = serde_json::to_string(&d3_data).unwrap_or_default();
         let config_json = serde_json::json!({
-            "title": "Total California Water Reservoir Levels",
+            "title": serde_json::Value::Null,
             "yAxisLabel": "Acre-Feet (AF)",
             "yUnit": "AF",
-            "color": "#2196F3",
         })
         .to_string();
 
         js_bridge::render_line_chart(CHART_CONTAINER_ID, &data_json, &config_json);
     });
 
-    // ─── Render ───
     rsx! {
-        div {
-            style: "max-width: 900px; margin: 0 auto; padding: 8px; font-family: system-ui, -apple-system, sans-serif;",
+        ChartCard {
+            title: "Total California Water Reservoir Levels",
+            unit_description: "Acre-Feet (AF) - 1 AF is approximately 326,000 gallons",
 
-            if let Some(err) = state.error_msg.read().as_ref() {
-                ErrorDisplay { message: err.clone() }
+            if let Some(err) = (state.error_msg)() {
+                ErrorDisplay { message: err }
             }
 
-            if *state.loading.read() {
+            if (state.loading)() {
                 LoadingSpinner {}
             } else {
-                ChartHeader {
-                    title: "Total California Water Reservoir Levels".to_string(),
-                    unit_description: "Acre-Feet (AF) -- 1 AF is approximately 326,000 gallons".to_string(),
-                }
+                ChartContainer { id: CHART_CONTAINER_ID, min_height: 400 }
 
-                ChartContainer {
-                    id: CHART_CONTAINER_ID.to_string(),
-                    loading: *state.loading.read(),
-                    min_height: 450,
-                }
+                p { class: "cwr-note", "Lake Powell and Lake Mead scaled to California's 27% water rights allocation." }
 
-                p {
-                    style: "font-size: 11px; color: #888; text-align: center; margin-top: 4px;",
-                    "Lake Powell and Lake Mead scaled to California's 27% water rights allocation."
+                div {
+                    class: "cwr-controls cwr-controls-footer",
+                    DateRangePicker {}
                 }
-
-                // Date range picker for filtering the chart
-                DateRangeSection {}
             }
-        }
-    }
-}
-
-/// Date range section with start/end date inputs.
-#[component]
-fn DateRangeSection() -> Element {
-    rsx! {
-        div {
-            style: "margin-top: 12px; padding-top: 8px; border-top: 1px solid #e0e0e0;",
-            p {
-                style: "font-size: 12px; color: #666; margin: 0 0 4px 0;",
-                "Adjust the date range to filter the data:"
-            }
-            cwr_chart_ui::components::DateRangePicker {}
         }
     }
 }

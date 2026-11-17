@@ -18,7 +18,7 @@
 //! 4. The app queries `query_reservoir_history()` for both LGT and APN
 //!    station IDs and renders a line chart for each.
 
-use cwr_chart_ui::components::{ChartContainer, ChartHeader, ErrorDisplay, LoadingSpinner};
+use cwr_chart_ui::components::{Callout, ChartCard, ChartContainer, ErrorDisplay, LoadingSpinner};
 use cwr_chart_ui::js_bridge;
 use cwr_chart_ui::state::AppState;
 use cwr_db::Database;
@@ -116,9 +116,6 @@ fn App() -> Element {
             None => return,
         };
 
-        // Initialize D3.js chart scripts
-        js_bridge::init_charts();
-
         // Get the full date range for both reservoirs
         let (start, end) = match db.query_date_range() {
             Ok(range) => range,
@@ -154,7 +151,7 @@ fn App() -> Element {
             &start,
             &end,
             lgt_capacity,
-            "#1565C0", // Dark blue
+            1,
         );
 
         // Render Lake Lagunitas (APN) chart
@@ -166,7 +163,7 @@ fn App() -> Element {
             &start,
             &end,
             apn_capacity,
-            "#2E7D32", // Dark green
+            3,
         );
 
         if !lgt_ok && !apn_ok {
@@ -177,50 +174,19 @@ fn App() -> Element {
     });
 
     rsx! {
-        div {
-            style: "padding: 16px; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;",
-
-            ChartHeader {
-                title: "Local Reservoir Observations".to_string(),
-                unit_description: "Acre-Feet (AF) - 1 acre-foot = ~326,000 gallons, enough for 1-2 households per year".to_string(),
-            }
+        ChartCard {
+            title: "Local Reservoir Observations",
+            unit_description: "Acre-Feet (AF) - 1 acre-foot = ~326,000 gallons, enough for 1-2 households per year",
 
             if let Some(err) = (state.error_msg)() {
                 ErrorDisplay { message: err }
             } else if (state.loading)() {
                 LoadingSpinner {}
             } else {
-                // Alpine Lake (LGT) section
-                div {
-                    style: "margin-bottom: 24px;",
-                    h4 {
-                        style: "margin: 0 0 4px 0; font-size: 14px; color: #1565C0;",
-                        "{NAME_LGT} ({STATION_LGT})"
-                    }
-                    ChartContainer {
-                        id: CHART_LGT_ID.to_string(),
-                        loading: false,
-                        min_height: 350,
-                    }
-                }
+                ChartContainer { id: CHART_LGT_ID, min_height: 320 }
+                ChartContainer { id: CHART_APN_ID, min_height: 320 }
 
-                // Lake Lagunitas (APN) section
-                div {
-                    style: "margin-bottom: 16px;",
-                    h4 {
-                        style: "margin: 0 0 4px 0; font-size: 14px; color: #2E7D32;",
-                        "{NAME_APN} ({STATION_APN})"
-                    }
-                    ChartContainer {
-                        id: CHART_APN_ID.to_string(),
-                        loading: false,
-                        min_height: 350,
-                    }
-                }
-
-                // Footer with reservoir info
-                div {
-                    style: "margin-top: 12px; padding: 8px 12px; background: #F5F5F5; border-radius: 4px; font-size: 12px; color: #616161; border: 1px solid #E0E0E0;",
+                Callout {
                     "These are local Marin County reservoirs managed by the Marin Municipal Water District."
                 }
             }
@@ -238,7 +204,7 @@ fn render_local_chart(
     start: &str,
     end: &str,
     capacity: i32,
-    line_color: &str,
+    series: u8,
 ) -> bool {
     let data = match db.query_reservoir_history(station_id, start, end) {
         Ok(d) => d,
@@ -257,12 +223,9 @@ fn render_local_chart(
     let config_json = serde_json::to_string(&serde_json::json!({
         "title": format!("{} ({})", station_name, station_id),
         "yAxisLabel": "Acre-Feet (AF)",
-        "lineColor": line_color,
-        "tooltipFormat": "date_value",
-        "dateFormat": "YYYYMMDD",
-        "valueLabel": "Storage (AF)",
+        "yUnit": "AF",
         "capacity": capacity,
-        "showCapacityLine": capacity > 0,
+        "series": series,
     }))
     .unwrap_or_default();
 

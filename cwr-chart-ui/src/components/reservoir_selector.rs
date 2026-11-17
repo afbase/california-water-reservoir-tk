@@ -11,22 +11,12 @@ pub fn ReservoirSelector() -> Element {
     let reservoirs = state.reservoirs.read().clone();
     let selected = (state.selected_station)();
 
-    let on_change = move |evt: Event<FormData>| {
-        let value = evt.value();
-        state.selected_station.set(value);
-    };
-
     rsx! {
-        div {
-            style: "margin: 8px 0;",
-            label {
-                r#for: "reservoir-select",
-                style: "font-weight: bold; margin-right: 8px;",
-                "Reservoir: "
-            }
+        label {
+            class: "cwr-field",
+            "Reservoir"
             select {
-                id: "reservoir-select",
-                onchange: on_change,
+                onchange: move |evt| state.selected_station.set(evt.value()),
                 for reservoir in reservoirs.iter() {
                     option {
                         value: "{reservoir.station_id}",

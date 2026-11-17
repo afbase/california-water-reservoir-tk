@@ -2,11 +2,14 @@
 name = "cwr-cmd"
 version.workspace = true
 edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+repository.workspace = true
 description = "Command implementations for CWR CLI"
 
 [dependencies]
-cwr-cdec = { path = "../cwr-cdec", features = ["api"] }
-cwr-data = { path = "../cwr-data" }
+cwr-cdec = { workspace = true, features = ["api"] }
+cwr-data = { workspace = true }
 chrono = { workspace = true }
 csv = { workspace = true }
 clap = { workspace = true }
@@ -15,3 +18,6 @@ tokio = { workspace = true }
 anyhow = { workspace = true }
 log = { workspace = true }
 serde_json = { workspace = true }
+
+[lints]
+workspace = true

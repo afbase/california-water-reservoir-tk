@@ -3,6 +3,14 @@ use std::env;
 use std::fs;
 use std::path::Path;
 
+/// Lake Mead and Lake Powell, which are only partly California's water.
+const COLORADO_RIVER_STATIONS: [&str; 2] = ["MEA", "PWL"];
+const COLORADO_RIVER_CA_SHARE: f64 = 0.27;
+
+/// Readings above this are CDEC data errors (the largest reservoir, Lake Mead,
+/// holds ~26M AF). Mirrors the cap in `cwr-cmd`'s `split-observations`.
+const MAX_PLAUSIBLE_AF: f64 = 30_000_000.0;
+
 fn main() {
     let out_dir = env::var("OUT_DIR").unwrap();
 
@@ -43,16 +51,33 @@ fn main() {
 
         for record in rdr.records().flatten() {
             let station_id = record.get(0).unwrap_or("").trim().to_string();
-            let date = record.get(2).unwrap_or("").trim().to_string();
-            let value_str = record.get(3).unwrap_or("").trim();
-            if let Ok(value) = value_str.parse::<f64>() {
-                if !station_id.is_empty() && !date.is_empty() {
-                    station_obs
-                        .entry(station_id)
-                        .or_default()
-                        .insert(date.clone(), value);
-                    all_dates.insert(date);
-                }
+            // Dates appear both as `YYYYMMDD` and as `YYYYMMDD HHMM`; keep the
+            // date part so every row sorts on, and is charted with, one format.
+            let date: String = record
+                .get(2)
+                .unwrap_or("")
+                .trim()
+                .chars()
+                .take_while(char::is_ascii_digit)
+                .take(8)
+                .collect();
+            let value = record.get(3).unwrap_or("").trim().parse::<f64>();
+            if let Ok(value) = value
+                && !station_id.is_empty()
+                && date.len() == 8
+                && (0.0..=MAX_PLAUSIBLE_AF).contains(&value)
+            {
+                // California is entitled to roughly 27% of Colorado River water.
+                let value = if COLORADO_RIVER_STATIONS.contains(&station_id.as_str()) {
+                    value * COLORADO_RIVER_CA_SHARE
+                } else {
+                    value
+                };
+                station_obs
+                    .entry(station_id)
+                    .or_default()
+                    .insert(date.clone(), value);
+                all_dates.insert(date);
             }
         }
 

@@ -1,369 +1,131 @@
 // California Water Reservoir — Multi-Line Overlay Chart
 // Used by: chart-reservoir-history, chart-snow-history
-// Renders multiple reservoir/station time-series as overlaid lines with
-// per-series colors, hover highlighting, and a multi-series bisector tooltip.
-// Called from Rust/WASM via js_sys::eval(). No ES modules.
+// One line per station, with a shared crosshair tooltip listing every series.
 //
 // Data format (JSON array of series):
-// [
-//   {
-//     station_id: "SHA",
-//     name: "Shasta Lake",
-//     data: [{ date: "YYYY-MM-DD", value: <number> }, ...]
-//     // Note: dates may be "YYYY-MM-DD" or "YYYYMMDD".
-//   },
-//   ...
-// ]
+// [{ station_id: "SHA", name: "Shasta Lake",
+//    data: [{ date: "YYYY-MM-DD" | "YYYYMMDD", value: <number> }, ...] }, ...]
 //
 // Config format (JSON object): {
 //   title: string,
 //   yAxisLabel: string,       // e.g. "Acre-Feet (AF)" or "Snow Water Equivalent (inches)"
 //   yUnit: string,            // e.g. "AF" or "in"
-//   width: number (optional),
-//   height: number (optional),
-//   colors: [string] (optional) // override d3.schemeCategory10
+//   capacity: number (optional), // draws a dashed reference line
+//   width, height: number (optional)
 // }
+//
+// Colors come from the three validated categorical slots, assigned in series
+// order. Callers pass at most three series; any extras share the neutral
+// "other" color rather than getting an invented hue.
 
-function renderMultiLineChart(containerId, seriesJson, configJson) {
-    console.log('[CWR Debug D3] renderMultiLineChart called');
-    console.log('[CWR Debug D3] containerId:', containerId);
-    console.log('[CWR Debug D3] seriesJson length:', seriesJson.length);
-    console.log('[CWR Debug D3] configJson length:', configJson.length);
+(function () {
+    "use strict";
+    var CWR = window.CWR;
 
-    try {
-        var series = JSON.parse(seriesJson);
-        console.log('[CWR Debug D3] Parsed series:', {
-            isArray: Array.isArray(series),
-            length: series ? series.length : 0,
-            firstItem: series ? series[0] : null
-        });
-    } catch(e) {
-        console.error('[CWR Debug D3] JSON parse error (series):', e);
-        return;
-    }
+    CWR.renderMultiLineChart = function (containerId, series, config) {
+        series = (series || [])
+            .map(function (s, i) {
+                return {
+                    id: s.station_id,
+                    name: s.name || s.station_id,
+                    color: CWR.color.series[i] || CWR.color.other,
+                    data: (s.data || [])
+                        .map(function (d) { return { date: CWR.parseDate(d.date), value: +d.value }; })
+                        .filter(function (d) { return d.date != null && !isNaN(d.value); })
+                        .sort(function (a, b) { return a.date - b.date; })
+                };
+            })
+            .filter(function (s) { return s.data.length > 0; });
 
-    try {
-        var config = JSON.parse(configJson);
-        console.log('[CWR Debug D3] Parsed config successfully');
-    } catch(e) {
-        console.error('[CWR Debug D3] JSON parse error (config):', e);
-        return;
-    }
+        var container = CWR.prepare(containerId, series.length > 0);
+        if (!container) return;
 
-    var container = d3.select("#" + containerId);
-    console.log('[CWR Debug D3] Container selected:', container.empty() ? 'EMPTY' : 'found');
-    container.selectAll("*").remove();
+        // A single series is named by the title; only reserve a legend gutter for several.
+        var showLegend = series.length > 1;
+        var f = CWR.frame(container, config,
+            { top: 40, right: showLegend ? 150 : 20, bottom: 34, left: 68 }, 800, 440);
+        showLegend = showLegend && f.margin.right >= 150;
+        var unit = config.yUnit || "AF";
 
-    if (!series || !series.length) {
-        console.log('[CWR Debug D3] No series data available');
-        container.append("p")
-            .style("text-align", "center")
-            .style("color", "#999")
-            .text("No data available.");
-        return;
-    }
+        var allPoints = d3.merge(series.map(function (s) { return s.data; }));
+        var x = d3.scaleTime()
+            .domain(d3.extent(allPoints, function (d) { return d.date; }))
+            .range([0, f.width]);
+        var y = d3.scaleLinear()
+            .domain([0, CWR.yMax(d3.max(allPoints, function (d) { return d.value; }), config) * 1.1])
+            .nice()
+            .range([f.height, 0]);
 
-    // Ensure shared tooltip is ready
-    if (typeof initTooltip === "function" && !_cwrTooltipDiv) initTooltip();
+        CWR.axes(f, x, y, config, d3.axisBottom(x).ticks(Math.min(f.width / 80, 12)).tickSizeOuter(0));
 
-    var margin = { top: 44, right: 140, bottom: 54, left: 85 };
-    var totalW = config.width || container.node().clientWidth || 800;
-    var totalH = config.height || 440;
-    var width  = totalW - margin.left - margin.right;
-    var height = totalH - margin.top - margin.bottom;
+        CWR.capacityLine(f, y, config);
 
-    var svg = container.append("svg")
-        .attr("viewBox", "0 0 " + totalW + " " + totalH)
-        .attr("preserveAspectRatio", "xMidYMid meet")
-        .style("width", "100%")
-        .style("max-width", totalW + "px");
+        var line = d3.line()
+            .x(function (d) { return x(d.date); })
+            .y(function (d) { return y(d.value); });
 
-    var g = svg.append("g")
-        .attr("transform", "translate(" + margin.left + "," + margin.top + ")");
-
-    // Color scale
-    var colorPalette = config.colors || d3.schemeCategory10;
-    var colorScale = d3.scaleOrdinal()
-        .domain(series.map(function(s) { return s.station_id; }))
-        .range(colorPalette);
-
-    // Parse dates for every series
-    var _pDash = d3.timeParse("%Y-%m-%d");
-    var _pPlain = d3.timeParse("%Y%m%d");
-    var parseDate = function(s) {
-        if (s == null) return null;
-        s = String(s);
-        return s.indexOf("-") >= 0 ? _pDash(s) : _pPlain(s);
-    };
-    var globalXMin = null, globalXMax = null, globalYMax = 0;
-
-    series.forEach(function(s) {
-        if (!s.data) {
-            console.error('[CWR Debug D3] Series item missing data property:', s);
-            return;
-        }
-        s.data.forEach(function(d) {
-            d._date  = parseDate(d.date);
-            d._value = +d.value;
-        });
-        // Remove invalid
-        s.data = s.data.filter(function(d) { return d._date != null && !isNaN(d._value); });
-        // Sort chronologically
-        s.data.sort(function(a, b) { return a._date - b._date; });
-
-        if (s.data.length) {
-            var ext = d3.extent(s.data, function(d) { return d._date; });
-            if (!globalXMin || ext[0] < globalXMin) globalXMin = ext[0];
-            if (!globalXMax || ext[1] > globalXMax) globalXMax = ext[1];
-            var localMax = d3.max(s.data, function(d) { return d._value; });
-            if (localMax > globalYMax) globalYMax = localMax;
-        }
-    });
-
-    if (!globalXMin) return;
-
-    // --- Scales ---
-    var x = d3.scaleTime()
-        .domain([globalXMin, globalXMax])
-        .range([0, width]);
-
-    var y = d3.scaleLinear()
-        .domain([0, globalYMax * 1.1])
-        .nice()
-        .range([height, 0]);
-
-    // --- Axes ---
-    g.append("g")
-        .attr("class", "x-axis")
-        .attr("transform", "translate(0," + height + ")")
-        .call(d3.axisBottom(x).ticks(Math.min(width / 80, 12)))
-        .selectAll("text")
-            .style("font-size", "11px");
-
-    g.append("g")
-        .attr("class", "y-axis")
-        .call(d3.axisLeft(y).ticks(8).tickFormat(d3.format(",.0f")))
-        .selectAll("text")
-            .style("font-size", "11px");
-
-    // --- Y-axis label ---
-    g.append("text")
-        .attr("transform", "rotate(-90)")
-        .attr("y", -margin.left + 16)
-        .attr("x", -height / 2)
-        .attr("text-anchor", "middle")
-        .style("font-size", "12px")
-        .style("fill", "#555")
-        .text(config.yAxisLabel || "Acre-Feet (AF)");
-
-    // --- Title ---
-    svg.append("text")
-        .attr("x", totalW / 2)
-        .attr("y", 22)
-        .attr("text-anchor", "middle")
-        .style("font-size", "15px")
-        .style("font-weight", "bold")
-        .text(config.title || "");
-
-    // --- Grid lines ---
-    g.append("g")
-        .attr("class", "grid")
-        .call(
-            d3.axisLeft(y)
-                .ticks(8)
-                .tickSize(-width)
-                .tickFormat("")
-        )
-        .selectAll("line")
-            .style("stroke", "#e0e0e0")
-            .style("stroke-dasharray", "2,2");
-    g.select(".grid .domain").remove();
-
-    // --- Lines ---
-    var lineGen = d3.line()
-        .defined(function(d) { return !isNaN(d._value); })
-        .x(function(d) { return x(d._date); })
-        .y(function(d) { return y(d._value); });
-
-    var linesGroup = g.append("g").attr("class", "lines-group");
-
-    series.forEach(function(s) {
-        if (!s.data.length) return;
-        linesGroup.append("path")
-            .datum(s.data)
-            .attr("class", "series-line")
-            .attr("data-station", s.station_id)
+        var lines = f.g.append("g").selectAll("path")
+            .data(series)
+            .join("path")
             .attr("fill", "none")
-            .attr("stroke", colorScale(s.station_id))
             .attr("stroke-width", 2)
             .attr("stroke-linejoin", "round")
             .attr("stroke-linecap", "round")
-            .attr("d", lineGen);
-    });
+            .style("stroke", function (s) { return s.color; })
+            .attr("d", function (s) { return line(s.data); });
 
-    // --- Legend (right side) ---
-    var legendGroup = svg.append("g")
-        .attr("class", "legend")
-        .attr("transform", "translate(" + (margin.left + width + 14) + "," + (margin.top + 4) + ")");
-
-    series.forEach(function(s, i) {
-        var lg = legendGroup.append("g")
-            .attr("transform", "translate(0," + (i * 18) + ")")
-            .style("cursor", "pointer");
-
-        lg.append("line")
-            .attr("x1", 0).attr("y1", 0)
-            .attr("x2", 16).attr("y2", 0)
-            .attr("stroke", colorScale(s.station_id))
-            .attr("stroke-width", 2.5);
-
-        lg.append("text")
-            .attr("x", 20).attr("y", 4)
-            .style("font-size", "11px")
-            .style("fill", "#333")
-            .text(s.name || s.station_id);
-
-        // Legend hover: highlight the corresponding line
-        lg.on("mouseover", function() {
-                _highlightSeries(s.station_id, linesGroup, colorScale);
-            })
-            .on("mouseout", function() {
-                _resetSeriesHighlight(linesGroup, colorScale);
-            });
-    });
-
-    // --- Bisector tooltip (multi-series) ---
-    var bisect = d3.bisector(function(d) { return d._date; }).left;
-
-    var focusLine = g.append("line")
-        .attr("class", "focus-line")
-        .style("stroke", "#999")
-        .style("stroke-dasharray", "3,3")
-        .style("opacity", 0)
-        .attr("y1", 0)
-        .attr("y2", height);
-
-    // One focus dot per series
-    var focusDots = {};
-    series.forEach(function(s) {
-        focusDots[s.station_id] = g.append("circle")
-            .attr("class", "focus-dot")
-            .attr("r", 4)
-            .style("fill", colorScale(s.station_id))
-            .style("stroke", "#fff")
-            .style("stroke-width", 1.5)
-            .style("opacity", 0);
-    });
-
-    g.append("rect")
-        .attr("class", "overlay")
-        .attr("width", width)
-        .attr("height", height)
-        .style("fill", "none")
-        .style("pointer-events", "all")
-        .on("mousemove", function(event) {
-            var coords = d3.pointer(event);
-            var x0 = x.invert(coords[0]);
-            var fmt = d3.format(",.0f");
-            var dateFmt = d3.timeFormat("%b %d, %Y");
-
-            // Find nearest date across all series
-            var nearestDate = null;
-            var minDist = Infinity;
-            series.forEach(function(s) {
-                if (!s.data.length) return;
-                var i = bisect(s.data, x0, 1);
-                if (i >= s.data.length) i = s.data.length - 1;
-                if (i < 1) i = 1;
-                var d0 = s.data[i - 1];
-                var d1 = s.data[i];
-                var d = (!d1 || (x0 - d0._date > d1._date - x0)) ? (d1 || d0) : d0;
-                if (d) {
-                    var dist = Math.abs(d._date - x0);
-                    if (dist < minDist) {
-                        minDist = dist;
-                        nearestDate = d._date;
-                    }
-                }
-            });
-
-            if (!nearestDate) return;
-
-            focusLine
-                .style("opacity", 1)
-                .attr("x1", x(nearestDate))
-                .attr("x2", x(nearestDate));
-
-            // Build tooltip rows and position dots
-            var rows = [];
-            var displayDate = dateFmt(nearestDate);
-            series.forEach(function(s) {
-                if (!s.data.length) return;
-                var i = bisect(s.data, nearestDate, 1);
-                if (i >= s.data.length) i = s.data.length - 1;
-                if (i < 1) i = 1;
-                var d0 = s.data[i - 1];
-                var d1 = s.data[i];
-                var d = (!d1 || (nearestDate - d0._date > d1._date - nearestDate)) ? (d1 || d0) : d0;
-                if (d) {
-                    focusDots[s.station_id]
-                        .style("opacity", 1)
-                        .attr("cx", x(d._date))
-                        .attr("cy", y(d._value));
-                    var colorHex = colorScale(s.station_id);
-                    rows.push(
-                        '<span style="color:' + colorHex + ';font-weight:bold;">' +
-                        (s.name || s.station_id) + '</span>: ' +
-                        fmt(d._value) + ' ' + (config.yUnit || 'AF')
-                    );
-                }
-            });
-
-            showTooltip(
-                "<strong>" + displayDate + "</strong><br/>" + rows.join("<br/>"),
-                event.pageX,
-                event.pageY
-            );
-        })
-        .on("mouseleave", function() {
-            focusLine.style("opacity", 0);
-            series.forEach(function(s) {
-                focusDots[s.station_id].style("opacity", 0);
-            });
-            hideTooltip();
-        });
-
-    // --- Line hover highlighting ---
-    linesGroup.selectAll(".series-line")
-        .on("mouseover", function() {
-            var sid = d3.select(this).attr("data-station");
-            _highlightSeries(sid, linesGroup, colorScale);
-        })
-        .on("mouseout", function() {
-            _resetSeriesHighlight(linesGroup, colorScale);
-        });
-}
-
-// Internal: highlight one series, dim others
-function _highlightSeries(stationId, linesGroup, colorScale) {
-    linesGroup.selectAll(".series-line").each(function() {
-        var el = d3.select(this);
-        var sid = el.attr("data-station");
-        if (sid === stationId) {
-            el.attr("stroke-width", 4).style("opacity", 1);
-        } else {
-            el.attr("stroke-width", 1.5).style("opacity", 0.2);
+        function highlight(id) {
+            lines.style("opacity", function (s) { return id == null || s.id === id ? 1 : 0.2; });
         }
-    });
-}
 
-// Internal: reset all series to default
-function _resetSeriesHighlight(linesGroup, colorScale) {
-    linesGroup.selectAll(".series-line")
-        .attr("stroke-width", 2)
-        .style("opacity", 1);
-}
+        if (showLegend) {
+            var legend = f.svg.append("g")
+                .attr("transform", "translate(" + (f.margin.left + f.width + 16) + "," + (f.margin.top + 6) + ")");
+            series.forEach(function (s, i) {
+                var item = legend.append("g")
+                    .attr("transform", "translate(0," + (i * 20) + ")")
+                    .on("pointerenter", function () { highlight(s.id); })
+                    .on("pointerleave", function () { highlight(null); });
+                item.append("line")
+                    .attr("x2", 16)
+                    .attr("stroke-width", 2.5)
+                    .style("stroke", s.color);
+                item.append("text")
+                    .attr("x", 22).attr("y", 4)
+                    .style("font-size", "11px")
+                    .style("fill", CWR.color.textSecondary)
+                    .text(s.name);
+            });
+        }
 
-function destroyMultiLineChart(containerId) {
-    d3.select("#" + containerId).selectAll("*").remove();
-}
+        var crosshair = CWR.crosshair(f);
+        series.forEach(function (s) { s.dot = CWR.focusDot(f, s.color); });
+        var byDate = function (p) { return p.date; };
+
+        CWR.overlay(f, function (event) {
+            var x0 = x.invert(d3.pointer(event)[0]);
+
+            // Snap the crosshair to the nearest actual observation across all series.
+            var nearest = null;
+            series.forEach(function (s) {
+                var d = s.data[CWR.nearestIndex(s.data, x0, byDate)];
+                if (nearest == null || Math.abs(d.date - x0) < Math.abs(nearest - x0)) nearest = d.date;
+            });
+
+            crosshair.style("opacity", 1).attr("x1", x(nearest)).attr("x2", x(nearest));
+
+            var rows = series.map(function (s) {
+                var d = s.data[CWR.nearestIndex(s.data, nearest, byDate)];
+                s.dot.style("opacity", 1).attr("cx", x(d.date)).attr("cy", y(d.value));
+                return CWR.tipKey(s.color) + CWR.escapeHtml(s.name) + ": <strong>" +
+                    CWR.formatValue(d.value) + "</strong> " + CWR.escapeHtml(unit);
+            });
+
+            CWR.showTooltip("<strong>" + CWR.formatDate(nearest) + "</strong><br/>" + rows.join("<br/>"), event);
+        }, function () {
+            crosshair.style("opacity", 0);
+            series.forEach(function (s) { s.dot.style("opacity", 0); });
+            CWR.hideTooltip();
+        });
+    };
+})();

@@ -79,11 +79,10 @@ impl ObservableRangeRunner for Vec<ObservableRange> {
             .map(|surveys| {
                 surveys.observations.sort();
                 let earliest_date = {
-                    if let Some(survey_first) = surveys.observations.first() {
+                    {
+                        let survey_first = surveys.observations.first()?;
                         let tap = survey_first.get_tap();
                         tap.date_observation
-                    } else {
-                        return None;
                     }
                 };
                 let last_survey = surveys.observations.last().unwrap();
@@ -344,17 +343,16 @@ impl Ord for MonthDatum {
         let self_month = self.1;
         let other_year = other.0;
         let other_month = other.1;
-        let result;
+
         if self_year < other_year {
-            result = std::cmp::Ordering::Less;
+            std::cmp::Ordering::Less
         } else if self_year == other_year && self_month == other_month {
-            result = std::cmp::Ordering::Equal;
+            std::cmp::Ordering::Equal
         } else if self_year == other_year && self_month < other_month {
-            result = std::cmp::Ordering::Less;
+            std::cmp::Ordering::Less
         } else {
-            result = std::cmp::Ordering::Greater;
-        };
-        result
+            std::cmp::Ordering::Greater
+        }
     }
 }
 

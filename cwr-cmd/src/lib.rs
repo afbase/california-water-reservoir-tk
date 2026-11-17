@@ -5,13 +5,14 @@
 
 use clap::Subcommand;
 
+pub mod cdec;
 pub mod incremental;
 pub mod query;
 pub mod split;
 
 #[derive(Subcommand)]
 pub enum Command {
-    /// Query CDEC for water reservoir data
+    /// Rebuild the observations CSV from scratch (every reservoir, full history)
     Query {
         /// Output path for per-reservoir observations CSV
         #[arg(short = 'r', long)]

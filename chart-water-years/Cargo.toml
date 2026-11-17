@@ -2,12 +2,14 @@
 name = "chart-water-years"
 version.workspace = true
 edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+repository.workspace = true
 description = "Water Years Comparison"
 
 [dependencies]
-cwr-chart-ui = { path = "../cwr-chart-ui" }
-cwr-db = { path = "../cwr-db" }
-cwr-cdec = { path = "../cwr-cdec" }
+cwr-chart-ui = { workspace = true }
+cwr-db = { workspace = true }
 dioxus = { workspace = true }
 dioxus-logger = { workspace = true }
 js-sys = { workspace = true }
@@ -17,5 +19,5 @@ serde = { workspace = true }
 serde_json = { workspace = true }
 log = { workspace = true }
 
-[build-dependencies]
-csv = { workspace = true }
+[lints]
+workspace = true

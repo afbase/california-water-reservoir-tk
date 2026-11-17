@@ -1,41 +1,23 @@
-//! Chart container component with loading state.
+//! Container the D3 scripts render a chart or table into.
 
 use dioxus::prelude::*;
 
-/// Props for ChartContainer
 #[derive(Props, Clone, PartialEq)]
 pub struct ChartContainerProps {
-    /// The DOM id for the chart container (D3 will render into this)
+    /// The DOM id D3 renders into.
     pub id: String,
-    /// Whether the chart is still loading
-    #[props(default = false)]
-    pub loading: bool,
-    /// Optional minimum height in pixels
+    /// Minimum height in pixels, reserved so the page does not jump when the chart appears.
     #[props(default = 400)]
     pub min_height: u32,
 }
 
-/// A container div for D3.js charts with loading overlay.
 #[component]
 pub fn ChartContainer(props: ChartContainerProps) -> Element {
-    let style = format!(
-        "min-height: {}px; position: relative; width: 100%;",
-        props.min_height
-    );
-
     rsx! {
         div {
-            style: "{style}",
-            if props.loading {
-                div {
-                    style: "position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%); color: #666;",
-                    "Loading chart..."
-                }
-            }
-            div {
-                id: "{props.id}",
-                style: "width: 100%;",
-            }
+            class: "cwr-chart-wrap",
+            style: "min-height: {props.min_height}px;",
+            div { id: "{props.id}", class: "cwr-chart" }
         }
     }
 }

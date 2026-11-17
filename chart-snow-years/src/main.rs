@@ -14,7 +14,7 @@
 //!    the data with `is_most_recent` flags before rendering.
 
 use cwr_chart_ui::components::{
-    ChartContainer, ChartHeader, ErrorDisplay, LoadingSpinner, SnowStationSelector, SortSelector,
+    ChartCard, ChartContainer, ErrorDisplay, LoadingSpinner, SnowStationSelector, SortSelector,
 };
 use cwr_chart_ui::js_bridge;
 use cwr_chart_ui::state::AppState;
@@ -57,16 +57,15 @@ fn App() -> Element {
 
                     match js_bridge::fetch_gz_csv(SNOW_OBSERVATIONS_GZ_URL).await {
                         Ok(csv_data) => {
-                            if !csv_data.is_empty() {
-                                if let Err(e) = db.load_snow_observations(&csv_data) {
-                                    log::error!("Failed to load snow observations: {}", e);
-                                    state.error_msg.set(Some(format!(
-                                        "Failed to load snow observations: {}",
-                                        e
-                                    )));
-                                    state.loading.set(false);
-                                    return;
-                                }
+                            if !csv_data.is_empty()
+                                && let Err(e) = db.load_snow_observations(&csv_data)
+                            {
+                                log::error!("Failed to load snow observations: {}", e);
+                                state
+                                    .error_msg
+                                    .set(Some(format!("Failed to load snow observations: {}", e)));
+                                state.loading.set(false);
+                                return;
                             }
                         }
                         Err(e) => {
@@ -113,12 +112,6 @@ fn App() -> Element {
             return;
         }
 
-        let error_state = (state.error_msg)().is_some();
-
-        if error_state {
-            return;
-        }
-
         let db = match &*state.db.read() {
             Some(db) => db.clone(),
             None => return,
@@ -131,9 +124,6 @@ fn App() -> Element {
         if station.is_empty() {
             return;
         }
-
-        // Initialize D3.js chart scripts
-        js_bridge::init_charts();
 
         // 1. Query all snow year data for the selected station
         let snow_years = match db.query_snow_years(&station) {
@@ -208,7 +198,7 @@ fn App() -> Element {
             }
             _ => {
                 // "most_recent" - sort by year descending
-                sorted_stats.sort_by(|a, b| b.year.cmp(&a.year));
+                sorted_stats.sort_by_key(|s| std::cmp::Reverse(s.year));
             }
         }
 
@@ -259,16 +249,8 @@ fn App() -> Element {
         let data_json = serde_json::to_string(&filtered_data).unwrap_or_default();
         let config_json = serde_json::to_string(&serde_json::json!({
             "title": format!("Snow Years: {}", station_name),
-            "yAxisLabel": "Inches (SWE)",
-            "valueLabel": "SWE (inches)",
-            "driestYear": driest_year,
-            "wettestYear": wettest_year,
-            "mostRecentYear": most_recent_year,
-            "driestColor": "#FF5722",
-            "wettestColor": "#2196F3",
-            "mostRecentColor": "#4CAF50",
-            "defaultColor": "#BDBDBD",
-            "tooltipFormat": "water_year",
+            "yAxisLabel": "Snow water equivalent (inches)",
+            "yUnit": "in",
         }))
         .unwrap_or_default();
 
@@ -276,71 +258,26 @@ fn App() -> Element {
     });
 
     rsx! {
-        div {
-            style: "padding: 16px; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;",
+        ChartCard {
+            title: "Snow Years Comparison",
+            unit_description: "Snow Water Equivalent (SWE) in inches - the depth of water that would result from melting the snowpack",
 
-            ChartHeader {
-                title: "Snow Years Comparison".to_string(),
-                unit_description: "Snow Water Equivalent (SWE) in inches - the depth of water that would result from melting the snowpack".to_string(),
-            }
-
+            // Errors are shown alongside the controls (not instead of them) so
+            // the reader can always pick a different station or range.
             if let Some(err) = (state.error_msg)() {
                 ErrorDisplay { message: err }
-            } else if (state.loading)() {
+            }
+
+            if (state.loading)() {
                 LoadingSpinner {}
             } else {
                 div {
-                    style: "display: flex; flex-wrap: wrap; gap: 12px; align-items: flex-end; margin-bottom: 8px;",
+                    class: "cwr-controls",
                     SnowStationSelector {}
                     SortSelector {}
                 }
 
-                ChartContainer {
-                    id: CHART_ID.to_string(),
-                    loading: false,
-                    min_height: 450,
-                }
-
-                // Legend showing driest/wettest/most recent color coding
-                SnowYearLegend {}
-            }
-        }
-    }
-}
-
-/// Legend component explaining the color coding for highlighted snow years.
-#[component]
-fn SnowYearLegend() -> Element {
-    rsx! {
-        div {
-            style: "margin-top: 12px; padding: 8px 12px; background: #FAFAFA; border-radius: 4px; border: 1px solid #E0E0E0; font-size: 12px; display: flex; gap: 16px; flex-wrap: wrap;",
-            div {
-                style: "display: flex; align-items: center; gap: 4px;",
-                span {
-                    style: "display: inline-block; width: 16px; height: 3px; background: #FF5722;",
-                }
-                "Driest Year (lowest minimum SWE)"
-            }
-            div {
-                style: "display: flex; align-items: center; gap: 4px;",
-                span {
-                    style: "display: inline-block; width: 16px; height: 3px; background: #2196F3;",
-                }
-                "Wettest Year (highest maximum SWE)"
-            }
-            div {
-                style: "display: flex; align-items: center; gap: 4px;",
-                span {
-                    style: "display: inline-block; width: 16px; height: 3px; background: #4CAF50;",
-                }
-                "Most Recent Snow Year"
-            }
-            div {
-                style: "display: flex; align-items: center; gap: 4px;",
-                span {
-                    style: "display: inline-block; width: 16px; height: 3px; background: #BDBDBD;",
-                }
-                "Other Years"
+                ChartContainer { id: CHART_ID, min_height: 450 }
             }
         }
     }

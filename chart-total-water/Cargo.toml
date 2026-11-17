@@ -2,12 +2,14 @@
 name = "chart-total-water"
 version.workspace = true
 edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+repository.workspace = true
 description = "Total California Water Reservoir Levels"
 
 [dependencies]
-cwr-chart-ui = { path = "../cwr-chart-ui" }
-cwr-db = { path = "../cwr-db" }
-cwr-cdec = { path = "../cwr-cdec" }
+cwr-chart-ui = { workspace = true }
+cwr-db = { workspace = true }
 csv = { workspace = true }
 dioxus = { workspace = true }
 dioxus-logger = { workspace = true }
@@ -19,3 +21,6 @@ log = { workspace = true }
 
 [build-dependencies]
 csv = { workspace = true }
+
+[lints]
+workspace = true

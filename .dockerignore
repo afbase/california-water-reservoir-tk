@@ -1,0 +1,12 @@
+# Keep the cwr-cli image build context small. The CLI only needs the Rust
+# sources and the two capacity CSVs that cwr-cdec embeds.
+.git
+.github
+.devcontainer
+target
+dist
+*.pdf
+fixtures/*
+!fixtures/capacity.csv
+!fixtures/capacity-no-powell-no-mead.csv
+test-fixtures

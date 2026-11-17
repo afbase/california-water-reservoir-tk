@@ -13,8 +13,9 @@
 //!    `query_snow_station_history()` and renders a multi-line chart.
 
 use cwr_chart_ui::components::{
-    ChartContainer, ChartHeader, DateRangePicker, ErrorDisplay, LoadingSpinner, SnowStationSelector,
+    ChartCard, ChartContainer, DateRangePicker, ErrorDisplay, LoadingSpinner, SnowStationSelector,
 };
+use cwr_chart_ui::dates::{compact_to_iso, iso_to_compact};
 use cwr_chart_ui::js_bridge;
 use cwr_chart_ui::state::AppState;
 use cwr_db::Database;
@@ -56,16 +57,15 @@ fn App() -> Element {
 
                     match js_bridge::fetch_gz_csv(SNOW_OBSERVATIONS_GZ_URL).await {
                         Ok(csv_data) => {
-                            if !csv_data.is_empty() {
-                                if let Err(e) = db.load_snow_observations(&csv_data) {
-                                    log::error!("Failed to load snow observations: {}", e);
-                                    state.error_msg.set(Some(format!(
-                                        "Failed to load snow observations: {}",
-                                        e
-                                    )));
-                                    state.loading.set(false);
-                                    return;
-                                }
+                            if !csv_data.is_empty()
+                                && let Err(e) = db.load_snow_observations(&csv_data)
+                            {
+                                log::error!("Failed to load snow observations: {}", e);
+                                state
+                                    .error_msg
+                                    .set(Some(format!("Failed to load snow observations: {}", e)));
+                                state.loading.set(false);
+                                return;
                             }
                         }
                         Err(e) => {
@@ -95,21 +95,11 @@ fn App() -> Element {
                     if let Ok((min_date, max_date)) = db.query_snow_date_range() {
                         // Convert YYYYMMDD to YYYY-MM-DD for HTML date inputs
                         if min_date.len() == 8 {
-                            let formatted_min = format!(
-                                "{}-{}-{}",
-                                &min_date[0..4],
-                                &min_date[4..6],
-                                &min_date[6..8]
-                            );
+                            let formatted_min = compact_to_iso(&min_date);
                             state.start_date.set(formatted_min);
                         }
                         if max_date.len() == 8 {
-                            let formatted_max = format!(
-                                "{}-{}-{}",
-                                &max_date[0..4],
-                                &max_date[4..6],
-                                &max_date[6..8]
-                            );
+                            let formatted_max = compact_to_iso(&max_date);
                             state.end_date.set(formatted_max);
                         }
                     }
@@ -135,12 +125,6 @@ fn App() -> Element {
             return;
         }
 
-        let error_state = (state.error_msg)().is_some();
-
-        if error_state {
-            return;
-        }
-
         let db = match &*state.db.read() {
             Some(db) => db.clone(),
             None => return,
@@ -155,11 +139,8 @@ fn App() -> Element {
         }
 
         // Convert YYYY-MM-DD back to YYYYMMDD for DB queries
-        let start_date = start_date_html.replace('-', "");
-        let end_date = end_date_html.replace('-', "");
-
-        // Initialize D3.js chart scripts
-        js_bridge::init_charts();
+        let start_date = iso_to_compact(&start_date_html);
+        let end_date = iso_to_compact(&end_date_html);
 
         // Query the selected station's history within the date range
         let data = match db.query_snow_station_history(&station, &start_date, &end_date) {
@@ -198,25 +179,22 @@ fn App() -> Element {
             .map(|s| format!("{} ({})", s.name, s.station_id))
             .unwrap_or_else(|| station.clone());
 
-        // Wrap single station data as station_date_value format for multi-line chart
-        let station_data: Vec<serde_json::Value> = data
+        // multi-line-chart.js expects an array of series: [{station_id, name, data:[{date,value},...]}]
+        let points: Vec<serde_json::Value> = data
             .iter()
-            .map(|dv| {
-                serde_json::json!({
-                    "station_id": station,
-                    "date": dv.date,
-                    "value": dv.value,
-                })
-            })
+            .map(|dv| serde_json::json!({ "date": dv.date, "value": dv.value }))
             .collect();
+        let series = serde_json::json!([{
+            "station_id": station,
+            "name": station_name.clone(),
+            "data": points,
+        }]);
 
-        let data_json = serde_json::to_string(&station_data).unwrap_or_default();
+        let data_json = serde_json::to_string(&series).unwrap_or_default();
         let config_json = serde_json::to_string(&serde_json::json!({
             "title": format!("Snow Water Equivalent: {}", station_name),
-            "yAxisLabel": "Inches (SWE)",
-            "dateFormat": "YYYYMMDD",
-            "tooltipFormat": "station_date_value",
-            "valueLabel": "SWE (inches)",
+            "yAxisLabel": "Snow water equivalent (inches)",
+            "yUnit": "in",
         }))
         .unwrap_or_default();
 
@@ -224,30 +202,26 @@ fn App() -> Element {
     });
 
     rsx! {
-        div {
-            style: "padding: 16px; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;",
+        ChartCard {
+            title: "Historical Snow Water Equivalent by Station",
+            unit_description: "Snow Water Equivalent (SWE) in inches - the depth of water that would result from melting the snowpack",
 
-            ChartHeader {
-                title: "Historical Snow Water Equivalent by Station".to_string(),
-                unit_description: "Snow Water Equivalent (SWE) in inches - the depth of water that would result from melting the snowpack".to_string(),
-            }
-
+            // Errors are shown alongside the controls (not instead of them) so
+            // the reader can always pick a different station or range.
             if let Some(err) = (state.error_msg)() {
                 ErrorDisplay { message: err }
-            } else if (state.loading)() {
+            }
+
+            if (state.loading)() {
                 LoadingSpinner {}
             } else {
                 div {
-                    style: "display: flex; flex-wrap: wrap; gap: 12px; align-items: flex-end; margin-bottom: 8px;",
+                    class: "cwr-controls",
                     SnowStationSelector {}
                     DateRangePicker {}
                 }
 
-                ChartContainer {
-                    id: CHART_ID.to_string(),
-                    loading: false,
-                    min_height: 450,
-                }
+                ChartContainer { id: CHART_ID, min_height: 450 }
             }
         }
     }

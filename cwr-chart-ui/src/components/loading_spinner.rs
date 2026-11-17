@@ -1,4 +1,4 @@
-//! Loading spinner component.
+//! Loading indicator component.
 
 use dioxus::prelude::*;
 
@@ -6,9 +6,6 @@ use dioxus::prelude::*;
 #[component]
 pub fn LoadingSpinner() -> Element {
     rsx! {
-        div {
-            style: "display: flex; justify-content: center; align-items: center; padding: 40px; color: #666;",
-            "Loading data..."
-        }
+        div { class: "cwr-status", "Loading data\u{2026}" }
     }
 }
